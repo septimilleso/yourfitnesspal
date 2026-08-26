@@ -11,8 +11,8 @@ class Food(Base):
     """A food item, sourced from Open Food Facts (by barcode) or entered manually.
 
     `nutriments` holds the normalized per-100g macro/micronutrient values used
-    by the app (calories, protein_g, carbs_g, fat_g, saturated_fat_g,
-    fiber_g, sugar_g, sodium_mg). `raw` retains the original OFF API payload
+    by the app (kcal, protein_g, carbs_g, sugars_g, fat_g, sat_fat_g,
+    fiber_g, salt_g). `raw` retains the original OFF API payload
     for reference/debugging and is null for manually-entered foods.
     """
 

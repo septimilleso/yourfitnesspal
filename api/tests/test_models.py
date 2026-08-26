@@ -22,14 +22,14 @@ from app.db import engine
 from app.models import DiaryEntry, Food, FoodPortion, Meal
 
 NUTRIMENTS = {
-    "calories": 250,
+    "kcal": 250,
     "protein_g": 10.5,
     "carbs_g": 30.2,
+    "sugars_g": 12.6,
     "fat_g": 8.1,
-    "saturated_fat_g": 2.4,
+    "sat_fat_g": 2.4,
     "fiber_g": 3.0,
-    "sugar_g": 12.6,
-    "sodium_mg": 400,
+    "salt_g": 0.4,
 }
 
 

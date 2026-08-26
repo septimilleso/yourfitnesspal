@@ -170,3 +170,8 @@ def downgrade() -> None:
     op.drop_index("ix_foods_name_trgm", table_name="foods")
     op.drop_index("ix_foods_barcode", table_name="foods")
     op.drop_table("foods")
+
+    # This is the first migration in the project (it creates the extension in
+    # upgrade()), so nothing else can depend on pg_trgm still being installed
+    # once this migration is reversed.
+    op.execute("DROP EXTENSION IF EXISTS pg_trgm")
