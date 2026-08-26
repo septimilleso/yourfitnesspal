@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: yourfitnesspal
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # No host port mapping: only `web` is published, per the plan.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d yourfitnesspal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    # No host port mapping: reachable from `web` via the compose network only.
+
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    depends_on:
+      - api
+    # Only service that publishes a port to the host.
+    ports:
+      - "8080:80"
+
+volumes:
+  db_data:
