@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { FoodOut, FoodSearchItem, Meal } from "../api/queries";
 import { useFoodByBarcode, useFoodSearch, useRecentFoods } from "../api/queries";
+import CustomFoodForm from "../components/CustomFoodForm";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
 import { todayIso } from "../lib/date";
@@ -138,7 +139,7 @@ function SearchPage() {
         <p className="text-sm text-slate-400">I preferiti arriveranno presto.</p>
       )}
       {!isSearching && tab === "miei" && (
-        <p className="text-sm text-slate-400">I tuoi cibi personalizzati arriveranno qui.</p>
+        <CustomFoodForm onCreated={(food) => setSelectedFood(asSearchItem(food))} />
       )}
 
       {(isSearching || tab === "recenti") && (

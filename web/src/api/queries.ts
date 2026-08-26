@@ -132,6 +132,27 @@ export function useFoodByBarcode() {
   });
 }
 
+export interface CustomFoodInput {
+  name: string;
+  brand: string | null;
+  serving_size_g: number | null;
+  nutriments: Nutriments;
+}
+
+/** `POST /api/foods` -- create a custom (non-OFF) food. Invalidates search
+ * and recent-foods caches on success: the new food is now a real row in the
+ * `foods` table and should show up as a local match immediately. */
+export function useCreateCustomFood() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CustomFoodInput) =>
+      client.post<FoodOut>("/foods", { ...input, image_url: null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["foods"] });
+    },
+  });
+}
+
 export interface CreateEntryInput {
   date: string;
   meal: Meal;

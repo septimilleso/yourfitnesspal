@@ -179,6 +179,16 @@ describe("SearchPage results", () => {
     expect(screen.getByText(/preferiti arriveranno/i)).toBeInTheDocument();
   });
 
+  it("switches to the I miei cibi tab and shows the custom-food form", async () => {
+    renderPage();
+    await screen.findByRole("tab", { name: "I miei cibi" });
+
+    fireEvent.click(screen.getByRole("tab", { name: "I miei cibi" }));
+
+    expect(screen.getByLabelText("Nome")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /crea alimento/i })).toBeInTheDocument();
+  });
+
   it("opens the QuantityPicker when a result is clicked", async () => {
     vi.mocked(client.get).mockImplementation((path: string) => {
       if (path.startsWith("/foods/recent")) {
