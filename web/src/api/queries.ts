@@ -232,6 +232,28 @@ export function useGoal() {
   });
 }
 
+export interface PutGoalInput {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+/** `PUT /api/goals`. Invalidates the goal query plus every cached day/week
+ * diary query on success, since the ring/macro-coloring on both pages
+ * depend on the active goal. */
+export function usePutGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PutGoalInput) => client.put<Goal>("/goals", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["diary", "day"] });
+      queryClient.invalidateQueries({ queryKey: ["diary", "week"] });
+    },
+  });
+}
+
 export interface CopyDaysInput {
   source_dates: string[];
   target_start: string;
