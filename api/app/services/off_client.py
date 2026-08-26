@@ -112,7 +112,7 @@ class OffClient:
             return None
         return data.get("product")
 
-    async def search(self, query: str, limit: int) -> list[dict]:
+    async def search(self, query: str, limit: int) -> list[dict] | None:
         """Full-text search OFF products by name/brand/keywords.
 
         Uses the legacy `/cgi/search.pl` endpoint rather than `/api/v2/search`:
@@ -122,7 +122,13 @@ class OffClient:
         with `action=process` is OFF's actual free-text search and returns
         the same `{"products": [...]}` shape `normalize()` already expects.
 
-        Returns [] on failure or if retries are exhausted.
+        Returns `None` (not `[]`) if OFF is unreachable/failing after
+        retries are exhausted -- OFF's legacy search endpoint is known to
+        return intermittent 503s independent of query volume, and the
+        caller needs to distinguish "OFF is down" from "OFF genuinely has
+        no matches" to give the user an accurate message instead of a
+        silent, indistinguishable empty result. Returns `[]` only when OFF
+        actually responded and found nothing.
         """
         await self._search_limiter.acquire()
         response = await self._request_with_retry(
@@ -136,7 +142,7 @@ class OffClient:
             },
         )
         if response is None:
-            return []
+            return None
 
         data = response.json()
         return data.get("products", [])

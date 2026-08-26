@@ -63,29 +63,35 @@ async def search_foods(
 
     results = [FoodSearchItem.from_food(food, source="cache") for food in local_foods]
     seen_ids = {food.id for food in local_foods}
+    off_unavailable = False
 
     if len(local_foods) < LOCAL_MATCH_THRESHOLD:
         off_products = await off_client.search(q, limit=limit)
 
-        upserted_any = False
-        for product in off_products:
-            normalized = normalize(product)
-            barcode = normalized.get("barcode") if normalized else None
-            if normalized is None or not barcode:
-                continue
+        if off_products is None:
+            off_unavailable = True
+        else:
+            upserted_any = False
+            for product in off_products:
+                normalized = normalize(product)
+                barcode = normalized.get("barcode") if normalized else None
+                if normalized is None or not barcode:
+                    continue
 
-            food = await food_cache.upsert_normalized_food(session, barcode, normalized, product)
-            upserted_any = True
+                food = await food_cache.upsert_normalized_food(
+                    session, barcode, normalized, product
+                )
+                upserted_any = True
 
-            if food.id in seen_ids:
-                continue
-            seen_ids.add(food.id)
-            results.append(FoodSearchItem.from_food(food, source="off"))
+                if food.id in seen_ids:
+                    continue
+                seen_ids.add(food.id)
+                results.append(FoodSearchItem.from_food(food, source="off"))
 
-        if upserted_any:
-            await session.commit()
+            if upserted_any:
+                await session.commit()
 
-    return FoodSearchResponse(results=results[:limit])
+    return FoodSearchResponse(results=results[:limit], off_unavailable=off_unavailable)
 
 
 @router.get("/recent", response_model=FoodSearchResponse)

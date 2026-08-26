@@ -229,6 +229,21 @@ async def test_search_returns_products():
     assert len(products) == 2
 
 
+@pytest.mark.asyncio
+async def test_search_returns_none_after_max_retries_of_503():
+    async with respx.mock(base_url=BASE_URL) as mock:
+        route = mock.get("/cgi/search.pl")
+        route.mock(return_value=httpx.Response(503))
+        client = OffClient(contact_email="test@example.com", retry_backoff_seconds=0.01)
+        try:
+            products = await client.search("bar", limit=10)
+        finally:
+            await client.aclose()
+
+    assert products is None
+    assert route.call_count == 3
+
+
 # --- rate limiter -----------------------------------------------------
 
 

@@ -129,6 +129,47 @@ describe("SearchPage results", () => {
     expect(screen.getByText("cache")).toBeInTheDocument();
   });
 
+  it("shows an OFF-unavailable warning instead of a misleading empty state", async () => {
+    vi.useFakeTimers();
+    vi.mocked(client.get).mockImplementation((path: string) => {
+      if (path.startsWith("/foods/recent")) return Promise.resolve({ results: [] });
+      if (path.startsWith("/foods/search")) {
+        return Promise.resolve({ results: [], off_unavailable: true });
+      }
+      return Promise.resolve({ results: [] });
+    });
+
+    renderPage();
+    const input = screen.getByLabelText(/cerca un alimento/i);
+    fireEvent.change(input, { target: { value: "ricotta" } });
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS_BUFFER);
+    vi.useRealTimers();
+
+    const warning = await screen.findByText(/openfoodfacts/i);
+    expect(warning).toHaveAttribute("role", "alert");
+    expect(screen.queryByText("Nessun risultato.")).not.toBeInTheDocument();
+  });
+
+  it("shows the plain empty state when OFF succeeded but genuinely found nothing", async () => {
+    vi.useFakeTimers();
+    vi.mocked(client.get).mockImplementation((path: string) => {
+      if (path.startsWith("/foods/recent")) return Promise.resolve({ results: [] });
+      if (path.startsWith("/foods/search")) {
+        return Promise.resolve({ results: [], off_unavailable: false });
+      }
+      return Promise.resolve({ results: [] });
+    });
+
+    renderPage();
+    const input = screen.getByLabelText(/cerca un alimento/i);
+    fireEvent.change(input, { target: { value: "xyzxyz" } });
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS_BUFFER);
+    vi.useRealTimers();
+
+    expect(await screen.findByText("Nessun risultato.")).toBeInTheDocument();
+    expect(screen.queryByText(/openfoodfacts/i)).not.toBeInTheDocument();
+  });
+
   it("switches to the Preferiti tab and shows its placeholder", async () => {
     renderPage();
     await screen.findByRole("tab", { name: "Preferiti" });

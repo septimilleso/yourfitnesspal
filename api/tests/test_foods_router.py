@@ -191,6 +191,32 @@ async def test_search_falls_through_to_off_and_upserts_when_local_matches_sparse
 
 
 @pytest.mark.asyncio
+async def test_search_flags_off_unavailable_when_off_search_fails(
+    session: AsyncSession,
+) -> None:
+    """When local matches are sparse and OFF's search fails (retries
+    exhausted), the response must say so via `off_unavailable=True` rather
+    than silently looking identical to "no matches exist" -- OFF's legacy
+    search endpoint is known to return intermittent 503s."""
+    await _make_food(session, name="Only Local Match", barcode="9990000000009")
+    await session.commit()
+
+    async with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/cgi/search.pl").mock(return_value=httpx.Response(503))
+        client = await _authed_client()
+        async with client:
+            response = await client.get(
+                "/api/foods/search", params={"q": "Only Local Match", "limit": 20}
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["off_unavailable"] is True
+    assert len(body["results"]) == 1
+    assert body["results"][0]["source"] == "cache"
+
+
+@pytest.mark.asyncio
 async def test_repeated_search_second_time_returns_cache_hits_only(
     session: AsyncSession,
 ) -> None:

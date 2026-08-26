@@ -81,6 +81,11 @@ class FoodSearchItem(BaseModel):
 
 class FoodSearchResponse(BaseModel):
     results: list[FoodSearchItem]
+    # True when local matches were sparse AND the OFF lookup that would have
+    # filled them in failed/timed out (as opposed to OFF succeeding and
+    # genuinely finding nothing) -- lets the frontend show "OpenFoodFacts
+    # momentaneamente non raggiungibile" instead of implying zero matches.
+    off_unavailable: bool = False
 
 
 class CustomFoodCreate(BaseModel):

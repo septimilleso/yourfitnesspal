@@ -63,6 +63,7 @@ function SearchPage() {
       ? (recentFoods.data?.results ?? [])
       : [];
   const isLoadingResults = isSearching ? searchResults.isLoading : recentFoods.isLoading;
+  const offUnavailable = isSearching ? (searchResults.data?.off_unavailable ?? false) : false;
 
   function handleDetect(code: string) {
     setScannerOpen(false);
@@ -126,6 +127,13 @@ function SearchPage() {
         </p>
       )}
 
+      {offUnavailable && (
+        <p role="alert" className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          OpenFoodFacts è momentaneamente non raggiungibile: qui sotto vedi solo i risultati già in
+          cache. Riprova tra poco.
+        </p>
+      )}
+
       {!isSearching && tab === "preferiti" && (
         <p className="text-sm text-slate-400">I preferiti arriveranno presto.</p>
       )}
@@ -152,7 +160,7 @@ function SearchPage() {
               </button>
             </li>
           ))}
-          {results.length === 0 && !isLoadingResults && (
+          {results.length === 0 && !isLoadingResults && !offUnavailable && (
             <p className="py-2 text-sm text-slate-400">Nessun risultato.</p>
           )}
         </ul>

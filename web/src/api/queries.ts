@@ -95,6 +95,11 @@ export interface FoodOut extends FoodBase {
 
 interface FoodSearchResponse {
   results: FoodSearchItem[];
+  /** True when local matches were sparse and the OpenFoodFacts lookup that
+   * would have filled them in failed (as opposed to OFF succeeding and
+   * genuinely finding nothing) -- OFF's legacy search endpoint returns
+   * intermittent 503s independent of query volume. */
+  off_unavailable: boolean;
 }
 
 /** `GET /api/foods/search`. Disabled for an empty/whitespace-only query so
