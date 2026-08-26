@@ -13,6 +13,14 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 RATE_LIMIT_ATTEMPTS = 5
 RATE_LIMIT_WINDOW_SECONDS = 60
 
+# Defense-in-depth cap on the rate-limit bucket key length. X-Real-IP is set
+# by nginx itself (see web/nginx.conf) and can't be spoofed by a client that
+# goes through nginx, but a client hitting the backend directly (e.g. a
+# misconfigured deployment with no proxy in front) could send an arbitrary
+# X-Real-IP value straight through -- cap it so a garbage/huge header can't
+# grow the in-memory dict unboundedly per request.
+_MAX_IP_KEY_LENGTH = 64
+
 # client IP -> list of attempt timestamps (monotonic seconds). In-memory is
 # fine: this is a single-instance, single-user app.
 _login_attempts: dict[str, list[float]] = defaultdict(list)
@@ -27,15 +35,21 @@ def _client_ip(request: Request) -> str:
 
     Behind the nginx reverse proxy (see `web/nginx.conf`), `request.client.host`
     is always the `web` container's address -- every real client would share
-    one rate-limit bucket. nginx sets `X-Forwarded-For`, so prefer that
-    (taking the first/leftmost value, the original client, since there's
-    exactly one trusted proxy hop). Falls back to `request.client.host` when
-    the header is absent, e.g. direct connections in dev without nginx in
-    front.
+    one rate-limit bucket. nginx sets both `X-Real-IP` and `X-Forwarded-For`,
+    but only `X-Real-IP` is trustworthy: nginx sets it to `$remote_addr`,
+    which OVERWRITES any value the client sent (a client cannot spoof it).
+    `X-Forwarded-For` is set to `$proxy_add_x_forwarded_for`, which APPENDS
+    the real client IP to whatever the client already put in that header --
+    so a client can prepend an arbitrary value and rotate it per request to
+    get a fresh rate-limit bucket every time. Falls back to
+    `request.client.host` when `X-Real-IP` is absent, e.g. direct connections
+    in dev without nginx in front.
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        real_ip = real_ip.strip()
+        if real_ip:
+            return real_ip[:_MAX_IP_KEY_LENGTH]
     if request.client:
         return request.client.host
     return "unknown"

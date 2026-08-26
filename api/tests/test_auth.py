@@ -138,26 +138,27 @@ async def test_failed_logins_still_rate_limited_after_a_successful_login() -> No
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_keyed_by_x_forwarded_for_when_present() -> None:
+async def test_rate_limit_keyed_by_x_real_ip_when_present() -> None:
     """Behind nginx, `request.client.host` is always the `web` container's
-    address -- `X-Forwarded-For` (set by nginx) must be used instead so
-    different real clients get independent rate-limit budgets."""
+    address -- `X-Real-IP` (set by nginx from `$remote_addr`, which a client
+    cannot spoof) must be used instead so different real clients get
+    independent rate-limit budgets."""
     async with await _client() as client:
         for _ in range(5):
             response = await client.post(
                 "/api/auth/login",
                 json={"key": "wrong-key"},
-                headers={"X-Forwarded-For": "203.0.113.10"},
+                headers={"X-Real-IP": "203.0.113.10"},
             )
             assert response.status_code == 401
 
         # Same underlying test-transport "client", but a different
-        # X-Forwarded-For value -- must get its own budget, not be
-        # rate-limited by client-A's attempts.
+        # X-Real-IP value -- must get its own budget, not be rate-limited
+        # by client-A's attempts.
         response = await client.post(
             "/api/auth/login",
             json={"key": "wrong-key"},
-            headers={"X-Forwarded-For": "203.0.113.20"},
+            headers={"X-Real-IP": "203.0.113.20"},
         )
         assert response.status_code == 401
 
@@ -165,14 +166,42 @@ async def test_rate_limit_keyed_by_x_forwarded_for_when_present() -> None:
         limited = await client.post(
             "/api/auth/login",
             json={"key": "wrong-key"},
-            headers={"X-Forwarded-For": "203.0.113.10"},
+            headers={"X-Real-IP": "203.0.113.10"},
         )
 
     assert limited.status_code == 429
 
 
 @pytest.mark.asyncio
-async def test_client_ip_falls_back_when_x_forwarded_for_absent() -> None:
+async def test_spoofed_x_forwarded_for_does_not_bypass_rate_limit() -> None:
+    """Regression test for the re-review finding: nginx's
+    `X-Forwarded-For` is set via `$proxy_add_x_forwarded_for`, which APPENDS
+    to whatever the client already sent rather than replacing it -- so a
+    client can send an arbitrary, rotating `X-Forwarded-For` value and it
+    must NOT be used to derive a fresh rate-limit bucket per request. Same
+    underlying connection (no X-Real-IP, as if nginx were bypassed and only
+    the spoofable header were present) attempting 6 logins with a different
+    X-Forwarded-For each time must still be rate-limited on the 6th."""
+    async with await _client() as client:
+        for i in range(5):
+            response = await client.post(
+                "/api/auth/login",
+                json={"key": "wrong-key"},
+                headers={"X-Forwarded-For": f"10.0.0.{i}"},
+            )
+            assert response.status_code == 401
+
+        limited = await client.post(
+            "/api/auth/login",
+            json={"key": "wrong-key"},
+            headers={"X-Forwarded-For": "10.0.0.99"},
+        )
+
+    assert limited.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_client_ip_falls_back_when_x_real_ip_absent() -> None:
     from app.routers.auth import _client_ip
 
     class _FakeClient:
@@ -186,14 +215,49 @@ async def test_client_ip_falls_back_when_x_forwarded_for_absent() -> None:
 
 
 @pytest.mark.asyncio
-async def test_client_ip_prefers_x_forwarded_for_and_takes_first_value() -> None:
+async def test_client_ip_prefers_x_real_ip() -> None:
     from app.routers.auth import _client_ip
 
     class _FakeClient:
         host = "10.0.0.5"  # the web container's address behind nginx
 
     class _FakeRequest:
-        headers: ClassVar[dict[str, str]] = {"x-forwarded-for": "203.0.113.99, 10.0.0.5"}
+        headers: ClassVar[dict[str, str]] = {"x-real-ip": "203.0.113.99"}
         client = _FakeClient()
 
     assert _client_ip(_FakeRequest()) == "203.0.113.99"
+
+
+@pytest.mark.asyncio
+async def test_client_ip_ignores_x_forwarded_for_even_when_x_real_ip_absent() -> None:
+    """A client hitting the backend directly (bypassing nginx, so no
+    X-Real-IP is set) must not have its self-reported X-Forwarded-For
+    trusted -- fall back to the raw connection address instead."""
+    from app.routers.auth import _client_ip
+
+    class _FakeClient:
+        host = "10.0.0.5"
+
+    class _FakeRequest:
+        headers: ClassVar[dict[str, str]] = {"x-forwarded-for": "203.0.113.99, 10.0.0.5"}
+        client = _FakeClient()
+
+    assert _client_ip(_FakeRequest()) == "10.0.0.5"
+
+
+@pytest.mark.asyncio
+async def test_client_ip_caps_absurdly_long_x_real_ip_value() -> None:
+    """Defense-in-depth: a client hitting the backend directly (no nginx in
+    front) could send an arbitrary, huge X-Real-IP value -- it must be
+    capped rather than used verbatim as an unbounded dict key."""
+    from app.routers.auth import _MAX_IP_KEY_LENGTH, _client_ip
+
+    class _FakeClient:
+        host = "10.0.0.5"
+
+    class _FakeRequest:
+        headers: ClassVar[dict[str, str]] = {"x-real-ip": "9" * 10_000}
+        client = _FakeClient()
+
+    result = _client_ip(_FakeRequest())
+    assert len(result) == _MAX_IP_KEY_LENGTH
