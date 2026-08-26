@@ -5,6 +5,7 @@ import type { FoodOut, FoodSearchItem, Meal } from "../api/queries";
 import { useFoodByBarcode, useFoodSearch, useRecentFoods } from "../api/queries";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
+import { todayIso } from "../lib/date";
 
 type Tab = "recenti" | "preferiti" | "miei";
 
@@ -17,10 +18,6 @@ const TAB_LABELS: Record<Tab, string> = {
 /** How long to wait after the last keystroke before firing the search
  * request. */
 const DEBOUNCE_MS = 350;
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /** `FoodOut` (from a barcode lookup) reshaped as a `FoodSearchItem` so it
  * can flow through the same result-selection/QuantityPicker path as a

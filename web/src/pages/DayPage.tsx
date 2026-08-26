@@ -3,16 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { MEALS, useDayDiary, useDeleteEntry } from "../api/queries";
 import DaySummary from "../components/DaySummary";
 import MealSection from "../components/MealSection";
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function shiftIsoDate(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+import { shiftIsoDate, todayIso } from "../lib/date";
 
 /** Day diary: date header with prev/next navigation (date lives in the
  * `?date=` search param), calorie/macro summary, and one `MealSection` per
