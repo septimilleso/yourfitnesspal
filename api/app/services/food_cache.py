@@ -52,6 +52,30 @@ async def get_or_fetch_by_barcode(
     if normalized is None:
         return existing
 
+    food = await upsert_normalized_food(session, barcode, normalized, off_product, existing=existing)
+    await session.commit()
+    return food
+
+
+async def upsert_normalized_food(
+    session: AsyncSession,
+    barcode: str,
+    normalized: dict,
+    raw: dict,
+    existing: Food | None = None,
+) -> Food:
+    """Create or update the `foods` row for `barcode` from an
+    already-normalized dict (see `off_client.normalize`), without making any
+    OFF calls itself. Shared by `get_or_fetch_by_barcode` above (single
+    barcode lookups) and the foods-search endpoint (bulk upserts of OFF
+    search results, which already come back with full product data and so
+    don't need a separate per-barcode `get_product` call).
+
+    Does NOT commit -- callers own the transaction boundary.
+    """
+    if existing is None:
+        existing = await session.scalar(sa.select(Food).where(Food.barcode == barcode))
+
     now = datetime.now(UTC)
 
     if existing is not None:
@@ -60,33 +84,31 @@ async def get_or_fetch_by_barcode(
         existing.image_url = normalized["image_url"]
         existing.serving_size_g = normalized["serving_size_g"]
         existing.nutriments = normalized["nutriments"]
-        existing.raw = off_product
+        existing.raw = raw
         existing.fetched_at = now
-        food = existing
-    else:
-        food = Food(
-            barcode=barcode,
-            source="off",
-            name=normalized["name"],
-            brand=normalized["brand"],
-            image_url=normalized["image_url"],
-            serving_size_g=normalized["serving_size_g"],
-            nutriments=normalized["nutriments"],
-            raw=off_product,
-            fetched_at=now,
-        )
-        session.add(food)
-        await session.flush()  # assign food.id before creating the portion
-        session.add(
-            FoodPortion(
-                food_id=food.id,
-                label=DEFAULT_PORTION_LABEL,
-                grams=DEFAULT_PORTION_GRAMS,
-                is_default=True,
-            )
-        )
+        return existing
 
-    await session.commit()
+    food = Food(
+        barcode=barcode,
+        source="off",
+        name=normalized["name"],
+        brand=normalized["brand"],
+        image_url=normalized["image_url"],
+        serving_size_g=normalized["serving_size_g"],
+        nutriments=normalized["nutriments"],
+        raw=raw,
+        fetched_at=now,
+    )
+    session.add(food)
+    await session.flush()  # assign food.id before creating the portion
+    session.add(
+        FoodPortion(
+            food_id=food.id,
+            label=DEFAULT_PORTION_LABEL,
+            grams=DEFAULT_PORTION_GRAMS,
+            is_default=True,
+        )
+    )
     return food
 
 

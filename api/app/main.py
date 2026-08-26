@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.routers import auth
+from app.routers import auth, foods
 from app.security import verify_session_cookie
 
 app = FastAPI(title="YourFitnessPal API")
 
 app.include_router(auth.router)
+app.include_router(foods.router)
 
 # Paths reachable without a valid session cookie.
 _PUBLIC_PATHS = {"/api/auth/login", "/api/health"}

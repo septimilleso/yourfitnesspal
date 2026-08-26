@@ -36,3 +36,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+# B008: FastAPI's dependency-injection pattern requires `Depends(...)` as an
+# argument default -- that's not the mutable-default-argument footgun this
+# rule targets.
+ignore = ["B008"]
