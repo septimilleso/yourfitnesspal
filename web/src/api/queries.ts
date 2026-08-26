@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { client } from "./client";
+import { ApiError, client } from "./client";
 
 /** The 4 meal slots a diary entry can belong to. Mirrors the backend's `Meal` enum. */
 export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
@@ -186,6 +186,78 @@ export function usePatchEntry() {
     mutationFn: ({ id, ...body }: PatchEntryInput) =>
       client.patch<DiaryEntry>(`/diary/entries/${id}`, body),
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["diary", "day"] });
+    },
+  });
+}
+
+export interface WeekDayTotal {
+  date: string;
+  total: Nutriments;
+}
+
+export interface WeekResponse {
+  start: string;
+  end: string;
+  days: WeekDayTotal[];
+}
+
+/** `GET /api/diary/week?start=:date`. `start` is expected to already be an
+ * ISO date string (the Monday of the week being viewed) -- `WeekPage` owns
+ * computing/shifting it. */
+export function useWeekDiary(start: string) {
+  return useQuery({
+    queryKey: ["diary", "week", start] as const,
+    queryFn: () => client.get<WeekResponse>(`/diary/week?start=${start}`),
+  });
+}
+
+/** `GET /api/goals`. A goal may not exist yet -- the backend 404s in that
+ * case, which is treated here as "no goal" (`null`) rather than a query
+ * error, so `WeekPage`/`CopyDaysDialog` callers can render without a goal
+ * to color against instead of hitting an error state. */
+export function useGoal() {
+  return useQuery({
+    queryKey: ["goals"] as const,
+    queryFn: async () => {
+      try {
+        return await client.get<Goal>("/goals");
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+  });
+}
+
+export interface CopyDaysInput {
+  source_dates: string[];
+  target_start: string;
+  meals: Meal[] | null;
+  mode: "append" | "replace";
+}
+
+export interface CopyDayResult {
+  date: string;
+  entries_created: number;
+}
+
+export interface CopyDaysResponse {
+  entries_created: number;
+  days: CopyDayResult[];
+}
+
+/** `POST /api/diary/copy`. Invalidates both week and day diary caches on
+ * success since a copy can touch entries the day view (or a different
+ * week) already has cached. */
+export function useCopyDays() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CopyDaysInput) => client.post<CopyDaysResponse>("/diary/copy", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["diary", "week"] });
       queryClient.invalidateQueries({ queryKey: ["diary", "day"] });
     },
   });
