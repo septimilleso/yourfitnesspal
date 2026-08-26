@@ -38,7 +38,7 @@ served together behind nginx via Docker Compose.
 
    This starts `db` (Postgres, not published to the host), `api` (FastAPI, not published to the
    host — reachable only from `web` over the compose network), and `web` (nginx serving the built
-   SPA and proxying `/api/*` to `api`), publishing **only** `web` on host port `8080`.
+   SPA and proxying `/api/*` to `api`), publishing **only** `web` on host port `6500`.
 
 3. Apply database migrations (first boot and after any migration-adding deploy):
 
@@ -46,20 +46,20 @@ served together behind nginx via Docker Compose.
    docker compose exec api alembic upgrade head
    ```
 
-4. Visit `http://<host>:8080`.
+4. Visit `http://<host>:6500`.
 
 ## Exposing it via Cloudflare Tunnel
 
-Only `web` (port `8080` on the host, container port `80`) needs to be reachable — `db` and `api`
+Only `web` (port `6500` on the host, container port `80`) needs to be reachable — `db` and `api`
 are intentionally not published and should stay that way. Point a Cloudflare Tunnel at
-`http://localhost:8080` (or `http://<host>:8080` if the tunnel runs on a different machine):
+`http://localhost:6500` (or `http://<host>:6500` if the tunnel runs on a different machine):
 
 ```sh
-cloudflared tunnel --url http://localhost:8080
+cloudflared tunnel --url http://localhost:6500
 ```
 
 or, for a named tunnel, add a matching entry in your `config.yml`'s `ingress` list pointing at
-`http://localhost:8080`.
+`http://localhost:6500`.
 
 **Recommended:** put this app behind Cloudflare Access (or an equivalent auth layer) in front of
 the tunnel — there's no built-in login/multi-tenant auth here, so anyone who reaches the tunnel's

@@ -34,7 +34,7 @@ services:
       - api
     # Only service that publishes a port to the host.
     ports:
-      - "8080:80"
+      - "6500:80"
 
 volumes:
   db_data:
