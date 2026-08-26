@@ -1,4 +1,5 @@
 import time
+from typing import ClassVar
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -107,3 +108,92 @@ async def test_sixth_login_attempt_within_a_minute_is_rate_limited() -> None:
         response = await client.post("/api/auth/login", json={"key": "wrong-key"})
 
     assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_successful_logins_do_not_count_toward_rate_limit_budget() -> None:
+    """A successful login must not consume shared rate-limit budget --
+    otherwise a legitimate login by one device could push others toward
+    lockout. 10 successful logins in a row (double the 5/min budget) must
+    all succeed."""
+    async with await _client() as client:
+        for _ in range(10):
+            response = await client.post("/api/auth/login", json={"key": settings.app_key})
+            assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_failed_logins_still_rate_limited_after_a_successful_login() -> None:
+    async with await _client() as client:
+        ok = await client.post("/api/auth/login", json={"key": settings.app_key})
+        assert ok.status_code == 200
+
+        for _ in range(5):
+            response = await client.post("/api/auth/login", json={"key": "wrong-key"})
+            assert response.status_code == 401
+
+        response = await client.post("/api/auth/login", json={"key": "wrong-key"})
+
+    assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_keyed_by_x_forwarded_for_when_present() -> None:
+    """Behind nginx, `request.client.host` is always the `web` container's
+    address -- `X-Forwarded-For` (set by nginx) must be used instead so
+    different real clients get independent rate-limit budgets."""
+    async with await _client() as client:
+        for _ in range(5):
+            response = await client.post(
+                "/api/auth/login",
+                json={"key": "wrong-key"},
+                headers={"X-Forwarded-For": "203.0.113.10"},
+            )
+            assert response.status_code == 401
+
+        # Same underlying test-transport "client", but a different
+        # X-Forwarded-For value -- must get its own budget, not be
+        # rate-limited by client-A's attempts.
+        response = await client.post(
+            "/api/auth/login",
+            json={"key": "wrong-key"},
+            headers={"X-Forwarded-For": "203.0.113.20"},
+        )
+        assert response.status_code == 401
+
+        # client-A's 6th attempt is still rate-limited.
+        limited = await client.post(
+            "/api/auth/login",
+            json={"key": "wrong-key"},
+            headers={"X-Forwarded-For": "203.0.113.10"},
+        )
+
+    assert limited.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_client_ip_falls_back_when_x_forwarded_for_absent() -> None:
+    from app.routers.auth import _client_ip
+
+    class _FakeClient:
+        host = "127.0.0.1"
+
+    class _FakeRequest:
+        headers: ClassVar[dict[str, str]] = {}
+        client = _FakeClient()
+
+    assert _client_ip(_FakeRequest()) == "127.0.0.1"
+
+
+@pytest.mark.asyncio
+async def test_client_ip_prefers_x_forwarded_for_and_takes_first_value() -> None:
+    from app.routers.auth import _client_ip
+
+    class _FakeClient:
+        host = "10.0.0.5"  # the web container's address behind nginx
+
+    class _FakeRequest:
+        headers: ClassVar[dict[str, str]] = {"x-forwarded-for": "203.0.113.99, 10.0.0.5"}
+        client = _FakeClient()
+
+    assert _client_ip(_FakeRequest()) == "203.0.113.99"
