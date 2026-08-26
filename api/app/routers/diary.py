@@ -24,6 +24,9 @@ from app.models.goal import Goal
 from app.schemas.diary import (
     DayResponse,
     DayTotals,
+    DiaryCopyDayResult,
+    DiaryCopyRequest,
+    DiaryCopyResponse,
     DiaryEntryCreate,
     DiaryEntryOut,
     DiaryEntryPatch,
@@ -33,7 +36,7 @@ from app.schemas.diary import (
     WeekDayTotal,
     WeekResponse,
 )
-from app.services.diary import compute_day_totals, zero_totals
+from app.services.diary import compute_day_totals, plan_copy, zero_totals
 
 diary_router = APIRouter(prefix="/api/diary", tags=["diary"])
 goals_router = APIRouter(prefix="/api/goals", tags=["goals"])
@@ -195,6 +198,80 @@ async def delete_entry(
         raise HTTPException(status_code=404, detail="entry not found")
     await session.delete(entry)
     await session.commit()
+
+
+@diary_router.post("/copy", response_model=DiaryCopyResponse)
+async def copy_days(
+    payload: DiaryCopyRequest,
+    session: AsyncSession = Depends(get_session),
+) -> DiaryCopyResponse:
+    if not payload.source_dates:
+        raise HTTPException(status_code=400, detail="source_dates must be non-empty")
+
+    # Read ALL source entries into memory *before* any deletes -- required
+    # so that `mode == "replace"` on a target date that's also a source
+    # date (overlap) works correctly. See `plan_copy`'s docstring.
+    distinct_source_dates = set(payload.source_dates)
+    stmt = (
+        sa.select(DiaryEntry)
+        .where(DiaryEntry.date.in_(distinct_source_dates))
+        .order_by(DiaryEntry.date, DiaryEntry.meal, DiaryEntry.position)
+    )
+    source_entries = (await session.execute(stmt)).scalars().all()
+
+    entries_by_source_date: dict[date, list[DiaryEntry]] = {d: [] for d in distinct_source_dates}
+    for entry in source_entries:
+        entries_by_source_date[entry.date].append(entry)
+
+    plan = plan_copy(
+        source_dates=payload.source_dates,
+        target_start=payload.target_start,
+        meals=payload.meals,
+        mode=payload.mode,
+        entries_by_source_date=entries_by_source_date,
+    )
+
+    # Deletes first (only relevant in "replace" mode), all inserts after --
+    # never interleaved per-day, which is what makes overlapping
+    # source/target ranges correct.
+    for target_date, meal_set in plan["deletes"]:
+        await session.execute(
+            sa.delete(DiaryEntry).where(
+                DiaryEntry.date == target_date, DiaryEntry.meal.in_(meal_set)
+            )
+        )
+
+    next_position: dict[tuple[date, Meal], int] = {}
+    for item in plan["inserts"]:
+        key = (item["date"], item["meal"])
+        if key not in next_position:
+            max_position = await session.scalar(
+                sa.select(sa.func.max(DiaryEntry.position)).where(
+                    DiaryEntry.date == key[0], DiaryEntry.meal == key[1]
+                )
+            )
+            next_position[key] = 0 if max_position is None else max_position + 1
+        position = next_position[key]
+        next_position[key] += 1
+
+        session.add(
+            DiaryEntry(
+                food_id=item["food_id"],
+                date=item["date"],
+                meal=item["meal"],
+                grams=item["grams"],
+                portion_label=item["portion_label"],
+                position=position,
+                nutriments_snapshot=item["nutriments_snapshot"],
+            )
+        )
+
+    await session.commit()
+
+    return DiaryCopyResponse(
+        entries_created=len(plan["inserts"]),
+        days=[DiaryCopyDayResult(**day) for day in plan["days"]],
+    )
 
 
 @goals_router.get("", response_model=GoalOut)

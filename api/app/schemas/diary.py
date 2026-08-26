@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for the diary + goals endpoints."""
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -81,6 +82,32 @@ class WeekResponse(BaseModel):
     start: date
     end: date
     days: list[WeekDayTotal]
+
+
+class DiaryCopyRequest(BaseModel):
+    """Body for `POST /api/diary/copy`.
+
+    `source_dates` must be non-empty (validated in the router, 400
+    otherwise -- kept out of pydantic validation so the error shape matches
+    the rest of this router's 400s rather than a 422). Overlapping
+    `source_dates`/target range is allowed -- see `plan_copy` in
+    `app/services/diary.py` for how that's handled correctly.
+    """
+
+    source_dates: list[date]
+    target_start: date
+    meals: list[Meal] | None = None
+    mode: Literal["append", "replace"] = "append"
+
+
+class DiaryCopyDayResult(BaseModel):
+    date: date
+    entries_created: int
+
+
+class DiaryCopyResponse(BaseModel):
+    entries_created: int
+    days: list[DiaryCopyDayResult]
 
 
 class GoalCreate(BaseModel):

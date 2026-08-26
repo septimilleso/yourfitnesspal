@@ -15,8 +15,11 @@ here, at read time, which is what lets a later edit to `grams` change
 computed totals without ever touching the stored snapshot.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import date, timedelta
 from typing import Any
+
+from app.models.diary import Meal
 
 # The 8 per-100g nutriment fields `Food.nutriments` / `DiaryEntry.nutriments_snapshot` store.
 NUTRIMENT_FIELDS = (
@@ -73,3 +76,73 @@ def compute_week_totals(entries_by_date: Mapping[Any, Iterable[Any]]) -> dict[An
     the 7 dates to that day's entries (an empty list is fine for days with
     no entries logged)."""
     return {day: compute_day_totals(entries)["total"] for day, entries in entries_by_date.items()}
+
+
+def plan_copy(
+    *,
+    source_dates: Sequence[date],
+    target_start: date,
+    meals: Sequence[Any] | None,
+    mode: str,
+    entries_by_source_date: Mapping[date, Iterable[Any]],
+) -> dict[str, Any]:
+    """Pure copy-planning for `POST /api/diary/copy`.
+
+    Decoupled from the DB/session on purpose so the trickiest part of the
+    task -- the overlap case where a target date is also a source date under
+    `mode == "replace"` -- gets real, DB-free test coverage. Mirrors how
+    `compute_day_totals` above stays pure.
+
+    `entries_by_source_date` must map each of `source_dates` to that day's
+    already-fetched entries (duck-typed: `.food_id`, `.meal`, `.grams`,
+    `.portion_label`, `.nutriments_snapshot`), fetched from the DB *before*
+    any deletes are issued -- this is what makes the overlap case correct:
+    a target date's original entries are captured in memory before they'd
+    be wiped by a `replace` on that same date acting as someone else's
+    target.
+
+    `source_dates` is sorted ascending and `source_dates[i]` maps to
+    `target_start + i` days -- i.e. the mapping is positional, not by value,
+    so duplicate source dates each get their own target slot.
+
+    Returns `{"deletes": [(target_date, meal_set)], "inserts": [...],
+    "days": [{"date": target_date, "entries_created": int}]}`. Callers MUST
+    execute all `deletes` before any `inserts` (that ordering, plus the
+    read-before-delete fetch above, is what makes replace-mode overlap
+    correct -- see the task brief).
+
+    Each insert dict's `nutriments_snapshot` is a fresh `dict(...)` copy of
+    the source entry's existing snapshot, copied verbatim -- never
+    re-derived from a `Food` row -- so history survives even if the
+    underlying food's nutriments have since changed.
+    """
+    sorted_sources = sorted(source_dates)
+    meal_set = set(meals) if meals is not None else set(Meal)
+
+    deletes: list[tuple[date, set]] = []
+    inserts: list[dict[str, Any]] = []
+    days: list[dict[str, Any]] = []
+
+    for i, src_date in enumerate(sorted_sources):
+        target_date = target_start + timedelta(days=i)
+        if mode == "replace":
+            deletes.append((target_date, meal_set))
+
+        entries_created = 0
+        for entry in entries_by_source_date.get(src_date, []):
+            if entry.meal not in meal_set:
+                continue
+            inserts.append(
+                {
+                    "date": target_date,
+                    "food_id": entry.food_id,
+                    "meal": entry.meal,
+                    "grams": entry.grams,
+                    "portion_label": entry.portion_label,
+                    "nutriments_snapshot": dict(entry.nutriments_snapshot),
+                }
+            )
+            entries_created += 1
+        days.append({"date": target_date, "entries_created": entries_created})
+
+    return {"deletes": deletes, "inserts": inserts, "days": days}
