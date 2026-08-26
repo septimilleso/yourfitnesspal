@@ -16,6 +16,7 @@ from typing import Annotated
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db import get_session
 from app.models.diary import DiaryEntry, Meal
@@ -54,6 +55,33 @@ async def _active_goal(session: AsyncSession, for_date: date) -> Goal | None:
     return await session.scalar(stmt)
 
 
+def _entry_out(entry: DiaryEntry, food: Food | None = None) -> DiaryEntryOut:
+    """Build a `DiaryEntryOut` from a `DiaryEntry` row plus its related
+    `Food` (for `food_name`/`food_brand`).
+
+    `DiaryEntryOut` can't be built via `model_validate(entry)`/
+    `from_attributes=True` alone anymore -- `food_name`/`food_brand` live on
+    the related `Food` row, not as plain attributes on `DiaryEntry` itself,
+    so pydantic can't reach across the relationship implicitly. Callers
+    either eager-load `DiaryEntry.food` (see `get_day`'s `selectinload`) and
+    leave `food` unset here, or pass the already-fetched `Food` explicitly
+    (see `create_entry`/`patch_entry`, which fetch it separately anyway).
+    """
+    f = food if food is not None else entry.food
+    return DiaryEntryOut(
+        id=entry.id,
+        food_id=entry.food_id,
+        food_name=f.name,
+        food_brand=f.brand,
+        date=entry.date,
+        meal=entry.meal,
+        grams=entry.grams,
+        portion_label=entry.portion_label,
+        position=entry.position,
+        nutriments_snapshot=entry.nutriments_snapshot,
+    )
+
+
 def _goal_delta(goal: Goal | None, day_total: dict) -> GoalDelta | None:
     if goal is None:
         return None
@@ -73,6 +101,7 @@ async def get_day(
     stmt = (
         sa.select(DiaryEntry)
         .where(DiaryEntry.date == for_date)
+        .options(selectinload(DiaryEntry.food))
         .order_by(DiaryEntry.meal, DiaryEntry.position)
     )
     entries = (await session.execute(stmt)).scalars().all()
@@ -92,7 +121,7 @@ async def get_day(
     return DayResponse(
         date=for_date,
         entries={
-            meal_key: [DiaryEntryOut.model_validate(e) for e in meal_entries]
+            meal_key: [_entry_out(e) for e in meal_entries]
             for meal_key, meal_entries in entries_by_meal.items()
         },
         totals=DayTotals(by_meal=by_meal_totals, total=totals["total"]),
@@ -132,7 +161,7 @@ async def get_week(
 async def create_entry(
     payload: DiaryEntryCreate,
     session: AsyncSession = Depends(get_session),
-) -> DiaryEntry:
+) -> DiaryEntryOut:
     food = await session.get(Food, payload.food_id)
     if food is None:
         raise HTTPException(status_code=404, detail="food not found")
@@ -158,7 +187,7 @@ async def create_entry(
     session.add(entry)
     await session.commit()
     await session.refresh(entry)
-    return entry
+    return _entry_out(entry, food=food)
 
 
 @diary_router.patch("/entries/{entry_id}", response_model=DiaryEntryOut)
@@ -166,7 +195,7 @@ async def patch_entry(
     entry_id: int,
     payload: DiaryEntryPatch,
     session: AsyncSession = Depends(get_session),
-) -> DiaryEntry:
+) -> DiaryEntryOut:
     entry = await session.get(DiaryEntry, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="entry not found")
@@ -185,7 +214,9 @@ async def patch_entry(
 
     await session.commit()
     await session.refresh(entry)
-    return entry
+    food = await session.get(Food, entry.food_id)
+    assert food is not None  # FK is RESTRICT -- the food can't have been deleted
+    return _entry_out(entry, food=food)
 
 
 @diary_router.delete("/entries/{entry_id}", status_code=204)

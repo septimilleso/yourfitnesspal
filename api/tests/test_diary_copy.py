@@ -99,7 +99,7 @@ async def _create_entry(
 
 @pytest.mark.asyncio
 async def test_copy_one_day_to_one_day_append(session: AsyncSession) -> None:
-    food = await _make_food(session)
+    food = await _make_food(session, name="Copied Food")
     await session.commit()
 
     client = await _authed_client()
@@ -123,6 +123,8 @@ async def test_copy_one_day_to_one_day_append(session: AsyncSession) -> None:
 
         target_day = await client.get("/api/diary/day/2026-07-13")
     assert len(target_day.json()["entries"]["breakfast"]) == 1
+    # A copied entry still resolves food_name via its (unchanged) food_id.
+    assert target_day.json()["entries"]["breakfast"][0]["food_name"] == "Copied Food"
 
 
 @pytest.mark.asyncio

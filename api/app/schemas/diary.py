@@ -31,6 +31,8 @@ class DiaryEntryOut(BaseModel):
 
     id: int
     food_id: int
+    food_name: str
+    food_brand: str | None
     date: date
     meal: Meal
     grams: float

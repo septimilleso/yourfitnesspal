@@ -64,8 +64,10 @@ async def _authed_client() -> AsyncClient:
     return client
 
 
-async def _make_food(session: AsyncSession, *, name: str = "Test Food") -> Food:
-    food = Food(source="custom", name=name, brand=None, nutriments=NUTRIMENTS, raw=None)
+async def _make_food(
+    session: AsyncSession, *, name: str = "Test Food", brand: str | None = None
+) -> Food:
+    food = Food(source="custom", name=name, brand=brand, nutriments=NUTRIMENTS, raw=None)
     session.add(food)
     await session.flush()
     return food
@@ -76,7 +78,7 @@ async def _make_food(session: AsyncSession, *, name: str = "Test Food") -> Food:
 
 @pytest.mark.asyncio
 async def test_create_entry_snapshots_full_unscaled_nutriments(session: AsyncSession) -> None:
-    food = await _make_food(session)
+    food = await _make_food(session, name="Yogurt Greco", brand="Fage")
     await session.commit()
 
     client = await _authed_client()
@@ -92,6 +94,30 @@ async def test_create_entry_snapshots_full_unscaled_nutriments(session: AsyncSes
     # Snapshot is the FULL per-100g dict, unscaled -- not pre-multiplied by grams/100.
     assert body["nutriments_snapshot"] == NUTRIMENTS
     assert body["position"] == 0
+    # The response carries the food's name/brand, joined from the related
+    # Food row -- not just its bare `food_id`.
+    assert body["food_name"] == "Yogurt Greco"
+    assert body["food_brand"] == "Fage"
+
+
+@pytest.mark.asyncio
+async def test_create_entry_food_brand_is_null_when_food_has_no_brand(
+    session: AsyncSession,
+) -> None:
+    food = await _make_food(session, name="Homemade Soup", brand=None)
+    await session.commit()
+
+    client = await _authed_client()
+    async with client:
+        response = await client.post(
+            "/api/diary/entries",
+            json={"date": "2026-01-01", "meal": "lunch", "food_id": food.id, "grams": 200},
+        )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["food_name"] == "Homemade Soup"
+    assert body["food_brand"] is None
 
 
 @pytest.mark.asyncio
@@ -137,7 +163,7 @@ async def test_create_entry_404_for_unknown_food(session: AsyncSession) -> None:
 
 @pytest.mark.asyncio
 async def test_get_day_sums_totals_across_meals(session: AsyncSession) -> None:
-    food = await _make_food(session)
+    food = await _make_food(session, name="Chicken Breast", brand="Acme")
     await session.commit()
 
     client = await _authed_client()
@@ -160,6 +186,9 @@ async def test_get_day_sums_totals_across_meals(session: AsyncSession) -> None:
     assert body["totals"]["total"]["kcal"] == 300.0
     assert len(body["entries"]["breakfast"]) == 1
     assert len(body["entries"]["dinner"]) == 0
+    # GET /day joins food_name/food_brand onto each entry.
+    assert body["entries"]["breakfast"][0]["food_name"] == "Chicken Breast"
+    assert body["entries"]["breakfast"][0]["food_brand"] == "Acme"
 
 
 @pytest.mark.asyncio
@@ -182,6 +211,8 @@ async def test_patch_grams_changes_totals_on_next_get(session: AsyncSession) -> 
         assert patched.status_code == 200
         # Snapshot stays fixed -- only the scaling factor (grams) changes.
         assert patched.json()["nutriments_snapshot"] == NUTRIMENTS
+        # PATCH's response also carries food_name/food_brand.
+        assert patched.json()["food_name"] == "Test Food"
 
         after = await client.get("/api/diary/day/2026-02-02")
         assert after.json()["totals"]["total"]["kcal"] == 600.0
