@@ -93,6 +93,35 @@ describe("WeekPage", () => {
     expect(screen.getByText("2200")).toBeInTheDocument();
   });
 
+  it("colors macro totals against goal, not just kcal", () => {
+    setupMocks();
+    renderWeekPage();
+
+    // Day 1 (2026-08-24): protein_g total is 10, goal protein_g is 150 -> under goal, green.
+    const proteinUnderGoal = screen.getAllByText("10g")[0];
+    expect(proteinUnderGoal).toHaveClass("text-green-600");
+
+    // Day 2 (2026-08-25) also has protein_g 10, still under the 150 goal -> green as well.
+    // To assert the "over goal" red case, render a day whose protein_g exceeds the goal.
+    const overGoalWeekResponse: WeekResponse = {
+      ...weekResponse,
+      days: [
+        { date: "2026-08-24", total: { ...nutriments(1800), protein_g: 200 } },
+        ...weekResponse.days.slice(1),
+      ],
+    };
+    vi.mocked(useWeekDiary).mockReturnValue({
+      data: overGoalWeekResponse,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useWeekDiary>);
+
+    renderWeekPage();
+
+    const proteinOverGoal = screen.getAllByText("200g")[0];
+    expect(proteinOverGoal).toHaveClass("text-red-600");
+  });
+
   it("shows no action bar when no day is selected", () => {
     setupMocks();
     renderWeekPage();

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import type { WeekDayTotal } from "../api/queries";
+import type { Goal, WeekDayTotal } from "../api/queries";
 import { useGoal, useWeekDiary } from "../api/queries";
 import CopyDaysDialog from "../components/CopyDaysDialog";
 
@@ -33,14 +33,23 @@ interface DayCellProps {
   day: WeekDayTotal;
   index: number;
   selected: boolean;
-  goalKcal: number | null;
+  goal: Goal | null;
   onToggle: (date: string) => void;
   onCopyDay: (date: string) => void;
 }
 
-function DayCell({ day, index, selected, goalKcal, onToggle, onCopyDay }: DayCellProps) {
-  const overGoal = goalKcal !== null && day.total.kcal > goalKcal;
-  const kcalColor = goalKcal === null ? "text-slate-900" : overGoal ? "text-red-600" : "text-green-600";
+function DayCell({ day, index, selected, goal, onToggle, onCopyDay }: DayCellProps) {
+  const overGoalKcal = goal !== null && day.total.kcal > goal.kcal;
+  const kcalColor = goal === null ? "text-slate-900" : overGoalKcal ? "text-red-600" : "text-green-600";
+
+  const overGoalProtein = goal !== null && day.total.protein_g > goal.protein_g;
+  const proteinColor = goal === null ? "text-slate-700" : overGoalProtein ? "text-red-600" : "text-green-600";
+
+  const overGoalCarbs = goal !== null && day.total.carbs_g > goal.carbs_g;
+  const carbsColor = goal === null ? "text-slate-700" : overGoalCarbs ? "text-red-600" : "text-green-600";
+
+  const overGoalFat = goal !== null && day.total.fat_g > goal.fat_g;
+  const fatColor = goal === null ? "text-slate-700" : overGoalFat ? "text-red-600" : "text-green-600";
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-white p-3 shadow-sm">
@@ -74,15 +83,15 @@ function DayCell({ day, index, selected, goalKcal, onToggle, onCopyDay }: DayCel
       <dl className="grid grid-cols-3 gap-1 text-center text-[11px] text-slate-500">
         <div>
           <dt>Prot.</dt>
-          <dd className="font-medium text-slate-700">{Math.round(day.total.protein_g)}g</dd>
+          <dd className={`font-medium ${proteinColor}`}>{Math.round(day.total.protein_g)}g</dd>
         </div>
         <div>
           <dt>Carb.</dt>
-          <dd className="font-medium text-slate-700">{Math.round(day.total.carbs_g)}g</dd>
+          <dd className={`font-medium ${carbsColor}`}>{Math.round(day.total.carbs_g)}g</dd>
         </div>
         <div>
           <dt>Grassi</dt>
-          <dd className="font-medium text-slate-700">{Math.round(day.total.fat_g)}g</dd>
+          <dd className={`font-medium ${fatColor}`}>{Math.round(day.total.fat_g)}g</dd>
         </div>
       </dl>
     </div>
@@ -163,7 +172,7 @@ function WeekPage() {
               day={day}
               index={index}
               selected={selected.has(day.date)}
-              goalKcal={goal ? goal.kcal : null}
+              goal={goal ?? null}
               onToggle={toggleDay}
               onCopyDay={(date) => setCopySourceDates([date])}
             />
