@@ -1,10 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { client } from "./client";
-import { useDayDiary, useDeleteEntry, usePatchEntry } from "./queries";
+import {
+  useCreateEntry,
+  useDayDiary,
+  useDeleteEntry,
+  useFoodByBarcode,
+  useFoodSearch,
+  usePatchEntry,
+  useRecentFoods,
+} from "./queries";
 
 vi.mock("./client", async () => {
   const actual = await vi.importActual<typeof import("./client")>("./client");
@@ -13,10 +21,17 @@ vi.mock("./client", async () => {
     client: {
       ...actual.client,
       get: vi.fn(),
+      post: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
     },
   };
+});
+
+afterEach(() => {
+  // Mock call history otherwise leaks across tests in this file (e.g. a
+  // "not called" assertion in a later test seeing an earlier test's calls).
+  vi.clearAllMocks();
 });
 
 function makeWrapper() {
@@ -87,5 +102,98 @@ describe("usePatchEntry", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(client.patch).toHaveBeenCalledWith("/diary/entries/7", { grams: 150 });
+  });
+});
+
+function food(overrides: Partial<import("./queries").FoodSearchItem> = {}) {
+  return {
+    id: 1,
+    barcode: null,
+    name: "Acqua",
+    brand: null,
+    image_url: null,
+    serving_size_g: null,
+    nutriments: {
+      kcal: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      sugars_g: 0,
+      fat_g: 0,
+      sat_fat_g: 0,
+      fiber_g: 0,
+      salt_g: 0,
+    },
+    source: "cache" as const,
+    ...overrides,
+  };
+}
+
+describe("useFoodSearch", () => {
+  it("does not query while the search term is empty/whitespace", () => {
+    const { Wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useFoodSearch("   "), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(client.get).not.toHaveBeenCalled();
+  });
+
+  it("fetches /foods/search with the trimmed query and a limit", async () => {
+    vi.mocked(client.get).mockResolvedValue({ results: [food()] });
+    const { Wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useFoodSearch("  acqua  "), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.get).toHaveBeenCalledWith("/foods/search?q=acqua&limit=20");
+    expect(result.current.data?.results).toEqual([food()]);
+  });
+});
+
+describe("useRecentFoods", () => {
+  it("fetches /foods/recent", async () => {
+    vi.mocked(client.get).mockResolvedValue({ results: [food({ id: 2, name: "Pane" })] });
+    const { Wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useRecentFoods(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.get).toHaveBeenCalledWith("/foods/recent");
+    expect(result.current.data?.results).toEqual([food({ id: 2, name: "Pane" })]);
+  });
+});
+
+describe("useFoodByBarcode", () => {
+  it("calls GET on the barcode endpoint with the given code", async () => {
+    vi.mocked(client.get).mockResolvedValue({ ...food(), source: "off" });
+    const { Wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useFoodByBarcode(), { wrapper: Wrapper });
+
+    result.current.mutate("8001505005707");
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.get).toHaveBeenCalledWith("/foods/barcode/8001505005707");
+  });
+});
+
+describe("useCreateEntry", () => {
+  it("posts the entry payload and invalidates the day-diary cache", async () => {
+    vi.mocked(client.post).mockResolvedValue({});
+    const { Wrapper, queryClient } = makeWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useCreateEntry(), { wrapper: Wrapper });
+
+    result.current.mutate({ date: "2026-08-26", meal: "breakfast", food_id: 5, grams: 250 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.post).toHaveBeenCalledWith("/diary/entries", {
+      date: "2026-08-26",
+      meal: "breakfast",
+      food_id: 5,
+      grams: 250,
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["diary", "day"] });
   });
 });

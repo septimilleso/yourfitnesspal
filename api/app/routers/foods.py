@@ -91,6 +91,41 @@ async def search_foods(
     return FoodSearchResponse(results=results[:limit])
 
 
+@router.get("/recent", response_model=FoodSearchResponse)
+async def recent_foods(
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    session: AsyncSession = Depends(get_session),
+) -> FoodSearchResponse:
+    """The "Recenti" tab: distinct foods that have been logged to the diary
+    at least once, most-recently-logged first.
+
+    Reuses the existing `foods`/`diary_entries` tables (no new model) --
+    for each `food_id`, recency is the most recent `(date, id)` pair among
+    its diary entries; `id` breaks ties within the same day since entries
+    don't carry their own timestamp. Foods never logged don't appear here
+    at all (contrast with `/search`, where unlogged foods still show up,
+    just ranked lower). Reuses `FoodSearchItem`/`source="cache"` since these
+    are, by definition, always foods already sitting in the local cache.
+    """
+    last_used = (
+        sa.select(
+            DiaryEntry.food_id.label("food_id"),
+            sa.func.max(DiaryEntry.date).label("last_date"),
+            sa.func.max(DiaryEntry.id).label("last_id"),
+        )
+        .group_by(DiaryEntry.food_id)
+        .subquery()
+    )
+    stmt = (
+        sa.select(Food)
+        .join(last_used, last_used.c.food_id == Food.id)
+        .order_by(last_used.c.last_date.desc(), last_used.c.last_id.desc())
+        .limit(limit)
+    )
+    foods = (await session.execute(stmt)).scalars().all()
+    return FoodSearchResponse(results=[FoodSearchItem.from_food(f, source="cache") for f in foods])
+
+
 @router.get("/barcode/{code}", response_model=FoodOut)
 async def get_food_by_barcode(
     code: str,

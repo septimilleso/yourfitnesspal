@@ -65,6 +65,88 @@ export interface DayResponse {
   delta: GoalDelta | null;
 }
 
+/** Fields common to every food shape the foods endpoints return, and all
+ * `QuantityPicker` needs to compute a live macro preview. */
+export interface FoodBase {
+  id: number;
+  name: string;
+  brand: string | null;
+  image_url: string | null;
+  serving_size_g: number | null;
+  nutriments: Nutriments;
+}
+
+/** A single `GET /api/foods/search` or `GET /api/foods/recent` result.
+ * `source` here is a request-scoped UI badge hint ("cache" vs "off"), NOT
+ * the food's persisted origin -- see the backend's `FoodSearchItem`
+ * docstring. */
+export interface FoodSearchItem extends FoodBase {
+  barcode: string | null;
+  source: "cache" | "off";
+}
+
+/** A single `GET /api/foods/barcode/:code` result. `source` here IS the
+ * food's persisted origin ("off"/"custom") -- see the backend's `FoodOut`
+ * docstring. */
+export interface FoodOut extends FoodBase {
+  barcode: string | null;
+  source: "off" | "custom";
+}
+
+interface FoodSearchResponse {
+  results: FoodSearchItem[];
+}
+
+/** `GET /api/foods/search`. Disabled for an empty/whitespace-only query so
+ * the debounced caller in `SearchPage` doesn't fire a request per keystroke
+ * before the user has typed anything. */
+export function useFoodSearch(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ["foods", "search", trimmed] as const,
+    queryFn: () =>
+      client.get<FoodSearchResponse>(`/foods/search?q=${encodeURIComponent(trimmed)}&limit=20`),
+    enabled: trimmed.length > 0,
+  });
+}
+
+/** `GET /api/foods/recent` -- the "Recenti" tab: foods most recently logged
+ * to the diary. */
+export function useRecentFoods() {
+  return useQuery({
+    queryKey: ["foods", "recent"] as const,
+    queryFn: () => client.get<FoodSearchResponse>("/foods/recent"),
+  });
+}
+
+/** `GET /api/foods/barcode/:code`. A mutation (not a query) since it's only
+ * triggered on-demand by a scanner decode event, not on mount. */
+export function useFoodByBarcode() {
+  return useMutation({
+    mutationFn: (code: string) => client.get<FoodOut>(`/foods/barcode/${encodeURIComponent(code)}`),
+  });
+}
+
+export interface CreateEntryInput {
+  date: string;
+  meal: Meal;
+  food_id: number;
+  grams: number;
+}
+
+/** `POST /api/diary/entries`. Invalidates all cached day-diary queries on
+ * success so the Day page reflects the newly-added entry when navigated
+ * back to. */
+export function useCreateEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateEntryInput) => client.post<DiaryEntry>("/diary/entries", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["diary", "day"] });
+    },
+  });
+}
+
 function dayDiaryQueryKey(date: string) {
   return ["diary", "day", date] as const;
 }

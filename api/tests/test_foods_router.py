@@ -14,6 +14,8 @@ DB at all (the auth middleware / Pydantic validation short-circuit before
 any query runs) and so run standalone, without a database.
 """
 
+from datetime import date
+
 import httpx
 import pytest
 import respx
@@ -23,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import engine, get_session
 from app.main import app
+from app.models.diary import DiaryEntry, Meal
 from app.models.food import Food, FoodPortion
 from app.security import create_session_cookie
 
@@ -252,6 +255,82 @@ async def test_barcode_miss_returns_404(session: AsyncSession) -> None:
     assert response.status_code == 404
 
 
+# --- recent ------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_recent_foods_orders_by_most_recently_logged(session: AsyncSession) -> None:
+    """"Recent" ranks by the food's most recently-logged diary entry, newest
+    first -- not by the food's own creation order. `food_a` is logged first
+    but `food_b` is logged later (and more recently), so `food_b` must sort
+    first even though it was created after `food_a`."""
+    food_a = await _make_food(session, name="Food A", barcode="1112223330001")
+    food_c = await _make_food(session, name="Food C (never logged)", barcode="1112223330003")
+    food_b = await _make_food(session, name="Food B", barcode="1112223330002")
+    await session.flush()
+
+    session.add(
+        DiaryEntry(
+            food_id=food_a.id,
+            date=date(2026, 8, 1),
+            meal=Meal.breakfast,
+            grams=100,
+            position=0,
+            nutriments_snapshot=NUTRIMENTS,
+        )
+    )
+    session.add(
+        DiaryEntry(
+            food_id=food_b.id,
+            date=date(2026, 8, 2),
+            meal=Meal.lunch,
+            grams=50,
+            position=0,
+            nutriments_snapshot=NUTRIMENTS,
+        )
+    )
+    await session.commit()
+
+    client = await _authed_client()
+    async with client:
+        response = await client.get("/api/foods/recent")
+
+    assert response.status_code == 200
+    body = response.json()
+    names = [item["name"] for item in body["results"]]
+    # Only logged foods appear, most-recently-logged first.
+    assert names == ["Food B", "Food A"]
+    assert food_c.name not in names
+    assert all(item["source"] == "cache" for item in body["results"])
+
+
+@pytest.mark.asyncio
+async def test_recent_foods_respects_limit(session: AsyncSession) -> None:
+    for i in range(5):
+        food = await _make_food(session, name=f"Logged {i}", barcode=f"222333000{i:04d}")
+        await session.flush()
+        session.add(
+            DiaryEntry(
+                food_id=food.id,
+                date=date(2026, 8, 1 + i),
+                meal=Meal.snack,
+                grams=10,
+                position=0,
+                nutriments_snapshot=NUTRIMENTS,
+            )
+        )
+    await session.commit()
+
+    client = await _authed_client()
+    async with client:
+        response = await client.get("/api/foods/recent", params={"limit": 2})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["results"]) == 2
+    assert [item["name"] for item in body["results"]] == ["Logged 4", "Logged 3"]
+
+
 # --- custom food creation -----------------------------------------------
 
 
@@ -294,10 +373,12 @@ async def test_foods_endpoints_401_without_session_cookie() -> None:
     async with await _client() as client:
         search_response = await client.get("/api/foods/search", params={"q": "x"})
         barcode_response = await client.get("/api/foods/barcode/1234567890123")
+        recent_response = await client.get("/api/foods/recent")
         create_response = await client.post(
             "/api/foods", json={"name": "X", "nutriments": NUTRIMENTS}
         )
 
     assert search_response.status_code == 401
     assert barcode_response.status_code == 401
+    assert recent_response.status_code == 401
     assert create_response.status_code == 401
