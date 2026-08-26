@@ -47,12 +47,16 @@ async def search_foods(
     usage_count = sa.func.coalesce(usage_subq.c.usage_count, 0)
     pattern = f"%{q}%"
 
+    # Query at least LOCAL_MATCH_THRESHOLD rows so the fallback decision below
+    # reflects how many local matches actually exist, not just how many fit
+    # within a small `limit`. The final response is trimmed to `limit` later.
+    local_query_limit = max(limit, LOCAL_MATCH_THRESHOLD)
     stmt = (
         sa.select(Food)
         .outerjoin(usage_subq, usage_subq.c.food_id == Food.id)
         .where(sa.or_(Food.name.ilike(pattern), Food.brand.ilike(pattern)))
         .order_by(usage_count.desc(), sa.func.similarity(Food.name, q).desc())
-        .limit(limit)
+        .limit(local_query_limit)
     )
     local_foods = (await session.execute(stmt)).scalars().all()
 

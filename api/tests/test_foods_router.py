@@ -128,6 +128,35 @@ async def test_search_returns_local_only_when_enough_local_matches(session: Asyn
 
 
 @pytest.mark.asyncio
+async def test_search_with_small_limit_does_not_call_off_when_local_matches_plentiful(
+    session: AsyncSession,
+) -> None:
+    """Regression test: with >=LOCAL_MATCH_THRESHOLD local matches available,
+    a caller-supplied `limit` smaller than the threshold must not force an
+    OFF fallback call -- the local query should be probed at
+    max(limit, LOCAL_MATCH_THRESHOLD) before the fallback decision, then the
+    merged response trimmed down to `limit`."""
+    for i in range(10):
+        await _make_food(session, name=f"Protein Bar {i}", barcode=f"1000000000{i:03d}")
+    await session.commit()
+
+    async with respx.mock(base_url=BASE_URL) as mock:
+        off_route = mock.get("/api/v2/search")
+
+        client = await _authed_client()
+        async with client:
+            response = await client.get(
+                "/api/foods/search", params={"q": "Protein Bar", "limit": 3}
+            )
+
+    assert response.status_code == 200
+    assert off_route.called is False
+    body = response.json()
+    assert len(body["results"]) <= 3
+    assert all(item["source"] == "cache" for item in body["results"])
+
+
+@pytest.mark.asyncio
 async def test_search_falls_through_to_off_and_upserts_when_local_matches_sparse(
     session: AsyncSession,
 ) -> None:
