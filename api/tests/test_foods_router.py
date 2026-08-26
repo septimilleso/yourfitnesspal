@@ -115,7 +115,7 @@ async def test_search_returns_local_only_when_enough_local_matches(session: Asyn
     await session.commit()
 
     async with respx.mock(base_url=BASE_URL) as mock:
-        off_route = mock.get("/api/v2/search")
+        off_route = mock.get("/cgi/search.pl")
 
         client = await _authed_client()
         async with client:
@@ -144,7 +144,7 @@ async def test_search_with_small_limit_does_not_call_off_when_local_matches_plen
     await session.commit()
 
     async with respx.mock(base_url=BASE_URL) as mock:
-        off_route = mock.get("/api/v2/search")
+        off_route = mock.get("/cgi/search.pl")
 
         client = await _authed_client()
         async with client:
@@ -169,7 +169,7 @@ async def test_search_falls_through_to_off_and_upserts_when_local_matches_sparse
     products = [_off_product(f"77700000000{i}", f"Rare Snack {i}") for i in range(5)]
 
     async with respx.mock(base_url=BASE_URL) as mock:
-        mock.get("/api/v2/search").mock(
+        mock.get("/cgi/search.pl").mock(
             return_value=httpx.Response(200, json={"products": products})
         )
         client = await _authed_client()
@@ -200,7 +200,7 @@ async def test_repeated_search_second_time_returns_cache_hits_only(
     products = [_off_product(f"66600000000{i}", f"Common Snack {i}") for i in range(9)]
 
     async with respx.mock(base_url=BASE_URL) as mock:
-        off_route = mock.get("/api/v2/search").mock(
+        off_route = mock.get("/cgi/search.pl").mock(
             return_value=httpx.Response(200, json={"products": products})
         )
         client = await _authed_client()

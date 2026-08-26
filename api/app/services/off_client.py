@@ -113,13 +113,27 @@ class OffClient:
         return data.get("product")
 
     async def search(self, query: str, limit: int) -> list[dict]:
-        """Search OFF products. Returns [] on failure or if retries are
-        exhausted."""
+        """Full-text search OFF products by name/brand/keywords.
+
+        Uses the legacy `/cgi/search.pl` endpoint rather than `/api/v2/search`:
+        the v2 endpoint is a *structured* (filter-by-category/brand/nutrient)
+        search and silently ignores `search_terms`, returning an arbitrary
+        page of unrelated products instead of an error -- `/cgi/search.pl`
+        with `action=process` is OFF's actual free-text search and returns
+        the same `{"products": [...]}` shape `normalize()` already expects.
+
+        Returns [] on failure or if retries are exhausted.
+        """
         await self._search_limiter.acquire()
         response = await self._request_with_retry(
             "GET",
-            "/api/v2/search",
-            params={"search_terms": query, "page_size": limit},
+            "/cgi/search.pl",
+            params={
+                "search_terms": query,
+                "json": 1,
+                "action": "process",
+                "page_size": limit,
+            },
         )
         if response is None:
             return []

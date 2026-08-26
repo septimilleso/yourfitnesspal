@@ -217,7 +217,7 @@ async def test_get_product_gives_up_after_max_retries_of_429():
 @pytest.mark.asyncio
 async def test_search_returns_products():
     async with respx.mock(base_url=BASE_URL) as mock:
-        mock.get("/api/v2/search").mock(
+        mock.get("/cgi/search.pl").mock(
             return_value=httpx.Response(200, json={"products": [NORMAL_PRODUCT, KJ_ONLY_PRODUCT]})
         )
         client = OffClient(contact_email="test@example.com")
