@@ -45,11 +45,17 @@ goals_router = APIRouter(prefix="/api/goals", tags=["goals"])
 
 async def _active_goal(session: AsyncSession, for_date: date) -> Goal | None:
     """The `Goal` row with the largest `valid_from` that is `<= for_date`
-    (goals are append-only/historized, see `app/models/goal.py`)."""
+    (goals are append-only/historized, see `app/models/goal.py`).
+
+    Ties on `valid_from` (e.g. `put_goal` is called twice in the same day,
+    always stamping `valid_from = today`) are broken by `id DESC` so the
+    most-recently-created row deterministically wins, rather than leaving it
+    to whatever order Postgres happens to return.
+    """
     stmt = (
         sa.select(Goal)
         .where(Goal.valid_from <= for_date)
-        .order_by(Goal.valid_from.desc())
+        .order_by(Goal.valid_from.desc(), Goal.id.desc())
         .limit(1)
     )
     return await session.scalar(stmt)

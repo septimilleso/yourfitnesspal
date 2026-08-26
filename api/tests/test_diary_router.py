@@ -356,6 +356,34 @@ async def test_day_before_second_goal_reports_first_goal(session: AsyncSession) 
     assert on_and_after_second.json()["goal"]["kcal"] == 2200
 
 
+@pytest.mark.asyncio
+async def test_two_goals_same_valid_from_break_tie_by_higher_id(session: AsyncSession) -> None:
+    """`put_goal` always stamps `valid_from = today`, so setting a goal
+    twice on the same day creates two rows with an identical `valid_from`.
+    `_active_goal` must deterministically pick the most-recently-created
+    (higher `id`) row, not whatever order the DB happens to return."""
+    from app.models.goal import Goal
+
+    today = date(2026, 6, 1)
+    first = Goal(kcal=1800, protein_g=120, carbs_g=180, fat_g=50, valid_from=today)
+    session.add(first)
+    await session.flush()
+    second = Goal(kcal=2200, protein_g=160, carbs_g=220, fat_g=70, valid_from=today)
+    session.add(second)
+    await session.flush()
+    assert second.id > first.id
+    await session.commit()
+
+    client = await _authed_client()
+    async with client:
+        response = await client.get("/api/goals", params={"date": today.isoformat()})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == second.id
+    assert body["kcal"] == 2200
+
+
 # --- auth --------------------------------------------------------------
 
 
