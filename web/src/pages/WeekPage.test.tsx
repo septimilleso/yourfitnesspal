@@ -161,4 +161,30 @@ describe("WeekPage", () => {
 
     expect(screen.getByRole("dialog", { name: /copia giorni/i })).toBeInTheDocument();
   });
+
+  it("positions the action bar above the bottom nav bar, not overlapping it", async () => {
+    // Regression test: AppShell's bottom nav (`fixed inset-x-0 bottom-0`,
+    // NavLink items with `min-h-[44px]`, so the nav's rendered height is
+    // exactly 44px = Tailwind's `bottom-11` (2.75rem)) is a fixed sibling
+    // rendered after this page's own action bar. If the action bar also
+    // sits at `bottom-0`, the later-painted nav covers it and the
+    // "Copia N giorni..." button becomes unclickable. It must sit exactly
+    // one nav-height above the bottom edge, and above the nav in stacking
+    // order, so a future refactor can't silently reintroduce the overlap.
+    setupMocks();
+    const user = userEvent.setup();
+    renderWeekPage();
+
+    await user.click(screen.getByLabelText("Seleziona 2026-08-24"));
+
+    const actionBar = screen.getByRole("button", { name: /copia 1 giorno/i }).parentElement;
+    expect(actionBar).not.toBeNull();
+    expect(actionBar).toHaveClass("bottom-11");
+    expect(actionBar).not.toHaveClass("bottom-0");
+
+    // Must also declare a z-index above the nav bar's (z-10, see
+    // AppShell.tsx) as defense-in-depth against the offset alone drifting
+    // out of sync with the nav's actual height again.
+    expect(actionBar).toHaveClass("z-20");
+  });
 });

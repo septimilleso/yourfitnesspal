@@ -174,7 +174,7 @@ function WeekPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 flex justify-center bg-white p-3 shadow-[0_-1px_4px_rgba(0,0,0,0.1)]">
+        <div className="fixed inset-x-0 bottom-11 z-20 flex justify-center bg-white p-3 shadow-[0_-1px_4px_rgba(0,0,0,0.1)]">
           <button
             type="button"
             onClick={() => setCopySourceDates(Array.from(selected))}

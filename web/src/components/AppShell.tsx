@@ -26,7 +26,7 @@ function AppShell() {
       <Outlet />
       <nav
         aria-label="Navigazione principale"
-        className="fixed inset-x-0 bottom-0 flex border-t border-slate-200 bg-white"
+        className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-200 bg-white"
       >
         {TABS.map((tab) => (
           <NavLink
