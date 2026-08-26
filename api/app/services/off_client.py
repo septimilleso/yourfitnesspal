@@ -15,6 +15,7 @@ import time
 from collections import deque
 
 import httpx
+from fastapi import Request
 
 from app.config import settings
 
@@ -141,6 +142,25 @@ class OffClient:
                 return None
             return response
         return None  # pragma: no cover - unreachable, loop always returns/continues
+
+
+def get_off_client(request: Request) -> OffClient:
+    """FastAPI dependency returning the single, process-lifetime `OffClient`
+    created by `main.py`'s lifespan handler (so its rate limiters and HTTP
+    connection pool are genuinely shared across requests -- see CRITICAL 1
+    of the final-review fixes).
+
+    Falls back to lazily creating (and caching on `app.state`) a client if
+    one isn't already present -- this only happens when the app is driven
+    without running lifespan events (e.g. httpx's `ASGITransport` in tests,
+    which does not send `lifespan.startup`), so tests still get a real,
+    shared-for-the-test-process client rather than a per-call throwaway.
+    """
+    off_client = getattr(request.app.state, "off_client", None)
+    if off_client is None:
+        off_client = OffClient()
+        request.app.state.off_client = off_client
+    return off_client
 
 
 def normalize(off_product: dict) -> dict | None:

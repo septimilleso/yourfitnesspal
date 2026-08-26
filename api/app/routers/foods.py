@@ -19,7 +19,7 @@ from app.models.diary import DiaryEntry
 from app.models.food import Food
 from app.schemas.food import CustomFoodCreate, FoodOut, FoodSearchItem, FoodSearchResponse
 from app.services import food_cache
-from app.services.off_client import OffClient, normalize
+from app.services.off_client import OffClient, get_off_client, normalize
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
 
@@ -32,6 +32,7 @@ async def search_foods(
     q: Annotated[str, Query(min_length=1)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     session: AsyncSession = Depends(get_session),
+    off_client: OffClient = Depends(get_off_client),
 ) -> FoodSearchResponse:
     # Usage frequency (times a food has been logged) ranks local matches;
     # foods never logged (no row in the subquery, hence the outer join +
@@ -64,11 +65,7 @@ async def search_foods(
     seen_ids = {food.id for food in local_foods}
 
     if len(local_foods) < LOCAL_MATCH_THRESHOLD:
-        client = OffClient()
-        try:
-            off_products = await client.search(q, limit=limit)
-        finally:
-            await client.aclose()
+        off_products = await off_client.search(q, limit=limit)
 
         upserted_any = False
         for product in off_products:
@@ -130,8 +127,9 @@ async def recent_foods(
 async def get_food_by_barcode(
     code: str,
     session: AsyncSession = Depends(get_session),
+    off_client: OffClient = Depends(get_off_client),
 ) -> Food:
-    food = await food_cache.get_or_fetch_by_barcode(session, code)
+    food = await food_cache.get_or_fetch_by_barcode(session, code, client=off_client)
     if food is None:
         raise HTTPException(status_code=404, detail="food not found")
     return food

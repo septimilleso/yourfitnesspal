@@ -1,10 +1,29 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.routers import auth, diary, foods
 from app.security import verify_session_cookie
+from app.services.off_client import OffClient
 
-app = FastAPI(title="YourFitnessPal API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # A single OffClient lives for the whole process so its rate limiters
+    # (15/min product, 10/min search) and httpx connection pool are shared
+    # across every request -- see CRITICAL 1 of the final-review fixes.
+    # Constructing a fresh OffClient per-request made the rate limiting
+    # inert in production.
+    app.state.off_client = OffClient()
+    try:
+        yield
+    finally:
+        await app.state.off_client.aclose()
+
+
+app = FastAPI(title="YourFitnessPal API", lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(foods.router)
