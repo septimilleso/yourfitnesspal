@@ -37,6 +37,7 @@ function QuantityPicker({ food, date, meal, onClose, onAdded }: QuantityPickerPr
   const createEntry = useCreateEntry();
 
   const preview = scalePreview(food.nutriments, grams || 0);
+  const gramsInvalid = !(grams > 0);
   const canConfirm = grams > 0 && !createEntry.isPending;
 
   function handleConfirm() {
@@ -90,6 +91,11 @@ function QuantityPicker({ food, date, meal, onClose, onAdded }: QuantityPickerPr
             onChange={(e) => setGrams(Number(e.target.value))}
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
           />
+          {gramsInvalid && (
+            <p role="alert" className="mt-1 text-sm text-red-600">
+              Inserisci una quantità valida (maggiore di 0).
+            </p>
+          )}
         </div>
 
         <dl className="grid grid-cols-4 gap-2 text-center text-sm">

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -130,5 +130,31 @@ describe("QuantityPicker", () => {
     await user.click(screen.getByRole("button", { name: /annulla/i }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows a visible error and disables Aggiungi when grams is 0 or negative", async () => {
+    const user = userEvent.setup();
+    renderPicker();
+
+    const input = screen.getByLabelText<HTMLInputElement>(/grammi/i);
+    await user.clear(input);
+    await user.type(input, "0");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/quantità valida/i);
+    expect(screen.getByRole("button", { name: /aggiungi/i })).toBeDisabled();
+
+    // Negative numbers can't be typed keystroke-by-keystroke into a
+    // type="number" input under jsdom (the leading "-" is dropped), so set
+    // the value directly to exercise the negative-grams branch.
+    fireEvent.change(input, { target: { value: "-5" } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/quantità valida/i);
+    expect(screen.getByRole("button", { name: /aggiungi/i })).toBeDisabled();
+  });
+
+  it("does not show the grams error when grams is valid", () => {
+    renderPicker();
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
