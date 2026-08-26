@@ -48,6 +48,23 @@ async def test_login_right_key_returns_200_and_sets_cookie() -> None:
 
 
 @pytest.mark.asyncio
+async def test_login_cookie_omits_secure_flag_when_cookie_secure_disabled() -> None:
+    original = settings.cookie_secure
+    settings.cookie_secure = False
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/auth/login", json={"key": settings.app_key})
+    finally:
+        settings.cookie_secure = original
+
+    assert response.status_code == 200
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "Secure" not in set_cookie
+    assert "HttpOnly" in set_cookie
+
+
+@pytest.mark.asyncio
 async def test_valid_cookie_grants_access_to_protected_route() -> None:
     async with await _client() as client:
         login_response = await client.post("/api/auth/login", json={"key": settings.app_key})

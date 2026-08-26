@@ -93,7 +93,7 @@ async def login(payload: LoginRequest, request: Request, response: Response):
         value=token,
         max_age=SESSION_MAX_AGE_SECONDS,
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="lax",
     )
     return {"status": "ok"}
