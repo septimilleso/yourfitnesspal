@@ -37,10 +37,12 @@ const dayResponse: DayResponse = {
       {
         id: 1,
         food_id: 100,
+        food_name: "Yogurt greco",
+        food_brand: "Fage",
         date: "2026-08-26",
         meal: "breakfast",
         grams: 200,
-        portion_label: "Yogurt greco",
+        portion_label: null,
         position: 0,
         nutriments_snapshot: nutriments(100),
       },
@@ -49,6 +51,8 @@ const dayResponse: DayResponse = {
       {
         id: 2,
         food_id: 101,
+        food_name: "Pasta integrale",
+        food_brand: null,
         date: "2026-08-26",
         meal: "lunch",
         grams: 150,
@@ -131,10 +135,33 @@ describe("DayPage", () => {
     renderDayPage();
 
     expect(screen.getByText("Yogurt greco")).toBeInTheDocument();
+    expect(screen.getByText(/Fage/)).toBeInTheDocument();
+    expect(screen.getByText("Pasta integrale")).toBeInTheDocument();
     expect(screen.getByText(/Colazione/i)).toBeInTheDocument();
     expect(screen.getByText(/Pranzo/i)).toBeInTheDocument();
     expect(screen.getByText(/Cena/i)).toBeInTheDocument();
     expect(screen.getByText(/Spuntino/i)).toBeInTheDocument();
+  });
+
+  it("falls back to an Alimento #id label when food_name is missing from a malformed response", () => {
+    setupMocks({
+      data: {
+        ...dayResponse,
+        entries: {
+          ...dayResponse.entries,
+          breakfast: [
+            {
+              ...dayResponse.entries.breakfast[0],
+              // @ts-expect-error -- simulating a malformed API response
+              food_name: undefined,
+            },
+          ],
+        },
+      },
+    });
+    renderDayPage();
+
+    expect(screen.getByText("Alimento #100")).toBeInTheDocument();
   });
 
   it("renders the day totals", () => {

@@ -22,6 +22,8 @@ export interface Nutriments {
 export interface DiaryEntry {
   id: number;
   food_id: number;
+  food_name: string;
+  food_brand: string | null;
   date: string;
   meal: Meal;
   grams: number;
