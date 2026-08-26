@@ -1,7 +1,76 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
+import { defineConfig } from "vitest/config";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg"],
+      manifest: {
+        name: "YourFitnessPal",
+        short_name: "YFP",
+        description: "Track meals, macros, and weight without ads or paywalls.",
+        theme_color: "#0f172a",
+        background_color: "#f8fafc",
+        display: "standalone",
+        start_url: "/",
+        icons: [
+          {
+            src: "pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      },
+      workbox: {
+        // App shell (HTML/JS/CSS/etc.) is precached and served cache-first
+        // by the default globPatterns/navigateFallback behavior.
+        runtimeCaching: [
+          {
+            // Food search/barcode lookups: fine to serve slightly-stale
+            // results if OFF/network is briefly unavailable.
+            urlPattern: ({ url }) => url.pathname.startsWith("/api/foods/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-foods-cache",
+              networkTimeoutSeconds: 4,
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
+  server: {
+    // For `npm run dev`: forward API calls to a locally-running backend
+    // (e.g. `uvicorn app.main:app` on its default port). In the Docker
+    // Compose deployment, nginx handles this proxying instead (see
+    // nginx.conf) and this block is unused.
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    css: true,
+  },
 });
