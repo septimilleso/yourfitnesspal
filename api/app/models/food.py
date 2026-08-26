@@ -10,10 +10,13 @@ from app.models.base import Base
 class Food(Base):
     """A food item, sourced from Open Food Facts (by barcode) or entered manually.
 
-    `nutriments` holds the normalized per-100g macro/micronutrient values used
-    by the app (kcal, protein_g, carbs_g, sugars_g, fat_g, sat_fat_g,
+    `source` is `"off"` for OFF-fetched foods or `"custom"` for manually
+    entered ones. `nutriments` holds the normalized per-100g macro/micronutrient
+    values used by the app (kcal, protein_g, carbs_g, sugars_g, fat_g, sat_fat_g,
     fiber_g, salt_g). `raw` retains the original OFF API payload
-    for reference/debugging and is null for manually-entered foods.
+    for reference/debugging and is null for manually-entered foods. `fetched_at`
+    records when the row was last fetched/refreshed from OFF (null for
+    `source="custom"` foods).
     """
 
     __tablename__ = "foods"
@@ -36,12 +39,21 @@ class Food(Base):
     barcode: Mapped[str | None] = mapped_column(
         sa.String(64), unique=True, index=True, nullable=True
     )
+    source: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     brand: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    serving_size_g: Mapped[float | None] = mapped_column(sa.Numeric(10, 2), nullable=True)
     nutriments: Mapped[dict] = mapped_column(JSONB, nullable=False)
     raw: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+    fetched_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+        nullable=False,
     )
 
     portions: Mapped[list["FoodPortion"]] = relationship(
@@ -61,10 +73,13 @@ class FoodPortion(Base):
     food_id: Mapped[int] = mapped_column(
         sa.ForeignKey("foods.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    label: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     grams: Mapped[float] = mapped_column(sa.Numeric(10, 2), nullable=False)
+    is_default: Mapped[bool] = mapped_column(
+        sa.Boolean, server_default=sa.false(), nullable=False, default=False
+    )
 
     food: Mapped["Food"] = relationship(back_populates="portions")
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
-        return f"FoodPortion(id={self.id!r}, food_id={self.food_id!r}, name={self.name!r})"
+        return f"FoodPortion(id={self.id!r}, food_id={self.food_id!r}, label={self.label!r})"

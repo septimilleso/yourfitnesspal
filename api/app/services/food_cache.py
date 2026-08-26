@@ -12,7 +12,7 @@ from app.models.food import Food, FoodPortion
 from app.services.off_client import OffClient, normalize
 
 STALE_AFTER = timedelta(days=90)
-DEFAULT_PORTION_NAME = "100 g"
+DEFAULT_PORTION_LABEL = "100 g"
 DEFAULT_PORTION_GRAMS = 100
 
 
@@ -52,27 +52,37 @@ async def get_or_fetch_by_barcode(
     if normalized is None:
         return existing
 
+    now = datetime.now(UTC)
+
     if existing is not None:
         existing.name = normalized["name"]
         existing.brand = normalized["brand"]
+        existing.image_url = normalized["image_url"]
+        existing.serving_size_g = normalized["serving_size_g"]
         existing.nutriments = normalized["nutriments"]
         existing.raw = off_product
+        existing.fetched_at = now
         food = existing
     else:
         food = Food(
             barcode=barcode,
+            source="off",
             name=normalized["name"],
             brand=normalized["brand"],
+            image_url=normalized["image_url"],
+            serving_size_g=normalized["serving_size_g"],
             nutriments=normalized["nutriments"],
             raw=off_product,
+            fetched_at=now,
         )
         session.add(food)
         await session.flush()  # assign food.id before creating the portion
         session.add(
             FoodPortion(
                 food_id=food.id,
-                name=DEFAULT_PORTION_NAME,
+                label=DEFAULT_PORTION_LABEL,
                 grams=DEFAULT_PORTION_GRAMS,
+                is_default=True,
             )
         )
 
@@ -81,18 +91,11 @@ async def get_or_fetch_by_barcode(
 
 
 def _is_fresh(food: Food) -> bool:
-    """A cached food is fresh if it was created within the last 90 days.
-
-    `Food` has no dedicated `fetched_at`/`updated_at` column (see Task 3's
-    model), so `created_at` is used as a `fetched_at` proxy. Note this is
-    imperfect: `created_at` is a Postgres `server_default=now()` set once
-    at INSERT and is not bumped when an existing stale row is
-    refreshed above, so a food will be re-fetched from OFF on every call
-    once it passes the 90-day mark, even immediately after a successful
-    refresh. Fixing this properly needs an `updated_at`/`fetched_at`
-    column on `Food`, which is out of this task's scope (model changes
-    belong to Task 3)."""
-    fetched_at = food.created_at
+    """A cached food is fresh if it was fetched from OFF within the last 90
+    days."""
+    fetched_at = food.fetched_at
+    if fetched_at is None:
+        return False
     if fetched_at.tzinfo is None:
         fetched_at = fetched_at.replace(tzinfo=UTC)
     return datetime.now(UTC) - fetched_at < STALE_AFTER

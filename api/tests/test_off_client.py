@@ -26,6 +26,7 @@ NORMAL_PRODUCT = {
     "brands": "Testco",
     "image_url": "https://images.example/test-bar.jpg",
     "serving_size": "45 g",
+    "serving_quantity": 45,
     "nutriments": {
         "energy-kcal_100g": 250,
         "proteins_100g": 10.5,
@@ -71,6 +72,8 @@ def test_normalize_normal_kcal_product():
     assert result["barcode"] == "0000000000017"
     assert result["name"] == "Test Bar"
     assert result["brand"] == "Testco"
+    assert result["image_url"] == "https://images.example/test-bar.jpg"
+    assert result["serving_size_g"] == 45
     assert result["nutriments"] == {
         "kcal": 250,
         "protein_g": 10.5,
@@ -99,6 +102,24 @@ def test_normalize_kj_only_product_converts_to_kcal():
     assert result is not None
     # 1046.0 / 4.184 = 250.0 kcal
     assert result["nutriments"]["kcal"] == pytest.approx(250.0, abs=0.1)
+
+
+def test_normalize_missing_serving_quantity_and_image_are_none():
+    """KJ_ONLY_PRODUCT has no `image_url`/`serving_quantity` fields, and
+    `serving_size` (a free-text string) is never parsed into grams."""
+    result = normalize(KJ_ONLY_PRODUCT)
+
+    assert result is not None
+    assert result["image_url"] is None
+    assert result["serving_size_g"] is None
+
+
+def test_normalize_non_numeric_serving_quantity_is_ignored():
+    product = {**NORMAL_PRODUCT, "serving_quantity": "not-a-number"}
+    result = normalize(product)
+
+    assert result is not None
+    assert result["serving_size_g"] is None
 
 
 def test_normalize_missing_nutriments_returns_none():

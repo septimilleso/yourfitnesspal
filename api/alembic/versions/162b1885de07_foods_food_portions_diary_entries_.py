@@ -33,12 +33,16 @@ def upgrade() -> None:
         "foods",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("barcode", sa.String(length=64), nullable=True),
+        sa.Column("source", sa.String(length=16), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("brand", sa.String(length=255), nullable=True),
+        sa.Column("image_url", sa.String(length=500), nullable=True),
+        sa.Column("serving_size_g", sa.Numeric(10, 2), nullable=True),
         sa.Column("nutriments", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("raw", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "created_at",
+            "updated_at",
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),
             nullable=False,
@@ -68,8 +72,11 @@ def upgrade() -> None:
         "food_portions",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("food_id", sa.Integer(), nullable=False),
-        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("label", sa.String(length=100), nullable=False),
         sa.Column("grams", sa.Numeric(10, 2), nullable=False),
+        sa.Column(
+            "is_default", sa.Boolean(), server_default=sa.false(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["food_id"], ["foods.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_food_portions_food_id", "food_portions", ["food_id"])
@@ -81,7 +88,6 @@ def upgrade() -> None:
         "diary_entries",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("food_id", sa.Integer(), nullable=False),
-        sa.Column("portion_id", sa.Integer(), nullable=True),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column(
             "meal",
@@ -90,16 +96,11 @@ def upgrade() -> None:
             ),
             nullable=False,
         ),
-        sa.Column("quantity", sa.Numeric(10, 2), nullable=False),
+        sa.Column("grams", sa.Numeric(10, 2), nullable=False),
+        sa.Column("portion_label", sa.String(length=100), nullable=True),
+        sa.Column("position", sa.Integer(), nullable=False),
         sa.Column("nutriments_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
         sa.ForeignKeyConstraint(["food_id"], ["foods.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["portion_id"], ["food_portions.id"], ondelete="SET NULL"),
     )
     op.create_index("ix_diary_entries_food_id", "diary_entries", ["food_id"])
     op.create_index("ix_diary_entries_date", "diary_entries", ["date"])
@@ -107,16 +108,11 @@ def upgrade() -> None:
     op.create_table(
         "goals",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("calories", sa.Integer(), nullable=False),
+        sa.Column("kcal", sa.Integer(), nullable=False),
         sa.Column("protein_g", sa.Numeric(6, 2), nullable=False),
         sa.Column("carbs_g", sa.Numeric(6, 2), nullable=False),
         sa.Column("fat_g", sa.Numeric(6, 2), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("valid_from", sa.Date(), nullable=False),
     )
 
     op.create_table(

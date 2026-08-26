@@ -48,6 +48,7 @@ async def session():
 async def test_food_and_portion_round_trip(session: AsyncSession) -> None:
     food = Food(
         barcode="0000000000017",
+        source="off",
         name="Test Bar",
         brand="Testco",
         nutriments=NUTRIMENTS,
@@ -56,7 +57,7 @@ async def test_food_and_portion_round_trip(session: AsyncSession) -> None:
     session.add(food)
     await session.flush()
 
-    portion = FoodPortion(food_id=food.id, name="1 bar", grams=45)
+    portion = FoodPortion(food_id=food.id, label="1 bar", grams=45, is_default=True)
     session.add(portion)
     await session.commit()
 
@@ -72,7 +73,7 @@ async def test_food_and_portion_round_trip(session: AsyncSession) -> None:
         select(FoodPortion).where(FoodPortion.food_id == food.id)
     )
     assert fetched_portion is not None
-    assert fetched_portion.name == "1 bar"
+    assert fetched_portion.label == "1 bar"
     assert float(fetched_portion.grams) == 45.0
 
 
@@ -82,6 +83,7 @@ async def test_diary_entry_references_food_and_snapshots_nutriments(
 ) -> None:
     food = Food(
         barcode="0000000000024",
+        source="off",
         name="Test Yogurt",
         brand="Testco",
         nutriments=NUTRIMENTS,
@@ -94,7 +96,9 @@ async def test_diary_entry_references_food_and_snapshots_nutriments(
         food_id=food.id,
         date="2026-08-26",
         meal=Meal.breakfast,
-        quantity=1,
+        grams=1,
+        portion_label="1 vasetto (125 g)",
+        position=0,
         nutriments_snapshot=NUTRIMENTS,
     )
     session.add(entry)

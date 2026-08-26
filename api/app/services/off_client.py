@@ -145,8 +145,12 @@ class OffClient:
 
 def normalize(off_product: dict) -> dict | None:
     """Normalize a raw OFF product payload into this app's internal shape:
-    barcode/name/brand/image/serving_size plus the 8 per-100g nutriment
-    fields the `Food.nutriments` JSONB column expects.
+    barcode/name/brand/image_url/serving_size_g plus the 8 per-100g
+    nutriment fields the `Food.nutriments` JSONB column expects.
+
+    `serving_size_g` is taken from OFF's `serving_quantity` field only when
+    it's present and numeric -- `serving_size` is a free-text string (e.g.
+    "30 g") and is not parsed.
 
     Returns None if kcal cannot be determined (neither `energy-kcal_100g`
     nor `energy-kj_100g` is present) -- such a product isn't usable.
@@ -170,11 +174,15 @@ def normalize(off_product: dict) -> dict | None:
     if isinstance(brand, str) and brand:
         brand = brand.split(",")[0].strip()
 
+    serving_size_g = off_product.get("serving_quantity")
+    if not isinstance(serving_size_g, int | float):
+        serving_size_g = None
+
     return {
         "barcode": off_product.get("code"),
         "name": off_product.get("product_name") or "",
         "brand": brand or None,
-        "image": off_product.get("image_url"),
-        "serving_size": off_product.get("serving_size"),
+        "image_url": off_product.get("image_url"),
+        "serving_size_g": serving_size_g,
         "nutriments": normalized_nutriments,
     }
