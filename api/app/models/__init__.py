@@ -1,9 +1,16 @@
-from sqlalchemy.orm import DeclarativeBase
+from app.models.base import Base
+from app.models.diary import DiaryEntry, Meal
+from app.models.food import Food, FoodPortion
+from app.models.goal import Goal
+from app.models.meal_template import MealTemplate, MealTemplateItem
 
-
-class Base(DeclarativeBase):
-    """Shared declarative base for all ORM models."""
-
-
-# Model modules are imported here (in later tasks) so that Alembic's
-# autogenerate can discover them via Base.metadata.
+__all__ = [
+    "Base",
+    "DiaryEntry",
+    "Food",
+    "FoodPortion",
+    "Goal",
+    "Meal",
+    "MealTemplate",
+    "MealTemplateItem",
+]
