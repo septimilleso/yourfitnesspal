@@ -1,8 +1,11 @@
+import time
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.config import settings
 from app.main import app
+from app.security import SESSION_MAX_AGE_SECONDS, create_session_cookie
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +70,27 @@ async def test_missing_cookie_denied_on_protected_route() -> None:
 async def test_tampered_cookie_denied_on_protected_route() -> None:
     async with await _client() as client:
         client.cookies.set("session", "tampered.invalid-signature")
+        response = await client.get("/api/health/protected")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "unauthorized"}
+
+
+@pytest.mark.asyncio
+async def test_expired_cookie_denied_on_protected_route(monkeypatch) -> None:
+    # Sign a cookie as if it were created just past SESSION_MAX_AGE_SECONDS
+    # ago, by faking time.time() (used by itsdangerous.TimestampSigner) at
+    # sign-time only. The signature itself stays valid -- only the embedded
+    # timestamp is stale -- so this exercises SignatureExpired specifically,
+    # not BadSignature.
+    real_time = time.time
+    stale_time = real_time() - SESSION_MAX_AGE_SECONDS - 60
+    monkeypatch.setattr("itsdangerous.timed.time.time", lambda: stale_time)
+    expired_token = create_session_cookie("authenticated")
+    monkeypatch.setattr("itsdangerous.timed.time.time", real_time)
+
+    async with await _client() as client:
+        client.cookies.set("session", expired_token)
         response = await client.get("/api/health/protected")
 
     assert response.status_code == 401
