@@ -188,6 +188,39 @@ async def test_patch_grams_changes_totals_on_next_get(session: AsyncSession) -> 
 
 
 @pytest.mark.asyncio
+async def test_patch_meal_change_recomputes_position_in_new_meal_group(
+    session: AsyncSession,
+) -> None:
+    food = await _make_food(session)
+    await session.commit()
+
+    client = await _authed_client()
+    async with client:
+        first = await client.post(
+            "/api/diary/entries",
+            json={"date": "2026-02-04", "meal": "breakfast", "food_id": food.id, "grams": 100},
+        )
+        second = await client.post(
+            "/api/diary/entries",
+            json={"date": "2026-02-04", "meal": "breakfast", "food_id": food.id, "grams": 100},
+        )
+        assert first.json()["position"] == 0
+        assert second.json()["position"] == 1
+        entry_id = second.json()["id"]
+
+        patched = await client.patch(
+            f"/api/diary/entries/{entry_id}", json={"meal": "lunch"}
+        )
+
+    assert patched.status_code == 200
+    body = patched.json()
+    # Moving to a meal with no existing entries appends at the start of
+    # that (date, meal) group -- same rule POST uses for a fresh entry.
+    assert body["meal"] == "lunch"
+    assert body["position"] == 0
+
+
+@pytest.mark.asyncio
 async def test_delete_entry_removes_it_and_adjusts_totals(session: AsyncSession) -> None:
     food = await _make_food(session)
     await session.commit()
