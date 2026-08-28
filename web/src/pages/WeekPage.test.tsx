@@ -163,14 +163,16 @@ describe("WeekPage", () => {
   });
 
   it("positions the action bar above the bottom nav bar, not overlapping it", async () => {
-    // Regression test: AppShell's bottom nav (`fixed inset-x-0 bottom-0`,
-    // NavLink items with `min-h-[44px]`, so the nav's rendered height is
-    // exactly 44px = Tailwind's `bottom-11` (2.75rem)) is a fixed sibling
-    // rendered after this page's own action bar. If the action bar also
-    // sits at `bottom-0`, the later-painted nav covers it and the
-    // "Copia N giorni..." button becomes unclickable. It must sit exactly
-    // one nav-height above the bottom edge, and above the nav in stacking
-    // order, so a future refactor can't silently reintroduce the overlap.
+    // Regression test: AppShell's bottom nav (`fixed inset-x-0 bottom-0`)
+    // is a fixed sibling rendered after this page's own action bar. If the
+    // action bar also sits at `bottom-0`, the later-painted nav covers it
+    // and the "Copia N giorni..." button becomes unclickable.
+    //
+    // The offset is the shared `--nav-height` custom property (index.css) --
+    // the nav's own content height PLUS `env(safe-area-inset-bottom)` --
+    // rather than a hard-coded Tailwind step. A literal height cannot
+    // express the iPhone home-indicator inset, and drifts out of sync the
+    // moment the nav's height changes.
     setupMocks();
     const user = userEvent.setup();
     renderWeekPage();
@@ -179,12 +181,12 @@ describe("WeekPage", () => {
 
     const actionBar = screen.getByRole("button", { name: /copia 1 giorno/i }).parentElement;
     expect(actionBar).not.toBeNull();
-    expect(actionBar).toHaveClass("bottom-11");
+    expect(actionBar).toHaveClass("bottom-[var(--nav-height)]");
     expect(actionBar).not.toHaveClass("bottom-0");
 
-    // Must also declare a z-index above the nav bar's (z-10, see
+    // Must also declare a z-index above the nav bar's (z-30, see
     // AppShell.tsx) as defense-in-depth against the offset alone drifting
     // out of sync with the nav's actual height again.
-    expect(actionBar).toHaveClass("z-20");
+    expect(actionBar).toHaveClass("z-40");
   });
 });

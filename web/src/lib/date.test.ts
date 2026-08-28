@@ -12,7 +12,13 @@ process.env.TZ = "Europe/Rome";
 
 import { describe, expect, it } from "vitest";
 
-import { shiftIsoDate, todayIso } from "./date";
+import {
+  formatIsoDateLong,
+  formatIsoDateShort,
+  relativeDayLabel,
+  shiftIsoDate,
+  todayIso,
+} from "./date";
 
 describe("shiftIsoDate", () => {
   it("moves exactly one calendar day forward across the boundary that previously broke", () => {
@@ -48,5 +54,45 @@ describe("shiftIsoDate", () => {
 describe("todayIso", () => {
   it("returns an ISO-formatted (YYYY-MM-DD) date string", () => {
     expect(todayIso()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("formatIsoDateLong", () => {
+  // Same Europe/Rome pinning as above: an ISO calendar date must render as
+  // the day it names, never the day before, so the formatter has to read it
+  // as UTC just like `shiftIsoDate` writes it.
+  it("renders the weekday and day named by the ISO date, not the one before it", () => {
+    // 2026-08-26 is a Wednesday.
+    expect(formatIsoDateLong("2026-08-26")).toMatch(/mercoled/i);
+    expect(formatIsoDateLong("2026-08-26")).toContain("26");
+    expect(formatIsoDateLong("2026-08-26")).toMatch(/agosto/i);
+  });
+
+  it("includes the year only for dates outside the current year", () => {
+    const thisYear = todayIso().slice(0, 4);
+    expect(formatIsoDateLong(`${thisYear}-03-04`)).not.toContain(thisYear);
+    expect(formatIsoDateLong("1999-03-04")).toContain("1999");
+  });
+});
+
+describe("formatIsoDateShort", () => {
+  it("renders a compact day + month for the date named", () => {
+    const formatted = formatIsoDateShort("2026-08-26");
+    expect(formatted).toContain("26");
+    expect(formatted).toMatch(/ago/i);
+  });
+});
+
+describe("relativeDayLabel", () => {
+  it("labels today, yesterday and tomorrow", () => {
+    const today = todayIso();
+    expect(relativeDayLabel(today)).toBe("Oggi");
+    expect(relativeDayLabel(shiftIsoDate(today, -1))).toBe("Ieri");
+    expect(relativeDayLabel(shiftIsoDate(today, 1))).toBe("Domani");
+  });
+
+  it("returns null for any date further away", () => {
+    expect(relativeDayLabel(shiftIsoDate(todayIso(), 2))).toBeNull();
+    expect(relativeDayLabel(shiftIsoDate(todayIso(), -30))).toBeNull();
   });
 });

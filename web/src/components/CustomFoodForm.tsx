@@ -83,83 +83,92 @@ function CustomFoodForm({ onCreated }: { onCreated: (food: FoodOut) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg bg-white p-4 shadow-sm">
-      <div>
-        <label htmlFor="custom-food-name" className="block text-sm font-medium text-slate-700">
-          Nome
-        </label>
-        <input
-          id="custom-food-name"
-          type="text"
-          required
-          value={form.name}
-          onChange={(e) => handleChange("name", e.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-        />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Two grouped cards -- identity, then the nutrition label -- instead
+          of one long undifferentiated column of eleven inputs. */}
+      <div className="card space-y-4 p-4">
+        <div>
+          <label htmlFor="custom-food-name" className="field-label">
+            Nome
+          </label>
+          <input
+            id="custom-food-name"
+            type="text"
+            required
+            value={form.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            className="field mt-1.5"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="custom-food-brand" className="field-label">
+            Marca (opzionale)
+          </label>
+          <input
+            id="custom-food-brand"
+            type="text"
+            value={form.brand}
+            onChange={(e) => handleChange("brand", e.target.value)}
+            className="field mt-1.5"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="custom-food-serving" className="field-label">
+            Porzione predefinita in grammi (opzionale)
+          </label>
+          <input
+            id="custom-food-serving"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="any"
+            value={form.serving_size_g}
+            onChange={(e) => handleChange("serving_size_g", e.target.value)}
+            className="field mt-1.5"
+          />
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="custom-food-brand" className="block text-sm font-medium text-slate-700">
-          Marca (opzionale)
-        </label>
-        <input
-          id="custom-food-brand"
-          type="text"
-          value={form.brand}
-          onChange={(e) => handleChange("brand", e.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-        />
+      <div className="card overflow-hidden">
+        <p className="border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px] font-medium text-slate-600">
+          Valori nutrizionali per 100&nbsp;g, come su un&apos;etichetta alimentare.
+        </p>
+        <div className="divide-y divide-slate-100">
+          {NUTRIMENT_FIELDS.map(({ key, label }) => (
+            <div key={key} className="flex items-center gap-3 px-4 py-2">
+              <label
+                htmlFor={`custom-food-${key}`}
+                className="flex-1 text-[15px] font-medium text-slate-700"
+              >
+                {label}
+              </label>
+              <input
+                id={`custom-food-${key}`}
+                type="number"
+                required
+                inputMode="decimal"
+                min="0"
+                step="any"
+                value={form[key]}
+                onChange={(e) => handleChange(key, e.target.value)}
+                className="min-h-[44px] w-24 rounded-xl border border-slate-300 px-3 py-2 text-right text-base tabular-nums focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="custom-food-serving" className="block text-sm font-medium text-slate-700">
-          Porzione predefinita in grammi (opzionale)
-        </label>
-        <input
-          id="custom-food-serving"
-          type="number"
-          min="0"
-          step="any"
-          value={form.serving_size_g}
-          onChange={(e) => handleChange("serving_size_g", e.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-        />
-      </div>
-
-      <p className="text-xs text-slate-500">
-        Valori nutrizionali per 100&nbsp;g, come su un&apos;etichetta alimentare.
-      </p>
-
-      <div className="grid grid-cols-2 gap-3">
-        {NUTRIMENT_FIELDS.map(({ key, label }) => (
-          <div key={key}>
-            <label htmlFor={`custom-food-${key}`} className="block text-xs font-medium text-slate-700">
-              {label}
-            </label>
-            <input
-              id={`custom-food-${key}`}
-              type="number"
-              required
-              min="0"
-              step="any"
-              value={form[key]}
-              onChange={(e) => handleChange(key, e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            />
-          </div>
-        ))}
-      </div>
-
-      <button
-        type="submit"
-        disabled={createFood.isPending}
-        className="w-full rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-      >
+      <button type="submit" disabled={createFood.isPending} className="btn-primary w-full">
         {createFood.isPending ? "Salvataggio..." : "Crea alimento"}
       </button>
 
       {createFood.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
           Errore nella creazione dell&apos;alimento.
         </p>
       )}

@@ -120,22 +120,44 @@ function Scanner({ onDetect, onClose }: ScannerProps) {
     <div
       role="dialog"
       aria-label="Scanner codice a barre"
-      className="fixed inset-0 z-20 flex flex-col items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4"
+      style={{ paddingTop: "calc(1rem + var(--safe-top))", paddingBottom: "calc(1rem + var(--safe-bottom))" }}
     >
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <video ref={videoRef} data-testid="scanner-video" muted playsInline className="w-full max-w-sm rounded" />
+      <p className="mb-3 text-center text-sm text-white/70">
+        Inquadra il codice a barre del prodotto.
+      </p>
+
+      <div className="relative w-full max-w-sm">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          ref={videoRef}
+          data-testid="scanner-video"
+          muted
+          playsInline
+          className="w-full rounded-2xl bg-black"
+        />
+        {/* Corner brackets: without a target frame the camera view gives no
+            hint about where to hold the barcode. */}
+        <div aria-hidden className="pointer-events-none absolute inset-6 rounded-xl">
+          <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-white/80" />
+          <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-xl border-r-2 border-t-2 border-white/80" />
+          <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-xl border-b-2 border-l-2 border-white/80" />
+          <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-white/80" />
+        </div>
+      </div>
+
       {usingFallback && (
-        <p className="mt-2 text-sm text-white">Modalità compatibilità attiva.</p>
+        <p className="mt-3 text-sm text-white/70">Modalità compatibilità attiva.</p>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-400">
+        <p role="alert" className="mt-3 text-sm text-red-400">
           {error}
         </p>
       )}
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 rounded bg-white px-4 py-2 text-sm font-medium text-slate-900"
+        className="mt-5 w-full max-w-sm rounded-xl bg-white/95 py-3 text-[15px] font-semibold text-slate-900 active:bg-white/80"
       >
         Chiudi
       </button>

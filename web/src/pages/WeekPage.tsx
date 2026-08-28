@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import type { Goal, WeekDayTotal } from "../api/queries";
 import { useGoal, useWeekDiary } from "../api/queries";
 import CopyDaysDialog from "../components/CopyDaysDialog";
-import { shiftIsoDate, todayIso } from "../lib/date";
+import { formatIsoDateShort, shiftIsoDate, todayIso } from "../lib/date";
 
 /** Monday of the ISO week containing `iso` (`getUTCDay()` is 0=Sunday..6=
  * Saturday). UTC throughout -- consistent with `shiftIsoDate`, so this
@@ -44,49 +44,89 @@ function DayCell({ day, index, selected, goal, onToggle, onCopyDay }: DayCellPro
   const overGoalFat = goal !== null && day.total.fat_g > goal.fat_g;
   const fatColor = goal === null ? "text-slate-700" : overGoalFat ? "text-red-600" : "text-green-600";
 
+  const isToday = day.date === todayIso();
+  /* Share of the kcal goal, as a hairline meter under the header -- the
+     grid used to be seven blocks of identical numbers with no way to
+     compare days at a glance. */
+  const kcalPct = goal && goal.kcal > 0 ? Math.min((day.total.kcal / goal.kcal) * 100, 100) : 0;
+
   return (
-    <div className="flex flex-col gap-2 rounded-lg bg-white p-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2">
+    <div
+      className={`card overflow-hidden transition ${
+        selected ? "ring-2 ring-brand-500 ring-offset-2 ring-offset-app" : ""
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+        <label className="flex min-h-[44px] flex-1 items-center gap-2.5">
           <input
             type="checkbox"
             checked={selected}
             onChange={() => onToggle(day.date)}
             aria-label={`Seleziona ${day.date}`}
           />
-          <span className="text-xs font-medium text-slate-500">
-            {dayLabel(index)} {day.date.slice(5)}
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-[15px] font-semibold text-slate-900">{dayLabel(index)}</span>
+            <span className="text-[13px] text-slate-500">{formatIsoDateShort(day.date)}</span>
+            {isToday && (
+              <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-700">
+                Oggi
+              </span>
+            )}
           </span>
         </label>
         <button
           type="button"
           onClick={() => onCopyDay(day.date)}
           aria-label={`Altre azioni ${day.date}`}
-          className="rounded px-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg text-slate-400 active:bg-slate-100 active:text-slate-700"
         >
           &#8943;
         </button>
       </div>
 
-      <div>
-        <span className={`text-lg font-bold ${kcalColor}`}>{Math.round(day.total.kcal)}</span>
-        <span className="ml-1 text-xs text-slate-400">kcal</span>
-      </div>
+      <div className="space-y-2 px-3 py-3">
+        <div className="flex items-baseline justify-between">
+          <span>
+            <span className={`text-2xl font-bold tabular-nums ${kcalColor}`}>
+              {Math.round(day.total.kcal)}
+            </span>
+            <span className="ml-1 text-xs text-slate-400">kcal</span>
+          </span>
+          {goal !== null && (
+            <span className="text-xs text-slate-400">obiettivo {Math.round(goal.kcal)}</span>
+          )}
+        </div>
 
-      <dl className="grid grid-cols-3 gap-1 text-center text-[11px] text-slate-500">
-        <div>
-          <dt>Prot.</dt>
-          <dd className={`font-medium ${proteinColor}`}>{Math.round(day.total.protein_g)}g</dd>
-        </div>
-        <div>
-          <dt>Carb.</dt>
-          <dd className={`font-medium ${carbsColor}`}>{Math.round(day.total.carbs_g)}g</dd>
-        </div>
-        <div>
-          <dt>Grassi</dt>
-          <dd className={`font-medium ${fatColor}`}>{Math.round(day.total.fat_g)}g</dd>
-        </div>
-      </dl>
+        {goal !== null && (
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full ${overGoalKcal ? "bg-red-500" : "bg-brand-500"}`}
+              style={{ width: `${overGoalKcal ? 100 : kcalPct}%` }}
+            />
+          </div>
+        )}
+
+        <dl className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 pt-2 text-center text-[11px] text-slate-500">
+          <div>
+            <dt>Prot.</dt>
+            <dd className={`text-sm font-semibold tabular-nums ${proteinColor}`}>
+              {Math.round(day.total.protein_g)}g
+            </dd>
+          </div>
+          <div>
+            <dt>Carb.</dt>
+            <dd className={`text-sm font-semibold tabular-nums ${carbsColor}`}>
+              {Math.round(day.total.carbs_g)}g
+            </dd>
+          </div>
+          <div>
+            <dt>Grassi</dt>
+            <dd className={`text-sm font-semibold tabular-nums ${fatColor}`}>
+              {Math.round(day.total.fat_g)}g
+            </dd>
+          </div>
+        </dl>
+      </div>
     </div>
   );
 }
@@ -131,54 +171,73 @@ function WeekPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <header className="flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Settimana precedente"
-          onClick={() => goToWeek(shiftIsoDate(start, -7))}
-          className="rounded px-3 py-1 text-xl text-slate-600 hover:bg-slate-100"
-        >
-          &lsaquo;
-        </button>
-        <h1 className="text-lg font-bold text-slate-900">
-          {start} &ndash; {shiftIsoDate(start, 6)}
-        </h1>
-        <button
-          type="button"
-          aria-label="Settimana successiva"
-          onClick={() => goToWeek(shiftIsoDate(start, 7))}
-          className="rounded px-3 py-1 text-xl text-slate-600 hover:bg-slate-100"
-        >
-          &rsaquo;
-        </button>
+    <div>
+      <header className="app-header">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-2 py-2">
+          <button
+            type="button"
+            aria-label="Settimana precedente"
+            onClick={() => goToWeek(shiftIsoDate(start, -7))}
+            className="btn-ghost w-11 text-2xl leading-none"
+          >
+            &lsaquo;
+          </button>
+          <div className="min-w-0 text-center">
+            <h1 className="truncate text-[17px] font-semibold text-slate-900">
+              {formatIsoDateShort(start)} &ndash; {formatIsoDateShort(shiftIsoDate(start, 6))}
+            </h1>
+            <span className="text-xs text-slate-400">Settimana</span>
+          </div>
+          <button
+            type="button"
+            aria-label="Settimana successiva"
+            onClick={() => goToWeek(shiftIsoDate(start, 7))}
+            className="btn-ghost w-11 text-2xl leading-none"
+          >
+            &rsaquo;
+          </button>
+        </div>
       </header>
 
-      {isLoading && <p className="text-center text-slate-500">Caricamento...</p>}
-      {isError && <p className="text-center text-red-600">Errore nel caricamento della settimana.</p>}
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
+        {isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
+        {isError && (
+          <p className="card px-4 py-3 text-center text-sm text-red-600">
+            Errore nel caricamento della settimana.
+          </p>
+        )}
 
-      {data && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {data.days.map((day, index) => (
-            <DayCell
-              key={day.date}
-              day={day}
-              index={index}
-              selected={selected.has(day.date)}
-              goal={goal ?? null}
-              onToggle={toggleDay}
-              onCopyDay={(date) => setCopySourceDates([date])}
-            />
-          ))}
-        </div>
-      )}
+        {data && (
+          <>
+            <p className="section-label">Seleziona i giorni da copiare</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {data.days.map((day, index) => (
+                <DayCell
+                  key={day.date}
+                  day={day}
+                  index={index}
+                  selected={selected.has(day.date)}
+                  goal={goal ?? null}
+                  onToggle={toggleDay}
+                  onCopyDay={(date) => setCopySourceDates([date])}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
+      {/* Floating action bar. It must clear AppShell's fixed tab bar, which
+          is painted after it and would otherwise cover the button: offset by
+          the shared `--nav-height` (tab bar + iPhone home-indicator safe
+          area) rather than a hard-coded height that silently drifts, plus a
+          z-index above the nav's as defense in depth. */}
       {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-11 z-20 flex justify-center bg-white p-3 shadow-[0_-1px_4px_rgba(0,0,0,0.1)]">
+        <div className="fixed inset-x-0 bottom-[var(--nav-height)] z-40 flex justify-center border-t border-slate-200/80 bg-white/90 p-3 shadow-sheet backdrop-blur-xl">
           <button
             type="button"
             onClick={() => setCopySourceDates(Array.from(selected))}
-            className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="btn-primary w-full max-w-sm"
           >
             Copia {selected.size} {selected.size === 1 ? "giorno" : "giorni"}&hellip;
           </button>

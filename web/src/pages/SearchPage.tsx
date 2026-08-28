@@ -6,7 +6,7 @@ import { useFoodByBarcode, useFoodSearch, useRecentFoods } from "../api/queries"
 import CustomFoodForm from "../components/CustomFoodForm";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
-import { todayIso } from "../lib/date";
+import { formatIsoDateLong, todayIso } from "../lib/date";
 
 type Tab = "recenti" | "preferiti" | "miei";
 
@@ -14,6 +14,13 @@ const TAB_LABELS: Record<Tab, string> = {
   recenti: "Recenti",
   preferiti: "Preferiti",
   miei: "I miei cibi",
+};
+
+const MEAL_LABELS: Record<Meal, string> = {
+  breakfast: "Colazione",
+  lunch: "Pranzo",
+  dinner: "Cena",
+  snack: "Spuntino",
 };
 
 /** How long to wait after the last keystroke before firing the search
@@ -34,7 +41,10 @@ function asSearchItem(food: FoodOut): FoodSearchItem {
  * Recenti/Preferiti/I miei cibi tab strip, and a barcode scanner shortcut
  * that both resolve into the same `QuantityPicker` confirm-and-log flow.
  * `date`/`meal` come from the URL (set by `MealSection`'s "+ Aggiungi"
- * links) and are threaded straight through to the created diary entry. */
+ * links) and are threaded straight through to the created diary entry --
+ * and are now echoed in the header, since landing here from a meal's
+ * "+ Aggiungi" otherwise gave no confirmation of which meal is being
+ * logged. */
 function SearchPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -81,93 +91,161 @@ function SearchPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-bold text-slate-900">Aggiungi alimento</h1>
-        <button
-          type="button"
-          onClick={() => setScannerOpen(true)}
-          aria-label="Scansiona codice a barre"
-          className="rounded border border-slate-300 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Scansiona
-        </button>
+    <div>
+      <header className="app-header">
+        <div className="mx-auto max-w-2xl px-4 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[17px] font-semibold text-slate-900">Aggiungi alimento</h1>
+              <p className="truncate text-xs text-slate-500">
+                {MEAL_LABELS[meal]} &middot;{" "}
+                <span className="capitalize">{formatIsoDateLong(date)}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              aria-label="Scansiona codice a barre"
+              className="btn-secondary shrink-0 px-3"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M20 7V5a1 1 0 0 0-1-1h-2M20 17v2a1 1 0 0 1-1 1h-2M7 8v8M10 8v8M13 8v8M17 8v8" />
+              </svg>
+              Scansiona
+            </button>
+          </div>
+
+          {/* Search field: pill-shaped with a leading glyph, the iOS
+              UISearchBar shape users expect at the top of a list. */}
+          <div className="mt-2 pb-2">
+            <div className="relative">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cerca un alimento..."
+                aria-label="Cerca un alimento"
+                className="field rounded-full border-transparent bg-slate-100 pl-10"
+              />
+            </div>
+          </div>
+        </div>
       </header>
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cerca un alimento..."
-        aria-label="Cerca un alimento"
-        className="w-full rounded border border-slate-300 px-3 py-2"
-      />
-
-      {!isSearching && (
-        <div role="tablist" aria-label="Sorgente risultati" className="flex gap-4 border-b border-slate-200 text-sm">
-          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 px-1 pb-2 font-medium ${
-                tab === t ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500"
-              }`}
-            >
-              {TAB_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {scanError && (
-        <p role="alert" className="text-sm text-red-600">
-          {scanError}
-        </p>
-      )}
-
-      {offUnavailable && (
-        <p role="alert" className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          OpenFoodFacts è momentaneamente non raggiungibile: qui sotto vedi solo i risultati già in
-          cache. Riprova tra poco.
-        </p>
-      )}
-
-      {!isSearching && tab === "preferiti" && (
-        <p className="text-sm text-slate-400">I preferiti arriveranno presto.</p>
-      )}
-      {!isSearching && tab === "miei" && (
-        <CustomFoodForm onCreated={(food) => setSelectedFood(asSearchItem(food))} />
-      )}
-
-      {(isSearching || tab === "recenti") && (
-        <ul className="divide-y divide-slate-100">
-          {results.map((food) => (
-            <li key={food.id}>
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
+        {!isSearching && (
+          /* Segmented control (iOS), not an underlined web tab strip. */
+          <div
+            role="tablist"
+            aria-label="Sorgente risultati"
+            className="flex gap-1 rounded-xl bg-slate-200/70 p-1 text-sm"
+          >
+            {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
               <button
+                key={t}
                 type="button"
-                onClick={() => setSelectedFood(food)}
-                className="flex w-full items-center justify-between gap-3 py-2 text-left hover:bg-slate-50"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={`min-h-[36px] flex-1 rounded-lg px-2 font-medium transition ${
+                  tab === t
+                    ? "bg-white text-slate-900 shadow-card"
+                    : "text-slate-500 active:text-slate-700"
+                }`}
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-slate-900">{food.name}</span>
-                  {food.brand && <span className="block truncate text-xs text-slate-500">{food.brand}</span>}
-                </span>
-                <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs uppercase text-slate-500">
-                  {food.source === "off" ? "OFF" : "cache"}
-                </span>
+                {TAB_LABELS[t]}
               </button>
-            </li>
-          ))}
-          {results.length === 0 && !isLoadingResults && !offUnavailable && (
-            <p className="py-2 text-sm text-slate-400">Nessun risultato.</p>
-          )}
-        </ul>
-      )}
+            ))}
+          </div>
+        )}
 
-      {isLoadingResults && <p className="text-sm text-slate-500">Caricamento...</p>}
+        {scanError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {scanError}
+          </p>
+        )}
+
+        {offUnavailable && (
+          <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            OpenFoodFacts è momentaneamente non raggiungibile: qui sotto vedi solo i risultati già in
+            cache. Riprova tra poco.
+          </p>
+        )}
+
+        {!isSearching && tab === "preferiti" && (
+          <p className="card px-4 py-6 text-center text-sm text-slate-400">
+            I preferiti arriveranno presto.
+          </p>
+        )}
+        {!isSearching && tab === "miei" && (
+          <CustomFoodForm onCreated={(food) => setSelectedFood(asSearchItem(food))} />
+        )}
+
+        {(isSearching || tab === "recenti") && (
+          <>
+            <h2 className="section-label">{isSearching ? "Risultati" : "Recenti"}</h2>
+            <ul className="card divide-y divide-slate-100 overflow-hidden">
+              {results.map((food) => (
+                <li key={food.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFood(food)}
+                    className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 py-2.5 text-left active:bg-slate-50"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium text-slate-900">
+                        {food.name}
+                      </span>
+                      {food.brand && (
+                        <span className="block truncate text-[13px] text-slate-500">{food.brand}</span>
+                      )}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        food.source === "off"
+                          ? "bg-brand-50 text-brand-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {food.source === "off" ? "OFF" : "cache"}
+                    </span>
+                    <span aria-hidden className="shrink-0 text-lg leading-none text-slate-300">
+                      &rsaquo;
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {results.length === 0 && !isLoadingResults && !offUnavailable && (
+                <p className="px-4 py-6 text-center text-sm text-slate-400">
+                  {isSearching ? "Nessun risultato." : "Nessun alimento recente."}
+                </p>
+              )}
+            </ul>
+          </>
+        )}
+
+        {isLoadingResults && <p className="text-center text-sm text-slate-500">Caricamento...</p>}
+      </div>
 
       {scannerOpen && <Scanner onDetect={handleDetect} onClose={() => setScannerOpen(false)} />}
 

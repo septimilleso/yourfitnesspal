@@ -53,10 +53,22 @@ describe("AppShell", () => {
     expect(screen.getByText("Week Page")).toBeInTheDocument();
   });
 
+  it("pads the nav bar past the iOS home indicator instead of sitting on it", () => {
+    renderShell();
+
+    const nav = screen.getByRole("navigation", { name: /navigazione principale/i });
+    // `env(safe-area-inset-bottom)` is mirrored into `--safe-bottom` (see
+    // index.css) and applied as the bar's own bottom padding. Without it the
+    // tab labels render underneath the iPhone's home-indicator bar in the
+    // installed PWA -- unreadable, and the bottom ~20px of taps land on the
+    // system gesture area instead of the tabs.
+    expect(nav).toHaveClass("pb-[var(--safe-bottom)]");
+  });
+
   it("marks the active tab", () => {
     renderShell("/week");
 
-    expect(screen.getByRole("link", { name: "Settimana" })).toHaveClass("text-slate-900");
+    expect(screen.getByRole("link", { name: "Settimana" })).toHaveClass("text-brand-600");
     expect(screen.getByRole("link", { name: "Giorno" })).toHaveClass("text-slate-400");
   });
 });

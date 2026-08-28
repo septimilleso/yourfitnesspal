@@ -3,17 +3,22 @@ import { useSearchParams } from "react-router-dom";
 import { MEALS, useDayDiary, useDeleteEntry } from "../api/queries";
 import DaySummary from "../components/DaySummary";
 import MealSection from "../components/MealSection";
-import { shiftIsoDate, todayIso } from "../lib/date";
+import { formatIsoDateLong, relativeDayLabel, shiftIsoDate, todayIso } from "../lib/date";
 
 /** Day diary: date header with prev/next navigation (date lives in the
  * `?date=` search param), calorie/macro summary, and one `MealSection` per
- * meal slot. */
+ * meal slot. The header is sticky and safe-area padded (see `.app-header`
+ * in index.css) so the date stays reachable while scrolling a long day and
+ * never slides under the iPhone status bar. */
 function DayPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const date = searchParams.get("date") ?? todayIso();
 
   const { data, isLoading, isError } = useDayDiary(date);
   const deleteEntry = useDeleteEntry();
+
+  const relative = relativeDayLabel(date);
+  const isToday = date === todayIso();
 
   function goToDate(nextDate: string) {
     setSearchParams((prev) => {
@@ -30,47 +35,82 @@ function DayPage() {
   const deletingId = deleteEntry.isPending ? (deleteEntry.variables ?? null) : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <header className="flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Giorno precedente"
-          onClick={() => goToDate(shiftIsoDate(date, -1))}
-          className="rounded px-3 py-1 text-xl text-slate-600 hover:bg-slate-100"
-        >
-          &lsaquo;
-        </button>
-        <h1 className="text-lg font-bold text-slate-900">{date}</h1>
-        <button
-          type="button"
-          aria-label="Giorno successivo"
-          onClick={() => goToDate(shiftIsoDate(date, 1))}
-          className="rounded px-3 py-1 text-xl text-slate-600 hover:bg-slate-100"
-        >
-          &rsaquo;
-        </button>
+    <div>
+      <header className="app-header">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-2 py-2">
+          <button
+            type="button"
+            aria-label="Giorno precedente"
+            onClick={() => goToDate(shiftIsoDate(date, -1))}
+            className="btn-ghost w-11 text-2xl leading-none"
+          >
+            &lsaquo;
+          </button>
+
+          <div className="min-w-0 text-center">
+            <h1 className="truncate text-[17px] font-semibold capitalize text-slate-900">
+              {formatIsoDateLong(date)}
+            </h1>
+            {relative && (
+              <span className="text-xs font-medium text-brand-600">{relative}</span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Giorno successivo"
+            onClick={() => goToDate(shiftIsoDate(date, 1))}
+            className="btn-ghost w-11 text-2xl leading-none"
+          >
+            &rsaquo;
+          </button>
+        </div>
+
+        {/* "Oggi" escape hatch: after paging back a few days, returning
+            otherwise means tapping ‹/› the same number of times. */}
+        {!isToday && (
+          <div className="mx-auto flex max-w-2xl justify-center pb-2">
+            <button
+              type="button"
+              onClick={() => goToDate(todayIso())}
+              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 active:bg-slate-200"
+            >
+              Torna a oggi
+            </button>
+          </div>
+        )}
       </header>
 
-      {isLoading && <p className="text-center text-slate-500">Caricamento...</p>}
-      {isError && <p className="text-center text-red-600">Errore nel caricamento del diario.</p>}
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
+        {isLoading && (
+          <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>
+        )}
+        {isError && (
+          <p className="card px-4 py-3 text-center text-sm text-red-600">
+            Errore nel caricamento del diario.
+          </p>
+        )}
 
-      {data && (
-        <>
-          <DaySummary total={data.totals.total} goal={data.goal} />
-          <div className="space-y-3">
-            {MEALS.map((meal) => (
-              <MealSection
-                key={meal}
-                meal={meal}
-                date={date}
-                entries={data.entries[meal] ?? []}
-                onDelete={handleDelete}
-                deletingId={deletingId}
-              />
-            ))}
-          </div>
-        </>
-      )}
+        {data && (
+          <>
+            <DaySummary total={data.totals.total} goal={data.goal} />
+
+            <div className="space-y-3">
+              <h2 className="section-label">Pasti</h2>
+              {MEALS.map((meal) => (
+                <MealSection
+                  key={meal}
+                  meal={meal}
+                  date={date}
+                  entries={data.entries[meal] ?? []}
+                  onDelete={handleDelete}
+                  deletingId={deletingId}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

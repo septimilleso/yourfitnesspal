@@ -1,3 +1,117 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* iOS safe areas. These resolve to 0px everywhere except iOS/Android
+       devices with a notch or gesture bar -- and only when index.html sets
+       `viewport-fit=cover`. Mirrored into plain custom properties so they
+       can be composed inside `calc()` in Tailwind arbitrary values. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* Height of AppShell's fixed bottom tab bar, INCLUDING the bottom safe
+       area it pads itself with. Anything that has to sit above the tab bar
+       (page content, the Week action bar) offsets by this, so the two can
+       never drift out of sync the way a hard-coded `bottom-11` did. */
+    --nav-content-height: 3.25rem;
+    --nav-height: calc(var(--nav-content-height) + var(--safe-bottom));
+  }
+
+  html {
+    /* Stop iOS from bumping font sizes when the device is rotated. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-app text-slate-900 antialiased;
+    /* No rubber-band bounce past the app shell in the installed PWA -- an
+       overscrolled body reveals a blank strip above/below the fixed bars. */
+    overscroll-behavior-y: none;
+    /* iOS taps shouldn't flash a grey box over buttons/links. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Safari zooms the whole page in when a focused input's font-size is under
+     16px. Every form control is therefore pinned to 16px on small screens
+     and only allowed to shrink from `sm:` up (i.e. never on a phone). */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Native-feeling controls: iOS renders checkboxes/radios tiny and grey by
+     default, which made the Week page's day selection nearly invisible. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply h-5 w-5 shrink-0 accent-brand-600;
+  }
+
+  /* The system UI font stack -- San Francisco on iOS/macOS -- so the app
+     reads as a native app there instead of as a web page. */
+  html,
+  body {
+    font-family: theme("fontFamily.sans");
+  }
+}
+
+@layer components {
+  /* A grouped-list card: the app's single container primitive. The hairline
+     border (not just a shadow) is what actually separates a card from the
+     page background on a phone screen in daylight. */
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-card;
+  }
+
+  /* Section label above a card, iOS Settings style. */
+  .section-label {
+    @apply px-1 text-[13px] font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  /* A row inside a card. `divide-y divide-slate-100` on the parent list
+     supplies the separators between consecutive rows. */
+  .row {
+    @apply flex min-h-[44px] items-center gap-3 px-4 py-3;
+  }
+
+  /* Text inputs / selects. 44px min target height = Apple's HIG minimum. */
+  .field {
+    @apply min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base
+      placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2
+      focus:ring-brand-500/30;
+  }
+
+  .field-label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+
+  /* Filled primary action. */
+  .btn-primary {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-4
+      text-[15px] font-semibold text-white transition active:scale-[0.98] active:bg-brand-700
+      disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  /* Bordered secondary action. */
+  .btn-secondary {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border
+      border-slate-300 bg-white px-4 text-[15px] font-medium text-slate-700 transition
+      active:scale-[0.98] active:bg-slate-100 disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  /* Borderless tertiary action (Annulla, ‹ / › steppers). */
+  .btn-ghost {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-3 text-[15px]
+      font-medium text-slate-600 transition active:bg-slate-100
+      disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  /* Translucent, blurred bar pinned to the top of a page -- the iOS large
+     navigation bar treatment. Pads itself past the status bar / notch. */
+  .app-header {
+    @apply sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl;
+    padding-top: var(--safe-top);
+  }
+}

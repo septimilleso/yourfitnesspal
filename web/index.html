@@ -1,8 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` lets the page paint under the iPhone's rounded
+         corners / notch / home indicator, and is what makes the
+         `env(safe-area-inset-*)` values in index.css non-zero. Without it,
+         the fixed bottom nav renders *under* the home-indicator bar. Zoom is
+         deliberately left enabled (no `maximum-scale`/`user-scalable=no`). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- iOS standalone (added-to-home-screen) behavior: full-screen web app
+         with a dark-on-light status bar that blends into the app's header. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="YourFitnessPal" />
+    <meta name="format-detection" content="telephone=no" />
     <title>YourFitnessPal</title>
   </head>
   <body>

@@ -10,6 +10,15 @@ const MEAL_LABELS: Record<Meal, string> = {
   snack: "Spuntino",
 };
 
+/** A glyph per meal slot, so the four sections are distinguishable while
+ * scrolling without reading each heading. */
+const MEAL_ICONS: Record<Meal, string> = {
+  breakfast: "☕️",
+  lunch: "🍝",
+  dinner: "🍽️",
+  snack: "🍎",
+};
+
 interface MealSectionProps {
   meal: Meal;
   date: string;
@@ -25,16 +34,21 @@ function MealSection({ meal, date, entries, onDelete, deletingId }: MealSectionP
   );
 
   return (
-    <section className="rounded-lg bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+    <section className="card overflow-hidden">
+      {/* Header band: tinted + hairline-separated from the rows below, so a
+          meal's boundary is visible even when it holds a single food. */}
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900">
+          <span aria-hidden>{MEAL_ICONS[meal]}</span>
           {MEAL_LABELS[meal]}
         </h2>
-        <span className="text-sm text-slate-500">{Math.round(kcalTotal)} kcal</span>
+        <span className="tabular-nums text-sm font-medium text-slate-500">
+          {Math.round(kcalTotal)} kcal
+        </span>
       </div>
 
       {entries.length > 0 ? (
-        <ul className="mt-2">
+        <ul className="divide-y divide-slate-100">
           {entries.map((entry) => (
             <FoodRow
               key={entry.id}
@@ -45,14 +59,20 @@ function MealSection({ meal, date, entries, onDelete, deletingId }: MealSectionP
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-sm text-slate-400">Nessun alimento registrato</p>
+        <p className="px-4 py-3 text-sm text-slate-400">Nessun alimento registrato</p>
       )}
 
       <Link
         to={`/search?date=${date}&meal=${meal}`}
-        className="mt-3 inline-block text-sm font-medium text-slate-900 hover:underline"
+        className="flex min-h-[44px] items-center gap-2 border-t border-slate-100 px-4 text-[15px] font-semibold text-brand-600 active:bg-brand-50"
       >
-        + Aggiungi
+        <span
+          aria-hidden
+          className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-sm leading-none text-brand-700"
+        >
+          +
+        </span>
+        Aggiungi
       </Link>
     </section>
   );

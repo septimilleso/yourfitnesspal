@@ -41,3 +41,48 @@ export function shiftIsoDate(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
+
+/** An ISO calendar date as a UTC `Date`, for formatting only. Same
+ * `Date.UTC` construction as `shiftIsoDate` -- every reader below must pair
+ * it with `timeZone: "UTC"` so the rendered day never shifts. */
+function isoToUtcDate(iso: string): Date {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** Human-readable Italian rendering of an ISO date, e.g.
+ * "mercoledì 26 agosto". A raw "2026-08-26" in the day header told the user
+ * nothing about which weekday they were looking at. Year is omitted (it's
+ * noise for a diary that lives around today) unless it isn't `todayIso()`'s
+ * year. */
+export function formatIsoDateLong(iso: string): string {
+  const showYear = iso.slice(0, 4) !== todayIso().slice(0, 4);
+  return new Intl.DateTimeFormat("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(showYear ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  }).format(isoToUtcDate(iso));
+}
+
+/** Compact Italian rendering, e.g. "26 ago" -- for the week range header,
+ * where two dates share one line. */
+export function formatIsoDateShort(iso: string): string {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(isoToUtcDate(iso));
+}
+
+/** Relative label for a date near today ("Oggi"/"Ieri"/"Domani"), or `null`
+ * when it's further away. Drives the small pill in the day header, so the
+ * user can tell at a glance that they're not on today any more. */
+export function relativeDayLabel(iso: string): string | null {
+  const today = todayIso();
+  if (iso === today) return "Oggi";
+  if (iso === shiftIsoDate(today, -1)) return "Ieri";
+  if (iso === shiftIsoDate(today, 1)) return "Domani";
+  return null;
+}

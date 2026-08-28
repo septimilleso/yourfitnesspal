@@ -24,14 +24,24 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-8 shadow"
-      >
-        <h1 className="text-2xl font-bold text-slate-900">YourFitnessPal</h1>
-        <div className="space-y-1">
-          <label htmlFor="app-key" className="block text-sm font-medium text-slate-700">
+    <div
+      className="flex min-h-screen items-center justify-center bg-app px-4"
+      style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
+    >
+      <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-5 p-6">
+        <div className="space-y-1 text-center">
+          <div
+            aria-hidden
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl"
+          >
+            🥗
+          </div>
+          <h1 className="pt-2 text-2xl font-bold tracking-tight text-slate-900">YourFitnessPal</h1>
+          <p className="text-sm text-slate-500">Inserisci la chiave di accesso.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="app-key" className="field-label">
             Key
           </label>
           <input
@@ -41,20 +51,19 @@ function LoginPage() {
             autoComplete="current-password"
             value={key}
             onChange={(event) => setKey(event.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none"
+            className="field"
             required
           />
         </div>
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
             {error}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={submitting} className="btn-primary w-full">
           {submitting ? "Logging in..." : "Log in"}
         </button>
       </form>
