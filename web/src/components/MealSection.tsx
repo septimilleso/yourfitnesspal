@@ -17,11 +17,12 @@ interface MealSectionProps {
   meal: Meal;
   date: string;
   entries: DiaryEntry[];
+  onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: number) => void;
   deletingId: number | null;
 }
 
-function MealSection({ meal, date, entries, onDelete, deletingId }: MealSectionProps) {
+function MealSection({ meal, date, entries, onEdit, onDelete, deletingId }: MealSectionProps) {
   const kcalTotal = entries.reduce(
     (sum, entry) => sum + (entry.nutriments_snapshot.kcal * entry.grams) / 100,
     0,
@@ -47,6 +48,7 @@ function MealSection({ meal, date, entries, onDelete, deletingId }: MealSectionP
             <FoodRow
               key={entry.id}
               entry={entry}
+              onEdit={onEdit}
               onDelete={onDelete}
               deleting={deletingId === entry.id}
             />

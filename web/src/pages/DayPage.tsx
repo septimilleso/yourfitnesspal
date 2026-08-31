@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { MEALS, useDayDiary, useDeleteEntry } from "../api/queries";
+import { MEALS, useDayDiary, useDeleteEntry, type DiaryEntry } from "../api/queries";
 import DaySummary from "../components/DaySummary";
+import EditEntrySheet from "../components/EditEntrySheet";
 import MealSection from "../components/MealSection";
 import { formatIsoDateLong, relativeDayLabel, shiftIsoDate, todayIso } from "../lib/date";
 
@@ -16,6 +18,7 @@ function DayPage() {
 
   const { data, isLoading, isError } = useDayDiary(date);
   const deleteEntry = useDeleteEntry();
+  const [editing, setEditing] = useState<DiaryEntry | null>(null);
 
   const relative = relativeDayLabel(date);
   const isToday = date === todayIso();
@@ -103,6 +106,7 @@ function DayPage() {
                   meal={meal}
                   date={date}
                   entries={data.entries[meal] ?? []}
+                  onEdit={setEditing}
                   onDelete={handleDelete}
                   deletingId={deletingId}
                 />
@@ -111,6 +115,8 @@ function DayPage() {
           </>
         )}
       </div>
+
+      {editing && <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

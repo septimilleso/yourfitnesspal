@@ -193,6 +193,27 @@ describe("DayPage", () => {
     expect(breakfastLink?.getAttribute("href")).toBe("/search?date=2026-08-26&meal=breakfast");
   });
 
+  it("opens the edit sheet when a food row's name is tapped", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderDayPage();
+
+    await user.click(screen.getByRole("button", { name: /modifica yogurt greco/i }));
+
+    expect(screen.getByRole("dialog", { name: /modifica yogurt greco/i })).toBeInTheDocument();
+  });
+
+  it("closes the edit sheet when Annulla is clicked", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderDayPage();
+
+    await user.click(screen.getByRole("button", { name: /modifica yogurt greco/i }));
+    await user.click(screen.getByRole("button", { name: /annulla/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("shows a loading state while the query is pending", () => {
     setupMocks({ data: undefined, isLoading: true } as Partial<ReturnType<typeof useDayDiary>>);
     renderDayPage();
