@@ -2,6 +2,7 @@ import type { DiaryEntry } from "../api/queries";
 
 interface FoodRowProps {
   entry: DiaryEntry;
+  onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: number) => void;
   deleting?: boolean;
 }
@@ -11,21 +12,31 @@ interface FoodRowProps {
  * related `Food` row), so this shows the real name -- the `Alimento #id`
  * fallback only fires for a malformed/incomplete API response.
  *
+ * The name/detail area is a button: tapping it opens the edit sheet
+ * (`onEdit`). The trash button is a sibling, not nested, so its tap never
+ * also triggers `onEdit`.
+ *
  * Row separators come from the parent `<ul>`'s `divide-y`, so a row never
  * has to know whether it's the last one. */
-function FoodRow({ entry, onDelete, deleting = false }: FoodRowProps) {
+function FoodRow({ entry, onEdit, onDelete, deleting = false }: FoodRowProps) {
   const kcal = Math.round((entry.nutriments_snapshot.kcal * entry.grams) / 100);
   const label = entry.food_name || `Alimento #${entry.food_id}`;
 
   return (
     <li className="flex min-h-[52px] items-center gap-3 px-4 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium text-slate-900">{label}</p>
-        <p className="truncate text-[13px] text-slate-500">
+      <button
+        type="button"
+        onClick={() => onEdit(entry)}
+        disabled={deleting}
+        aria-label={`Modifica ${label}`}
+        className="min-w-0 flex-1 text-left disabled:opacity-40"
+      >
+        <span className="block truncate text-[15px] font-medium text-slate-900">{label}</span>
+        <span className="block truncate text-[13px] text-slate-500">
           {entry.food_brand ? `${entry.food_brand} · ` : ""}
           {entry.grams} g
-        </p>
-      </div>
+        </span>
+      </button>
 
       <span className="shrink-0 tabular-nums text-[15px] font-semibold text-slate-700">
         {kcal}
