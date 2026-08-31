@@ -1,14 +1,8 @@
 import { Link } from "react-router-dom";
 
 import type { DiaryEntry, Meal } from "../api/queries";
+import { MEAL_LABELS } from "../lib/meals";
 import FoodRow from "./FoodRow";
-
-const MEAL_LABELS: Record<Meal, string> = {
-  breakfast: "Colazione",
-  lunch: "Pranzo",
-  dinner: "Cena",
-  snack: "Spuntino",
-};
 
 /** A glyph per meal slot, so the four sections are distinguishable while
  * scrolling without reading each heading. */
