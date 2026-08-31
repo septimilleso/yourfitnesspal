@@ -7,6 +7,7 @@ import CustomFoodForm from "../components/CustomFoodForm";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
 import { formatIsoDateLong, todayIso } from "../lib/date";
+import { MEAL_LABELS } from "../lib/meals";
 
 type Tab = "recenti" | "preferiti" | "miei";
 
@@ -14,13 +15,6 @@ const TAB_LABELS: Record<Tab, string> = {
   recenti: "Recenti",
   preferiti: "Preferiti",
   miei: "I miei cibi",
-};
-
-const MEAL_LABELS: Record<Meal, string> = {
-  breakfast: "Colazione",
-  lunch: "Pranzo",
-  dinner: "Cena",
-  snack: "Spuntino",
 };
 
 /** How long to wait after the last keystroke before firing the search

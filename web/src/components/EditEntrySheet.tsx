@@ -38,7 +38,7 @@ function EditEntrySheet({ entry, onClose }: EditEntrySheetProps) {
       aria-label={`Modifica ${label}`}
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] sm:items-center sm:p-4"
     >
-      <div className="w-full max-w-sm overflow-hidden rounded-t-sheet bg-white shadow-sheet sm:rounded-sheet">
+      <div className="max-h-[85vh] w-full max-w-sm overflow-hidden rounded-t-sheet bg-white shadow-sheet sm:rounded-sheet">
         <div className="flex justify-center pt-2 sm:hidden">
           <span aria-hidden className="h-1.5 w-10 rounded-full bg-slate-300" />
         </div>
@@ -48,7 +48,7 @@ function EditEntrySheet({ entry, onClose }: EditEntrySheetProps) {
           {entry.food_brand && <p className="text-[13px] text-slate-500">{entry.food_brand}</p>}
         </div>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 overflow-y-auto px-5 py-4">
           <div>
             <span className="field-label">Pasto</span>
             <div className="mt-1.5 flex flex-wrap gap-2">

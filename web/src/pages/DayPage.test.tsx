@@ -97,12 +97,20 @@ const deleteMutate = vi.fn();
 const patchMutate = vi.fn();
 
 function setupMocks(overrides: Partial<ReturnType<typeof useDayDiary>> = {}) {
-  vi.mocked(useDayDiary).mockReturnValue({
-    data: dayResponse,
-    isLoading: false,
-    isError: false,
-    ...overrides,
-  } as ReturnType<typeof useDayDiary>);
+  // Return the seeded day only for its own date; any other date is empty, so
+  // navigating away while the edit sheet is open drops the edit target.
+  vi.mocked(useDayDiary).mockImplementation(
+    (date: string) =>
+      ({
+        data:
+          date === "2026-08-26"
+            ? dayResponse
+            : { ...dayResponse, entries: { breakfast: [], lunch: [], dinner: [], snack: [] } },
+        isLoading: false,
+        isError: false,
+        ...overrides,
+      }) as ReturnType<typeof useDayDiary>,
+  );
   vi.mocked(useDeleteEntry).mockReturnValue({
     mutate: deleteMutate,
     isPending: false,
@@ -210,6 +218,19 @@ describe("DayPage", () => {
 
     await user.click(screen.getByRole("button", { name: /modifica yogurt greco/i }));
     await user.click(screen.getByRole("button", { name: /annulla/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the edit sheet when navigating to another date", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderDayPage();
+
+    await user.click(screen.getByRole("button", { name: /modifica yogurt greco/i }));
+    expect(screen.getByRole("dialog", { name: /modifica yogurt greco/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /giorno successivo/i }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

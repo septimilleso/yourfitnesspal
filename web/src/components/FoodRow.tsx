@@ -28,8 +28,8 @@ function FoodRow({ entry, onEdit, onDelete, deleting = false }: FoodRowProps) {
         type="button"
         onClick={() => onEdit(entry)}
         disabled={deleting}
-        aria-label={`Modifica ${label}`}
-        className="min-w-0 flex-1 text-left disabled:opacity-40"
+        aria-label={`Modifica ${label}, ${entry.grams} g`}
+        className="min-w-0 flex-1 text-left active:opacity-60 disabled:opacity-40"
       >
         <span className="block truncate text-[15px] font-medium text-slate-900">{label}</span>
         <span className="block truncate text-[13px] text-slate-500">

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { client } from "../api/client";
 import type { DiaryEntry } from "../api/queries";
@@ -49,6 +49,8 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof EditEntryShe
 }
 
 describe("EditEntrySheet", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("prefills grams and the current meal, and shows the scaled preview", () => {
     renderSheet();
 
@@ -130,6 +132,24 @@ describe("EditEntrySheet", () => {
 
     expect(await screen.findByText(/errore durante il salvataggio/i)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("disables Salva while the patch is in flight", async () => {
+    let resolvePatch!: (value: unknown) => void;
+    vi.mocked(client.patch).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePatch = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderSheet();
+
+    const salva = screen.getByRole("button", { name: /salva/i });
+    await user.click(salva);
+
+    expect(salva).toBeDisabled();
+
+    resolvePatch({});
   });
 
   it("calls onClose when Annulla is clicked", async () => {

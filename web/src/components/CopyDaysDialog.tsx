@@ -2,13 +2,7 @@ import { useState } from "react";
 
 import type { Meal } from "../api/queries";
 import { MEALS, useCopyDays } from "../api/queries";
-
-const MEAL_LABELS: Record<Meal, string> = {
-  breakfast: "Colazione",
-  lunch: "Pranzo",
-  dinner: "Cena",
-  snack: "Spuntino",
-};
+import { MEAL_LABELS } from "../lib/meals";
 
 interface CopyDaysDialogProps {
   /** ISO dates being copied -- either every checked day from the Week

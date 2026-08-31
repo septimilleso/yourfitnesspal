@@ -49,6 +49,14 @@ describe("FoodRow", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
+  it("includes the grams in the edit button's accessible name", () => {
+    renderRow();
+
+    expect(
+      screen.getByRole("button", { name: /modifica pasta integrale, 150 g/i }),
+    ).toBeInTheDocument();
+  });
+
   it("still calls onDelete with the entry id when the trash button is tapped", async () => {
     const user = userEvent.setup();
     const { onEdit, onDelete } = renderRow();
