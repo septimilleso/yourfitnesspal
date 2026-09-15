@@ -7,8 +7,9 @@ by users other than the bootstrap administrator.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "4f2a6d9e8b31"
 down_revision: str | Sequence[str] | None = "162b1885de07"
@@ -18,7 +19,10 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    role_enum = postgresql.ENUM("admin", "user", name="user_role")
+    # create_type=False: the type is created explicitly below, once. Without
+    # this, create_table() below tries to CREATE TYPE again for the "role"
+    # column and fails with DuplicateObjectError on a fresh database.
+    role_enum = postgresql.ENUM("admin", "user", name="user_role", create_type=False)
     role_enum.create(bind, checkfirst=True)
 
     op.create_table(
