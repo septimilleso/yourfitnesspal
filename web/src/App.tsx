@@ -1,20 +1,41 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { ApiError } from "./api/client";
+import { AuthProvider } from "./auth/AuthContext";
+import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
 import AppShell from "./components/AppShell";
+import AccountPage from "./pages/AccountPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
 import LoginPage from "./pages/LoginPage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (error instanceof ApiError && error.status === 401 && query.queryKey[0] !== "me") {
+        queryClient.setQueryData(["me"], null);
+        void queryClient.invalidateQueries({ queryKey: ["me"] });
+      }
+    },
+  }),
+  mutationCache: new MutationCache({ onError: (error) => {
+    if (error instanceof ApiError && error.status === 401) {
+      queryClient.setQueryData(["me"], null);
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
+    }
+  } }),
+});
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<AuthGuard />}>
@@ -23,9 +44,14 @@ function App() {
               <Route path="/week" element={<WeekPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route element={<AdminGuard />}>
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+              </Route>
             </Route>
           </Route>
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

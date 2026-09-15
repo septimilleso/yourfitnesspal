@@ -9,12 +9,13 @@ applied and the pg_trgm extension enabled (search ordering relies on
 
 Each DB-backed test runs inside a transaction that's rolled back afterward
 (via a `get_session` dependency override), so the test database is left
-clean regardless of pass/fail. The 401 and validation tests don't touch the
-DB at all (the auth middleware / Pydantic validation short-circuit before
-any query runs) and so run standalone, without a database.
+clean regardless of pass/fail. Only the 401 test skips the DB entirely (no
+session cookie means the auth middleware short-circuits before any query
+runs).
 """
 
 from datetime import date
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -23,11 +24,13 @@ import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.passwords import hash_password
+from app.auth.sessions import create_session
 from app.db import engine, get_session
 from app.main import app
 from app.models.diary import DiaryEntry, Meal
 from app.models.food import Food, FoodPortion
-from app.security import create_session_cookie
+from app.models.user import Role, User
 
 BASE_URL = "https://world.openfoodfacts.org"
 
@@ -79,13 +82,25 @@ async def session():
 
 
 async def _client() -> AsyncClient:
+    # X-Requested-With satisfies the CSRF middleware, which gates every
+    # mutating /api/* request ahead of auth.
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="https://test")
+    return AsyncClient(transport=transport, base_url="https://test", headers={"X-Requested-With": "yfp"})
 
 
-async def _authed_client() -> AsyncClient:
+class _FakeRequest:
+    headers: ClassVar[dict] = {}
+    client = None
+
+
+async def _authed_client(db: AsyncSession) -> AsyncClient:
     client = await _client()
-    client.cookies.set("session", create_session_cookie("authenticated"))
+    user = User(username="tester", display_name="Tester", role=Role.admin,
+                password_hash=hash_password("correct horse battery staple"), must_change_password=False)
+    db.add(user)
+    await db.flush()
+    token = await create_session(db, user, _FakeRequest())
+    client.cookies.set("session", token)
     return client
 
 
@@ -117,7 +132,7 @@ async def test_search_returns_local_only_when_enough_local_matches(session: Asyn
     async with respx.mock(base_url=BASE_URL) as mock:
         off_route = mock.get("/cgi/search.pl")
 
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             response = await client.get(
                 "/api/foods/search", params={"q": "Protein Bar", "limit": 20}
@@ -146,7 +161,7 @@ async def test_search_with_small_limit_does_not_call_off_when_local_matches_plen
     async with respx.mock(base_url=BASE_URL) as mock:
         off_route = mock.get("/cgi/search.pl")
 
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             response = await client.get(
                 "/api/foods/search", params={"q": "Protein Bar", "limit": 3}
@@ -172,7 +187,7 @@ async def test_search_falls_through_to_off_and_upserts_when_local_matches_sparse
         mock.get("/cgi/search.pl").mock(
             return_value=httpx.Response(200, json={"products": products})
         )
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             response = await client.get(
                 "/api/foods/search", params={"q": "Rare Snack", "limit": 20}
@@ -203,7 +218,7 @@ async def test_search_flags_off_unavailable_when_off_search_fails(
 
     async with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/cgi/search.pl").mock(return_value=httpx.Response(503))
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             response = await client.get(
                 "/api/foods/search", params={"q": "Only Local Match", "limit": 20}
@@ -229,7 +244,7 @@ async def test_repeated_search_second_time_returns_cache_hits_only(
         off_route = mock.get("/cgi/search.pl").mock(
             return_value=httpx.Response(200, json={"products": products})
         )
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             first = await client.get(
                 "/api/foods/search", params={"q": "Common Snack", "limit": 20}
@@ -257,7 +272,7 @@ async def test_barcode_hit_returns_cached_food(session: AsyncSession) -> None:
     await _make_food(session, name="Barcode Food", barcode="1234567890123")
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.get("/api/foods/barcode/1234567890123")
 
@@ -274,7 +289,7 @@ async def test_barcode_miss_returns_404(session: AsyncSession) -> None:
         mock.get("/api/v2/product/0000000000000.json").mock(
             return_value=httpx.Response(404, json={"status": 0})
         )
-        client = await _authed_client()
+        client = await _authed_client(session)
         async with client:
             response = await client.get("/api/foods/barcode/0000000000000")
 
@@ -317,7 +332,7 @@ async def test_recent_foods_orders_by_most_recently_logged(session: AsyncSession
     )
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.get("/api/foods/recent")
 
@@ -347,7 +362,7 @@ async def test_recent_foods_respects_limit(session: AsyncSession) -> None:
         )
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.get("/api/foods/recent", params={"limit": 2})
 
@@ -361,9 +376,10 @@ async def test_recent_foods_respects_limit(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_custom_food_requires_all_nutriment_fields() -> None:
-    """No `session` fixture -- validation fails before the DB is touched."""
-    client = await _authed_client()
+async def test_create_custom_food_requires_all_nutriment_fields(session: AsyncSession) -> None:
+    """Nutriment validation fails before the DB is touched, but auth still
+    resolves the session against the DB."""
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/foods",
@@ -375,7 +391,7 @@ async def test_create_custom_food_requires_all_nutriment_fields() -> None:
 
 @pytest.mark.asyncio
 async def test_create_custom_food_succeeds_with_full_payload(session: AsyncSession) -> None:
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/foods",

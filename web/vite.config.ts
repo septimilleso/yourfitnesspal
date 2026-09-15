@@ -35,9 +35,10 @@ export default defineConfig({
         // by the default globPatterns/navigateFallback behavior.
         runtimeCaching: [
           {
-            // Food search/barcode lookups: fine to serve slightly-stale
-            // results if OFF/network is briefly unavailable.
-            urlPattern: ({ url }) => url.pathname.startsWith("/api/foods/"),
+              // Search/barcode are shared; /recent is user-specific. Logout
+              // also clears this cache explicitly.
+              urlPattern: ({ url }) =>
+                url.pathname === "/api/foods/search" || url.pathname.startsWith("/api/foods/barcode/"),
             handler: "NetworkFirst",
             options: {
               cacheName: "api-foods-cache",

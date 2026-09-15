@@ -14,9 +14,12 @@ import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.deps import get_current_user, require_permission
 from app.db import get_session
 from app.models.diary import DiaryEntry
 from app.models.food import Food
+from app.models.user import User
+from app.permissions import Permission, effective_permissions
 from app.schemas.food import CustomFoodCreate, FoodOut, FoodSearchItem, FoodSearchResponse
 from app.services import food_cache
 from app.services.off_client import OffClient, get_off_client, normalize
@@ -33,6 +36,7 @@ async def search_foods(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     session: AsyncSession = Depends(get_session),
     off_client: OffClient = Depends(get_off_client),
+    user: User = Depends(get_current_user),
 ) -> FoodSearchResponse:
     # Usage frequency (times a food has been logged) ranks local matches;
     # foods never logged (no row in the subquery, hence the outer join +
@@ -42,6 +46,7 @@ async def search_foods(
             DiaryEntry.food_id.label("food_id"),
             sa.func.count().label("usage_count"),
         )
+        .where(DiaryEntry.user_id == user.id)
         .group_by(DiaryEntry.food_id)
         .subquery()
     )
@@ -55,7 +60,10 @@ async def search_foods(
     stmt = (
         sa.select(Food)
         .outerjoin(usage_subq, usage_subq.c.food_id == Food.id)
-        .where(sa.or_(Food.name.ilike(pattern), Food.brand.ilike(pattern)))
+        .where(
+            sa.or_(Food.name.ilike(pattern), Food.brand.ilike(pattern)),
+            sa.or_(Food.source != "custom", Food.owner_user_id == user.id),
+        )
         .order_by(usage_count.desc(), sa.func.similarity(Food.name, q).desc())
         .limit(local_query_limit)
     )
@@ -65,7 +73,8 @@ async def search_foods(
     seen_ids = {food.id for food in local_foods}
     off_unavailable = False
 
-    if len(local_foods) < LOCAL_MATCH_THRESHOLD:
+    off_disabled = Permission.foods_off_lookup not in effective_permissions(user)
+    if len(local_foods) < LOCAL_MATCH_THRESHOLD and not off_disabled:
         off_products = await off_client.search(q, limit=limit)
 
         if off_products is None:
@@ -91,13 +100,16 @@ async def search_foods(
             if upserted_any:
                 await session.commit()
 
-    return FoodSearchResponse(results=results[:limit], off_unavailable=off_unavailable)
+    return FoodSearchResponse(
+        results=results[:limit], off_unavailable=off_unavailable, off_disabled=off_disabled
+    )
 
 
 @router.get("/recent", response_model=FoodSearchResponse)
 async def recent_foods(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> FoodSearchResponse:
     """The "Recenti" tab: distinct foods that have been logged to the diary
     at least once, most-recently-logged first.
@@ -116,12 +128,14 @@ async def recent_foods(
             sa.func.max(DiaryEntry.date).label("last_date"),
             sa.func.max(DiaryEntry.id).label("last_id"),
         )
+        .where(DiaryEntry.user_id == user.id)
         .group_by(DiaryEntry.food_id)
         .subquery()
     )
     stmt = (
         sa.select(Food)
         .join(last_used, last_used.c.food_id == Food.id)
+        .where(sa.or_(Food.source != "custom", Food.owner_user_id == user.id))
         .order_by(last_used.c.last_date.desc(), last_used.c.last_id.desc())
         .limit(limit)
     )
@@ -134,8 +148,20 @@ async def get_food_by_barcode(
     code: str,
     session: AsyncSession = Depends(get_session),
     off_client: OffClient = Depends(get_off_client),
+    user: User = Depends(get_current_user),
 ) -> Food:
-    food = await food_cache.get_or_fetch_by_barcode(session, code, client=off_client)
+    if Permission.foods_off_lookup not in effective_permissions(user):
+        # Permissionless barcode lookups are strictly cache-only.  OFF foods
+        # are shared and custom foods cannot have a barcode, but retain the
+        # visibility predicate for defense in depth.
+        food = await session.scalar(
+            sa.select(Food).where(
+                Food.barcode == code,
+                sa.or_(Food.source != "custom", Food.owner_user_id == user.id),
+            )
+        )
+    else:
+        food = await food_cache.get_or_fetch_by_barcode(session, code, client=off_client)
     if food is None:
         raise HTTPException(status_code=404, detail="food not found")
     return food
@@ -145,8 +171,10 @@ async def get_food_by_barcode(
 async def create_custom_food(
     payload: CustomFoodCreate,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission(Permission.foods_custom_create)),
 ) -> Food:
     food = Food(
+        owner_user_id=user.id,
         source="custom",
         name=payload.name,
         brand=payload.brand,

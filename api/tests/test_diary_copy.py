@@ -8,8 +8,8 @@ same DATABASE_URL setup as test_diary_router.py:
 
 Each DB-backed test runs inside a transaction that's rolled back afterward
 (via a `get_session` dependency override), same pattern as
-test_diary_router.py. The 401 and empty-`source_dates` tests don't touch the
-DB (auth short-circuits / validation happens before any query runs).
+test_diary_router.py. Only the 401 test skips the DB entirely (no session
+cookie means auth short-circuits before any query runs).
 
 The pure copy-*planning* logic (`plan_copy`, in `app/services/diary.py`) --
 sorting source dates, mapping onto consecutive target dates, and the
@@ -19,15 +19,18 @@ DB-free module so it can run (and pass) even where this file cannot connect.
 """
 
 from datetime import date
+from typing import ClassVar
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.passwords import hash_password
+from app.auth.sessions import create_session
 from app.db import engine, get_session
 from app.main import app
 from app.models.food import Food
-from app.security import create_session_cookie
+from app.models.user import Role, User
 
 NUTRIMENTS = {
     "kcal": 200.0,
@@ -69,13 +72,25 @@ async def session():
 
 
 async def _client() -> AsyncClient:
+    # X-Requested-With satisfies the CSRF middleware, which gates every
+    # mutating /api/* request ahead of auth.
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="https://test")
+    return AsyncClient(transport=transport, base_url="https://test", headers={"X-Requested-With": "yfp"})
 
 
-async def _authed_client() -> AsyncClient:
+class _FakeRequest:
+    headers: ClassVar[dict] = {}
+    client = None
+
+
+async def _authed_client(db: AsyncSession) -> AsyncClient:
     client = await _client()
-    client.cookies.set("session", create_session_cookie("authenticated"))
+    user = User(username="tester", display_name="Tester", role=Role.admin,
+                password_hash=hash_password("correct horse battery staple"), must_change_password=False)
+    db.add(user)
+    await db.flush()
+    token = await create_session(db, user, _FakeRequest())
+    client.cookies.set("session", token)
     return client
 
 
@@ -102,7 +117,7 @@ async def test_copy_one_day_to_one_day_append(session: AsyncSession) -> None:
     food = await _make_food(session, name="Copied Food")
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await _create_entry(
             client, for_date=date(2026, 7, 6), meal="breakfast", food_id=food.id, grams=100
@@ -132,7 +147,7 @@ async def test_copy_two_days_to_two_consecutive_days(session: AsyncSession) -> N
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await _create_entry(
             client, for_date=date(2026, 7, 6), meal="breakfast", food_id=food.id, grams=100
@@ -163,7 +178,7 @@ async def test_copy_with_meals_filter_only_touches_breakfast(session: AsyncSessi
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await _create_entry(
             client, for_date=date(2026, 7, 6), meal="breakfast", food_id=food.id, grams=100
@@ -197,7 +212,7 @@ async def test_copy_replace_mode_clears_prior_target_entries_first(
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await _create_entry(
             client, for_date=date(2026, 7, 6), meal="breakfast", food_id=food.id, grams=100
@@ -226,7 +241,7 @@ async def test_copy_replace_mode_clears_prior_target_entries_first(
 
 @pytest.mark.asyncio
 async def test_copy_empty_source_day_creates_nothing_no_error(session: AsyncSession) -> None:
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/diary/copy",
@@ -258,7 +273,7 @@ async def test_copy_overlapping_source_and_target_replace_mode_not_corrupted(
     tue = date(2026, 9, 8)
     wed = date(2026, 9, 9)
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await _create_entry(client, for_date=mon, meal="breakfast", food_id=food.id, grams=111)
         await _create_entry(client, for_date=tue, meal="lunch", food_id=food.id, grams=222)
@@ -297,7 +312,7 @@ async def test_copy_snapshot_preserved_verbatim_even_after_food_nutriments_chang
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         created = await _create_entry(
             client, for_date=date(2026, 10, 5), meal="snack", food_id=food.id, grams=50
@@ -329,9 +344,10 @@ async def test_copy_snapshot_preserved_verbatim_even_after_food_nutriments_chang
 
 
 @pytest.mark.asyncio
-async def test_copy_empty_source_dates_returns_400() -> None:
-    """No DB needed -- validated before any query runs."""
-    client = await _authed_client()
+async def test_copy_empty_source_dates_returns_400(session: AsyncSession) -> None:
+    """Validated before any diary query runs, but auth still resolves the
+    session against the DB."""
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/diary/copy",

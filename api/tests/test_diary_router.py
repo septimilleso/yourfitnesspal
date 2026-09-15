@@ -14,15 +14,18 @@ standalone, without a database.
 """
 
 from datetime import UTC, date, datetime, timedelta
+from typing import ClassVar
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.passwords import hash_password
+from app.auth.sessions import create_session
 from app.db import engine, get_session
 from app.main import app
 from app.models.food import Food
-from app.security import create_session_cookie
+from app.models.user import Role, User
 
 NUTRIMENTS = {
     "kcal": 200.0,
@@ -54,13 +57,25 @@ async def session():
 
 
 async def _client() -> AsyncClient:
+    # X-Requested-With satisfies the CSRF middleware, which gates every
+    # mutating /api/* request ahead of auth.
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="https://test")
+    return AsyncClient(transport=transport, base_url="https://test", headers={"X-Requested-With": "yfp"})
 
 
-async def _authed_client() -> AsyncClient:
+class _FakeRequest:
+    headers: ClassVar[dict] = {}
+    client = None
+
+
+async def _authed_client(db: AsyncSession) -> AsyncClient:
     client = await _client()
-    client.cookies.set("session", create_session_cookie("authenticated"))
+    user = User(username="tester", display_name="Tester", role=Role.admin,
+                password_hash=hash_password("correct horse battery staple"), must_change_password=False)
+    db.add(user)
+    await db.flush()
+    token = await create_session(db, user, _FakeRequest())
+    client.cookies.set("session", token)
     return client
 
 
@@ -81,7 +96,7 @@ async def test_create_entry_snapshots_full_unscaled_nutriments(session: AsyncSes
     food = await _make_food(session, name="Yogurt Greco", brand="Fage")
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/diary/entries",
@@ -107,7 +122,7 @@ async def test_create_entry_food_brand_is_null_when_food_has_no_brand(
     food = await _make_food(session, name="Homemade Soup", brand=None)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/diary/entries",
@@ -127,7 +142,7 @@ async def test_create_entry_assigns_incrementing_position_within_date_meal(
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         first = await client.post(
             "/api/diary/entries",
@@ -149,7 +164,7 @@ async def test_create_entry_assigns_incrementing_position_within_date_meal(
 
 @pytest.mark.asyncio
 async def test_create_entry_404_for_unknown_food(session: AsyncSession) -> None:
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.post(
             "/api/diary/entries",
@@ -166,7 +181,7 @@ async def test_get_day_sums_totals_across_meals(session: AsyncSession) -> None:
     food = await _make_food(session, name="Chicken Breast", brand="Acme")
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await client.post(
             "/api/diary/entries",
@@ -196,7 +211,7 @@ async def test_patch_grams_changes_totals_on_next_get(session: AsyncSession) -> 
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         created = await client.post(
             "/api/diary/entries",
@@ -225,7 +240,7 @@ async def test_patch_meal_change_recomputes_position_in_new_meal_group(
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         first = await client.post(
             "/api/diary/entries",
@@ -256,7 +271,7 @@ async def test_delete_entry_removes_it_and_adjusts_totals(session: AsyncSession)
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         created = await client.post(
             "/api/diary/entries",
@@ -278,7 +293,7 @@ async def test_delete_entry_removes_it_and_adjusts_totals(session: AsyncSession)
 
 @pytest.mark.asyncio
 async def test_get_week_returns_seven_consecutive_days(session: AsyncSession) -> None:
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.get("/api/diary/week", params={"start": "2026-03-02"})
 
@@ -298,7 +313,7 @@ async def test_get_week_sums_totals_per_day_meal_less(session: AsyncSession) -> 
     food = await _make_food(session)
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         await client.post(
             "/api/diary/entries",
@@ -322,7 +337,7 @@ async def test_get_week_sums_totals_per_day_meal_less(session: AsyncSession) -> 
 
 @pytest.mark.asyncio
 async def test_put_goal_creates_new_historized_row(session: AsyncSession) -> None:
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.put(
             "/api/goals",
@@ -347,7 +362,7 @@ async def test_day_before_second_goal_reports_first_goal(session: AsyncSession) 
     )
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         before_second = await client.get("/api/diary/day/2026-03-15")
         on_and_after_second = await client.get("/api/diary/day/2026-06-01")
@@ -374,7 +389,7 @@ async def test_two_goals_same_valid_from_break_tie_by_higher_id(session: AsyncSe
     assert second.id > first.id
     await session.commit()
 
-    client = await _authed_client()
+    client = await _authed_client(session)
     async with client:
         response = await client.get("/api/goals", params={"date": today.isoformat()})
 

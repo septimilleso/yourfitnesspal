@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Goal } from "../api/queries";
 import { useGoal, usePutGoal } from "../api/queries";
+import { useHasPermission, useMe } from "../auth/AuthContext";
 import SettingsPage from "./SettingsPage";
 
 vi.mock("../api/queries", async () => {
@@ -14,6 +16,19 @@ vi.mock("../api/queries", async () => {
     usePutGoal: vi.fn(),
   };
 });
+
+vi.mock("../auth/AuthContext", async () => {
+  const actual = await vi.importActual<typeof import("../auth/AuthContext")>("../auth/AuthContext");
+  return {
+    ...actual,
+    useMe: vi.fn(),
+    useHasPermission: vi.fn(),
+  };
+});
+
+function renderSettingsPage() {
+  return render(<SettingsPage />, { wrapper: MemoryRouter });
+}
 
 const goal: Goal = {
   id: 1,
@@ -38,6 +53,10 @@ function setupMocks(overrides: Partial<ReturnType<typeof useGoal>> = {}) {
     isPending: false,
     isError: false,
   } as unknown as ReturnType<typeof usePutGoal>);
+  vi.mocked(useMe).mockReturnValue({
+    data: { id: 1, username: "alice", display_name: "Alice", role: "user", permissions: ["goals.edit"] },
+  } as unknown as ReturnType<typeof useMe>);
+  vi.mocked(useHasPermission).mockReturnValue(true);
 }
 
 describe("SettingsPage", () => {
@@ -47,7 +66,7 @@ describe("SettingsPage", () => {
 
   it("renders pre-filled values from the existing goal", () => {
     setupMocks();
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     expect(screen.getByLabelText(/calorie/i)).toHaveValue(2000);
     expect(screen.getByLabelText(/proteine/i)).toHaveValue(150);
@@ -58,7 +77,7 @@ describe("SettingsPage", () => {
   it("submits the mutation with the edited payload shape", async () => {
     setupMocks();
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     await user.clear(screen.getByLabelText(/calorie/i));
     await user.type(screen.getByLabelText(/calorie/i), "2200");
@@ -72,7 +91,7 @@ describe("SettingsPage", () => {
 
   it("renders an empty form when no goal exists yet", () => {
     setupMocks({ data: null });
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     expect(screen.getByLabelText(/calorie/i)).toHaveValue(null);
   });
@@ -83,7 +102,7 @@ describe("SettingsPage", () => {
       opts?.onSuccess?.();
     });
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     await user.click(screen.getByRole("button", { name: /salva/i }));
 

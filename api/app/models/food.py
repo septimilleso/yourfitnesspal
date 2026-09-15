@@ -21,6 +21,7 @@ class Food(Base):
 
     __tablename__ = "foods"
     __table_args__ = (
+        sa.CheckConstraint("source = 'custom' OR owner_user_id IS NULL", name="ck_foods_owner_only_custom"),
         sa.Index(
             "ix_foods_name_trgm",
             "name",
@@ -36,6 +37,9 @@ class Food(Base):
     )
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    owner_user_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     barcode: Mapped[str | None] = mapped_column(
         sa.String(64), unique=True, index=True, nullable=True
     )

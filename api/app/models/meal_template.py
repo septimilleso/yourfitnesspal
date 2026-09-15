@@ -13,6 +13,9 @@ class MealTemplate(Base):
     __tablename__ = "meal_templates"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False

@@ -30,9 +30,12 @@ class DiaryEntry(Base):
     """
 
     __tablename__ = "diary_entries"
-    __table_args__ = (sa.Index("ix_diary_entries_date", "date"),)
+    __table_args__ = (sa.Index("ix_diary_entries_user_date", "user_id", "date"),)
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     food_id: Mapped[int] = mapped_column(
         sa.ForeignKey("foods.id", ondelete="RESTRICT"), nullable=False, index=True
     )

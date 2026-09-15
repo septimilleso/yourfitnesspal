@@ -18,10 +18,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.auth.deps import get_current_user, require_permission
 from app.db import get_session
 from app.models.diary import DiaryEntry, Meal
 from app.models.food import Food
 from app.models.goal import Goal
+from app.models.user import User
+from app.permissions import Permission
 from app.schemas.diary import (
     DayResponse,
     DayTotals,
@@ -43,7 +46,7 @@ diary_router = APIRouter(prefix="/api/diary", tags=["diary"])
 goals_router = APIRouter(prefix="/api/goals", tags=["goals"])
 
 
-async def _active_goal(session: AsyncSession, for_date: date) -> Goal | None:
+async def _active_goal(session: AsyncSession, user_id: int, for_date: date) -> Goal | None:
     """The `Goal` row with the largest `valid_from` that is `<= for_date`
     (goals are append-only/historized, see `app/models/goal.py`).
 
@@ -54,7 +57,7 @@ async def _active_goal(session: AsyncSession, for_date: date) -> Goal | None:
     """
     stmt = (
         sa.select(Goal)
-        .where(Goal.valid_from <= for_date)
+        .where(Goal.user_id == user_id, Goal.valid_from <= for_date)
         .order_by(Goal.valid_from.desc(), Goal.id.desc())
         .limit(1)
     )
@@ -103,10 +106,11 @@ def _goal_delta(goal: Goal | None, day_total: dict) -> GoalDelta | None:
 async def get_day(
     for_date: date,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> DayResponse:
     stmt = (
         sa.select(DiaryEntry)
-        .where(DiaryEntry.date == for_date)
+        .where(DiaryEntry.user_id == user.id, DiaryEntry.date == for_date)
         .options(selectinload(DiaryEntry.food))
         .order_by(DiaryEntry.meal, DiaryEntry.position)
     )
@@ -122,7 +126,7 @@ async def get_day(
         meal.value: totals["by_meal"].get(meal.value, zero_totals()) for meal in Meal
     }
 
-    goal = await _active_goal(session, for_date)
+    goal = await _active_goal(session, user.id, for_date)
 
     return DayResponse(
         date=for_date,
@@ -140,11 +144,12 @@ async def get_day(
 async def get_week(
     start: Annotated[date, Query()],
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> WeekResponse:
     end = start + timedelta(days=6)
     stmt = (
         sa.select(DiaryEntry)
-        .where(DiaryEntry.date >= start, DiaryEntry.date <= end)
+        .where(DiaryEntry.user_id == user.id, DiaryEntry.date >= start, DiaryEntry.date <= end)
         .order_by(DiaryEntry.date)
     )
     entries = (await session.execute(stmt)).scalars().all()
@@ -167,19 +172,26 @@ async def get_week(
 async def create_entry(
     payload: DiaryEntryCreate,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> DiaryEntryOut:
-    food = await session.get(Food, payload.food_id)
+    food = await session.scalar(
+        sa.select(Food).where(
+            Food.id == payload.food_id,
+            sa.or_(Food.source != "custom", Food.owner_user_id == user.id),
+        )
+    )
     if food is None:
         raise HTTPException(status_code=404, detail="food not found")
 
     max_position = await session.scalar(
         sa.select(sa.func.max(DiaryEntry.position)).where(
-            DiaryEntry.date == payload.date, DiaryEntry.meal == payload.meal
+            DiaryEntry.user_id == user.id, DiaryEntry.date == payload.date, DiaryEntry.meal == payload.meal
         )
     )
     position = 0 if max_position is None else max_position + 1
 
     entry = DiaryEntry(
+        user_id=user.id,
         food_id=food.id,
         date=payload.date,
         meal=payload.meal,
@@ -201,8 +213,11 @@ async def patch_entry(
     entry_id: int,
     payload: DiaryEntryPatch,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> DiaryEntryOut:
-    entry = await session.get(DiaryEntry, entry_id)
+    entry = await session.scalar(
+        sa.select(DiaryEntry).where(DiaryEntry.id == entry_id, DiaryEntry.user_id == user.id)
+    )
     if entry is None:
         raise HTTPException(status_code=404, detail="entry not found")
 
@@ -212,7 +227,7 @@ async def patch_entry(
     if payload.meal is not None and payload.meal != entry.meal:
         max_position = await session.scalar(
             sa.select(sa.func.max(DiaryEntry.position)).where(
-                DiaryEntry.date == entry.date, DiaryEntry.meal == payload.meal
+                DiaryEntry.user_id == user.id, DiaryEntry.date == entry.date, DiaryEntry.meal == payload.meal
             )
         )
         entry.position = 0 if max_position is None else max_position + 1
@@ -229,8 +244,11 @@ async def patch_entry(
 async def delete_entry(
     entry_id: int,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> None:
-    entry = await session.get(DiaryEntry, entry_id)
+    entry = await session.scalar(
+        sa.select(DiaryEntry).where(DiaryEntry.id == entry_id, DiaryEntry.user_id == user.id)
+    )
     if entry is None:
         raise HTTPException(status_code=404, detail="entry not found")
     await session.delete(entry)
@@ -241,6 +259,7 @@ async def delete_entry(
 async def copy_days(
     payload: DiaryCopyRequest,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission(Permission.diary_copy)),
 ) -> DiaryCopyResponse:
     if not payload.source_dates:
         raise HTTPException(status_code=400, detail="source_dates must be non-empty")
@@ -251,7 +270,7 @@ async def copy_days(
     distinct_source_dates = set(payload.source_dates)
     stmt = (
         sa.select(DiaryEntry)
-        .where(DiaryEntry.date.in_(distinct_source_dates))
+        .where(DiaryEntry.user_id == user.id, DiaryEntry.date.in_(distinct_source_dates))
         .order_by(DiaryEntry.date, DiaryEntry.meal, DiaryEntry.position)
     )
     source_entries = (await session.execute(stmt)).scalars().all()
@@ -274,7 +293,9 @@ async def copy_days(
     for target_date, meal_set in plan["deletes"]:
         await session.execute(
             sa.delete(DiaryEntry).where(
-                DiaryEntry.date == target_date, DiaryEntry.meal.in_(meal_set)
+                DiaryEntry.user_id == user.id,
+                DiaryEntry.date == target_date,
+                DiaryEntry.meal.in_(meal_set),
             )
         )
 
@@ -284,7 +305,7 @@ async def copy_days(
         if key not in next_position:
             max_position = await session.scalar(
                 sa.select(sa.func.max(DiaryEntry.position)).where(
-                    DiaryEntry.date == key[0], DiaryEntry.meal == key[1]
+                    DiaryEntry.user_id == user.id, DiaryEntry.date == key[0], DiaryEntry.meal == key[1]
                 )
             )
             next_position[key] = 0 if max_position is None else max_position + 1
@@ -293,6 +314,7 @@ async def copy_days(
 
         session.add(
             DiaryEntry(
+                user_id=user.id,
                 food_id=item["food_id"],
                 date=item["date"],
                 meal=item["meal"],
@@ -315,8 +337,9 @@ async def copy_days(
 async def get_goal(
     for_date: Annotated[date | None, Query(alias="date")] = None,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> Goal:
-    goal = await _active_goal(session, for_date or datetime.now(UTC).date())
+    goal = await _active_goal(session, user.id, for_date or datetime.now(UTC).date())
     if goal is None:
         raise HTTPException(status_code=404, detail="no goal set")
     return goal
@@ -326,8 +349,10 @@ async def get_goal(
 async def put_goal(
     payload: GoalCreate,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission(Permission.goals_edit)),
 ) -> Goal:
     goal = Goal(
+        user_id=user.id,
         kcal=payload.kcal,
         protein_g=payload.protein_g,
         carbs_g=payload.carbs_g,

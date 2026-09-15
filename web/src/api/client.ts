@@ -23,6 +23,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     ...rest,
     credentials: "include",
     headers: {
+      "X-Requested-With": "yfp",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
@@ -52,10 +53,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await response.json()) as T;
 }
 
-export interface LoginResponse {
-  status: string;
-}
-
 export const client = {
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
@@ -69,27 +66,4 @@ export const client = {
     request<T>(path, { ...options, method: "DELETE" }),
 };
 
-export function login(key: string): Promise<LoginResponse> {
-  return client.post<LoginResponse>("/auth/login", { key });
-}
 
-/**
- * Probes a protected endpoint (`GET /api/goals`) to determine whether the
- * current session cookie is valid. Resolves true if authenticated, false on
- * a 401. `GET /api/goals` can legitimately 404 (no goal set yet) for an
- * authenticated user, so any non-401 HTTP response (including 404) counts
- * as "authenticated". Non-HTTP failures (network errors, etc.) are
- * rethrown so callers can distinguish "not logged in" from "something is
- * actually broken".
- */
-export async function checkAuth(): Promise<boolean> {
-  try {
-    await client.get("/goals");
-    return true;
-  } catch (err) {
-    if (err instanceof ApiError) {
-      return err.status !== 401;
-    }
-    throw err;
-  }
-}

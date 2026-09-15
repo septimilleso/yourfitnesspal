@@ -1,11 +1,12 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 
-from app.routers import auth, diary, foods
-from app.security import verify_session_cookie
+from app.auth.deps import get_current_user, require_admin
+from app.routers import admin, auth, diary, foods
 from app.services.off_client import OffClient
 
 
@@ -23,23 +24,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.off_client.aclose()
 
 
-app = FastAPI(title="YourFitnessPal API", lifespan=lifespan)
+app = FastAPI(title="YourFitnessPal API", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 app.include_router(auth.router)
-app.include_router(foods.router)
-app.include_router(diary.diary_router)
-app.include_router(diary.goals_router)
-
-# Paths reachable without a valid session cookie.
-_PUBLIC_PATHS = {"/api/auth/login", "/api/health"}
+app.include_router(foods.router, dependencies=[Depends(get_current_user)])
+app.include_router(diary.diary_router, dependencies=[Depends(get_current_user)])
+app.include_router(diary.goals_router, dependencies=[Depends(get_current_user)])
+app.include_router(admin.router, dependencies=[Depends(require_admin)])
 
 
 @app.middleware("http")
-async def require_session_cookie(request: Request, call_next):
-    if request.url.path not in _PUBLIC_PATHS:
-        token = request.cookies.get("session")
-        if not token or not verify_session_cookie(token):
-            return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+async def csrf_protection(request: Request, call_next):
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and request.url.path.startswith("/api/")
+        and request.headers.get("X-Requested-With") != "yfp"
+    ):
+        return JSONResponse(status_code=403, content={"detail": "csrf"})
     return await call_next(request)
 
 
@@ -48,7 +49,17 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/health/protected")
+@app.get("/api/health/protected", dependencies=[Depends(get_current_user)])
 async def health_protected() -> dict[str, str]:
     """Dummy route used to verify the session-cookie middleware works."""
     return {"status": "ok"}
+
+
+@app.get("/api/openapi.json", dependencies=[Depends(require_admin)], include_in_schema=False)
+async def openapi() -> dict:
+    return app.openapi()
+
+
+@app.get("/api/docs", dependencies=[Depends(require_admin)], include_in_schema=False)
+async def docs():
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title="YourFitnessPal API")

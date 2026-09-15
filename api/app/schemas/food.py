@@ -86,6 +86,9 @@ class FoodSearchResponse(BaseModel):
     # genuinely finding nothing) -- lets the frontend show "OpenFoodFacts
     # momentaneamente non raggiungibile" instead of implying zero matches.
     off_unavailable: bool = False
+    # True when the current user does not have permission to query OFF; in
+    # that case results are limited to the shared/local cache.
+    off_disabled: bool = False
 
 
 class CustomFoodCreate(BaseModel):

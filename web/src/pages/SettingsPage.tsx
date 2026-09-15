@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { useGoal, usePutGoal } from "../api/queries";
+import { useHasPermission, useMe } from "../auth/AuthContext";
 
 interface FormState {
   kcal: string;
@@ -30,6 +32,8 @@ const FIELDS: { key: keyof FormState; label: string; unit: string; color?: strin
 function SettingsPage() {
   const { data: goal, isLoading } = useGoal();
   const putGoal = usePutGoal();
+  const { data: me } = useMe();
+  const canEditGoals = useHasPermission("goals.edit");
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -75,6 +79,11 @@ function SettingsPage() {
       <div className="mx-auto max-w-2xl space-y-4 p-4">
         {isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
 
+        <section className="card divide-y divide-slate-100 overflow-hidden">
+          <Link className="row flex justify-between" to="/account"><span>Account</span><span className="text-slate-500">{me?.username} ›</span></Link>
+          {me?.role === "admin" && <Link className="row flex justify-between" to="/admin/users"><span>Gestione utenti</span><span>›</span></Link>}
+        </section>
+
         <h2 className="section-label">Obiettivi giornalieri</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -105,6 +114,7 @@ function SettingsPage() {
                   required
                   value={form[key]}
                   onChange={(e) => handleChange(key, e.target.value)}
+                  disabled={!canEditGoals}
                   className="min-h-[44px] w-28 rounded-xl border border-slate-300 px-3 py-2 text-right text-base tabular-nums focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
                 />
                 <span className="w-9 shrink-0 text-sm text-slate-400">{unit}</span>
@@ -116,7 +126,8 @@ function SettingsPage() {
             Usati per la barra delle calorie del giorno e per i colori della settimana.
           </p>
 
-          <button type="submit" disabled={putGoal.isPending} className="btn-primary w-full">
+          {!canEditGoals && <p className="px-1 text-sm text-slate-500">Gli obiettivi sono gestiti dall’amministratore.</p>}
+          <button type="submit" disabled={putGoal.isPending || !canEditGoals} className="btn-primary w-full">
             {putGoal.isPending ? "Salvataggio..." : "Salva obiettivo"}
           </button>
 

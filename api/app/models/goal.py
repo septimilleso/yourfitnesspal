@@ -9,8 +9,8 @@ from app.models.base import Base
 class Goal(Base):
     """Daily nutrition targets.
 
-    This is a single-user app (see Task 2's APP_KEY auth), so there is no
-    user_id column here. Goals are historized/append-only via `valid_from`:
+    Goals are scoped to one user. They are historized/append-only via
+    `valid_from`:
     for a given date, the currently active goal is the row with the most
     recent `valid_from` that is `<=` that date.
     """
@@ -18,6 +18,9 @@ class Goal(Base):
     __tablename__ = "goals"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     kcal: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     protein_g: Mapped[float] = mapped_column(sa.Numeric(6, 2), nullable=False)
     carbs_g: Mapped[float] = mapped_column(sa.Numeric(6, 2), nullable=False)

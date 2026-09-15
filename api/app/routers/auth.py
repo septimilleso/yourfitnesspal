@@ -1,99 +1,231 @@
-import secrets
-import time
-from collections import defaultdict
+"""Username/password, TOTP and account-session endpoints."""
 
-from fastapi import APIRouter, Request, Response
-from pydantic import BaseModel
+from datetime import UTC, datetime
+from typing import Annotated
 
-from app.config import settings
-from app.security import SESSION_MAX_AGE_SECONDS, create_session_cookie
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth.deps import get_current_user
+from app.auth.passwords import (
+    hash_password,
+    needs_rehash,
+    validate_password_policy,
+    verify_dummy,
+    verify_password,
+)
+from app.auth.rate_limit import (
+    check_user_lock,
+    client_ip,
+    is_rate_limited,
+    record_attempt,
+    register_failure,
+    reset_failures,
+)
+from app.auth.recovery import generate_codes, hash_code
+from app.auth.sessions import (
+    clear_challenge_cookie,
+    clear_session_cookie,
+    create_session,
+    read_challenge,
+    revoke_all,
+    revoke_session,
+    set_challenge_cookie,
+    set_session_cookie,
+)
+from app.auth.totp import (
+    decrypt_secret,
+    encrypt_secret,
+    new_secret,
+    provisioning_uri,
+    qr_svg_data_uri,
+    verify_code,
+)
+from app.db import get_session
+from app.models.user import RecoveryCode, User, UserSession
+from app.permissions import effective_permissions
+from app.schemas.auth import (
+    LoginRequest,
+    PasswordChangeRequest,
+    RecoveryCodeRequest,
+    SetupCompleteRequest,
+    TotpRequest,
+)
+from app.services.audit import record
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-RATE_LIMIT_ATTEMPTS = 5
-RATE_LIMIT_WINDOW_SECONDS = 60
-
-# Defense-in-depth cap on the rate-limit bucket key length. X-Real-IP is set
-# by nginx itself (see web/nginx.conf) and can't be spoofed by a client that
-# goes through nginx, but a client hitting the backend directly (e.g. a
-# misconfigured deployment with no proxy in front) could send an arbitrary
-# X-Real-IP value straight through -- cap it so a garbage/huge header can't
-# grow the in-memory dict unboundedly per request.
-_MAX_IP_KEY_LENGTH = 64
-
-# client IP -> list of attempt timestamps (monotonic seconds). In-memory is
-# fine: this is a single-instance, single-user app.
-_login_attempts: dict[str, list[float]] = defaultdict(list)
+Db = Annotated[AsyncSession, Depends(get_session)]
+Current = Annotated[User, Depends(get_current_user)]
 
 
-class LoginRequest(BaseModel):
-    key: str
+def _invalid_credentials() -> HTTPException:
+    return HTTPException(401, "credenziali non valide")
 
 
-def _client_ip(request: Request) -> str:
-    """The real client IP for rate-limiting purposes.
-
-    Behind the nginx reverse proxy (see `web/nginx.conf`), `request.client.host`
-    is always the `web` container's address -- every real client would share
-    one rate-limit bucket. nginx sets both `X-Real-IP` and `X-Forwarded-For`,
-    but only `X-Real-IP` is trustworthy: nginx sets it to `$remote_addr`,
-    which OVERWRITES any value the client sent (a client cannot spoof it).
-    `X-Forwarded-For` is set to `$proxy_add_x_forwarded_for`, which APPENDS
-    the real client IP to whatever the client already put in that header --
-    so a client can prepend an arbitrary value and rotate it per request to
-    get a fresh rate-limit bucket every time. Falls back to
-    `request.client.host` when `X-Real-IP` is absent, e.g. direct connections
-    in dev without nginx in front.
-    """
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        real_ip = real_ip.strip()
-        if real_ip:
-            return real_ip[:_MAX_IP_KEY_LENGTH]
-    if request.client:
-        return request.client.host
-    return "unknown"
-
-
-def _is_rate_limited(ip: str) -> bool:
-    now = time.monotonic()
-    attempts = _login_attempts[ip]
-    cutoff = now - RATE_LIMIT_WINDOW_SECONDS
-    while attempts and attempts[0] < cutoff:
-        attempts.pop(0)
-    return len(attempts) >= RATE_LIMIT_ATTEMPTS
-
-
-def _record_attempt(ip: str) -> None:
-    _login_attempts[ip].append(time.monotonic())
+async def _challenge_user(request: Request, db: AsyncSession, stage: str) -> User:
+    data = read_challenge(request)
+    if not data or data.get("stage") != stage:
+        raise HTTPException(401, "challenge scaduto")
+    user = await db.get(User, data.get("uid"))
+    if not user or user.auth_version != data.get("av"):
+        raise HTTPException(401, "challenge scaduto")
+    return user
 
 
 @router.post("/login")
-async def login(payload: LoginRequest, request: Request, response: Response):
-    ip = _client_ip(request)
+async def login(payload: LoginRequest, request: Request, response: Response, db: Db):
+    ip = client_ip(request)
+    if is_rate_limited(ip):
+        raise HTTPException(429, "too many attempts")
+    user = await db.scalar(sa.select(User).where(User.username == payload.username.strip().lower()))
+    if user is None:
+        verify_dummy(payload.password)
+        record_attempt(ip)
+        raise _invalid_credentials()
+    if check_user_lock(user):
+        raise HTTPException(429, "account temporaneamente bloccato")
+    if not user.is_active or not user.password_hash or not verify_password(user.password_hash, payload.password):
+        record_attempt(ip)
+        await register_failure(db, user)
+        await record(db, user, "login.failure", user.id, request=request)
+        await db.commit()
+        raise _invalid_credentials()
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(payload.password)
+        await db.commit()
+    stage = "totp" if user.totp_enabled else "setup"
+    set_challenge_cookie(response, user, stage)
+    return {"status": f"{stage}_required", "must_change_password": user.must_change_password}
 
-    if _is_rate_limited(ip):
-        return Response(status_code=429, content='{"detail":"too many attempts"}',
-                         media_type="application/json")
 
-    if not secrets.compare_digest(payload.key, settings.app_key):
-        # Only failed attempts count toward the 5/min budget -- a successful
-        # login must not consume shared budget (this matters once multiple
-        # legitimate devices share the same IP behind the reverse proxy).
-        _record_attempt(ip)
-        return Response(status_code=401, content='{"detail":"unauthorized"}',
-                         media_type="application/json")
-
-    # Payload doesn't need to carry the app key itself -- verify_session_cookie
-    # only checks the signature and max_age, so a fixed marker avoids putting
-    # the shared secret into a cookie value.
-    token = create_session_cookie("authenticated")
-    response.set_cookie(
-        key="session",
-        value=token,
-        max_age=SESSION_MAX_AGE_SECONDS,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-    )
+@router.post("/totp")
+async def totp(payload: TotpRequest, request: Request, response: Response, db: Db):
+    user = await _challenge_user(request, db, "totp")
+    ip = client_ip(request)
+    if is_rate_limited(ip):
+        raise HTTPException(429, "too many attempts")
+    if check_user_lock(user):
+        raise HTTPException(429, "account temporaneamente bloccato")
+    accepted_step = None
+    if payload.code:
+        accepted_step = verify_code(decrypt_secret(user.totp_secret_enc or ""), payload.code, user.totp_last_used_step)
+    else:
+        recovery = await db.scalar(sa.select(RecoveryCode).where(RecoveryCode.user_id == user.id, RecoveryCode.code_hash == hash_code(payload.recovery_code or ""), RecoveryCode.used_at.is_(None)))
+        if recovery:
+            recovery.used_at = datetime.now(UTC)
+            await record(db, user, "totp.recovery_used", user.id, request=request)
+            accepted_step = user.totp_last_used_step or 0
+    if accepted_step is None:
+        record_attempt(ip)
+        await register_failure(db, user)
+        await record(db, user, "login.failure", user.id, request=request)
+        await db.commit()
+        raise HTTPException(401, "codice non valido")
+    user.totp_last_used_step = accepted_step
+    user.last_login_at = datetime.now(UTC)
+    reset_failures(user)
+    await record(db, user, "login.success", user.id, request=request)
+    await db.commit()
+    token = await create_session(db, user, request)
+    set_session_cookie(response, token)
+    clear_challenge_cookie(response)
     return {"status": "ok"}
+
+
+@router.post("/setup/start")
+async def setup_start(request: Request, db: Db):
+    user = await _challenge_user(request, db, "setup")
+    secret = new_secret()
+    user.totp_pending_secret_enc = encrypt_secret(secret)
+    await db.commit()
+    uri = provisioning_uri(secret, user.username)
+    return {"otpauth_uri": uri, "secret": secret, "qr_svg_data_uri": qr_svg_data_uri(uri)}
+
+
+@router.post("/setup/complete")
+async def setup_complete(payload: SetupCompleteRequest, request: Request, response: Response, db: Db):
+    user = await _challenge_user(request, db, "setup")
+    if not user.totp_pending_secret_enc:
+        raise HTTPException(401, "challenge scaduto")
+    if user.must_change_password:
+        if not payload.new_password:
+            raise HTTPException(422, "nuova password obbligatoria")
+        try:
+            validate_password_policy(payload.new_password)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if user.password_hash and verify_password(user.password_hash, payload.new_password):
+            raise HTTPException(422, "la nuova password deve essere diversa")
+    secret = decrypt_secret(user.totp_pending_secret_enc)
+    step = verify_code(secret, payload.code, None)
+    if step is None:
+        await register_failure(db, user)
+        raise HTTPException(401, "codice non valido")
+    if payload.new_password:
+        user.password_hash = hash_password(payload.new_password)
+        user.must_change_password = False
+        await record(db, user, "password.change", user.id, request=request)
+    user.totp_secret_enc, user.totp_pending_secret_enc = user.totp_pending_secret_enc, None
+    user.totp_enabled, user.totp_last_used_step = True, step
+    reset_failures(user)
+    await db.execute(sa.delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+    codes = generate_codes()
+    db.add_all([RecoveryCode(user_id=user.id, code_hash=hash_code(code)) for code in codes])
+    await record(db, user, "totp.setup", user.id, request=request)
+    await db.commit()
+    token = await create_session(db, user, request)
+    set_session_cookie(response, token)
+    clear_challenge_cookie(response)
+    return {"status": "ok", "recovery_codes": codes}
+
+
+@router.get("/me")
+async def me(user: Current):
+    return {"id": user.id, "username": user.username, "display_name": user.display_name, "role": user.role, "permissions": sorted(p.value for p in effective_permissions(user))}
+
+
+@router.post("/logout", status_code=204)
+async def logout(request: Request, response: Response, db: Db, user: Current):
+    await revoke_session(db, request.state.user_session.id)
+    clear_session_cookie(response)
+
+
+@router.post("/password", status_code=204)
+async def password(payload: PasswordChangeRequest, request: Request, db: Db, user: Current):
+    if not user.password_hash or not verify_password(user.password_hash, payload.current_password):
+        raise HTTPException(401, "credenziali non valide")
+    try:
+        validate_password_policy(payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    user.password_hash = hash_password(payload.new_password)
+    await revoke_all(db, user.id, request.state.user_session.id)
+    await record(db, user, "password.change", user.id, request=request)
+    await db.commit()
+
+
+@router.post("/recovery-codes")
+async def recovery_codes(payload: RecoveryCodeRequest, request: Request, db: Db, user: Current):
+    if not user.totp_secret_enc or verify_code(decrypt_secret(user.totp_secret_enc), payload.code, user.totp_last_used_step) is None:
+        raise HTTPException(401, "codice non valido")
+    codes = generate_codes()
+    await db.execute(sa.delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+    db.add_all([RecoveryCode(user_id=user.id, code_hash=hash_code(code)) for code in codes])
+    await record(db, user, "recovery.regenerate", user.id, request=request)
+    await db.commit()
+    return {"recovery_codes": codes}
+
+
+@router.get("/sessions")
+async def sessions(request: Request, db: Db, user: Current):
+    rows = (await db.scalars(sa.select(UserSession).where(UserSession.user_id == user.id))).all()
+    return [{"id": s.id, "created_at": s.created_at, "last_seen_at": s.last_seen_at, "user_agent": s.user_agent, "ip": s.ip, "current": s.id == request.state.user_session.id} for s in rows]
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: int, db: Db, user: Current):
+    session = await db.scalar(sa.select(UserSession).where(UserSession.id == session_id, UserSession.user_id == user.id))
+    if not session:
+        raise HTTPException(404, "session not found")
+    await revoke_session(db, session.id)
