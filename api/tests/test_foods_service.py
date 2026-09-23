@@ -1,10 +1,10 @@
 """Food service functions shared by REST and MCP (needs Postgres)."""
 
 import pytest
+
 from app.schemas.food import CustomFoodCreate, Nutriments
 from app.services import foods
 from app.services.errors import NotFound, PermissionMissing
-
 from tests.factories import NUTRIMENTS, make_food, make_user
 
 
