@@ -6,6 +6,8 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 
 from app.auth.deps import get_current_user, require_admin
+from app.auth.rate_limit import client_ip, consume
+from app.mcp.server import mcp_http_app, mcp_server
 from app.routers import admin, auth, diary, foods, oauth
 from app.services.errors import Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
@@ -20,7 +22,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # inert in production.
     app.state.off_client = OffClient()
     try:
-        yield
+        # The MCP SDK's session manager owns the task group /mcp runs in.
+        async with mcp_server.session_manager.run():
+            yield
     finally:
         await app.state.off_client.aclose()
 
@@ -63,6 +67,21 @@ async def csrf_protection(request: Request, call_next):
     return await call_next(request)
 
 
+# Per-IP limits (requests/minute) on the unauthenticated OAuth endpoints the
+# MCP SDK serves at the root.
+OAUTH_RATE_LIMITS = {"/register": 10, "/token": 30, "/authorize": 30}
+
+
+@app.middleware("http")
+async def oauth_rate_limit(request: Request, call_next):
+    limit = OAUTH_RATE_LIMITS.get(request.url.path)
+    if limit is not None and consume(
+        f"oauth:{request.url.path}", client_ip(request), limit=limit
+    ):
+        return JSONResponse(status_code=429, content={"error": "slow_down"})
+    return await call_next(request)
+
+
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -82,3 +101,7 @@ async def openapi() -> dict:
 @app.get("/api/docs", dependencies=[Depends(require_admin)], include_in_schema=False)
 async def docs():
     return get_swagger_ui_html(openapi_url="/api/openapi.json", title="YourFitnessPal API")
+
+
+# Must stay last: a mount at "/" catches every path no route above matched.
+app.mount("/", mcp_http_app)
