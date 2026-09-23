@@ -23,6 +23,18 @@ class Settings(BaseSettings):
     totp_issuer: str = "YourFitnessPal"
     user_lockout_threshold: int = 10
     user_lockout_minutes: int = 15
+    # Public origin users reach the app at (the Cloudflare Tunnel hostname in
+    # production). It is the OAuth issuer and the base of the MCP resource URL,
+    # so it must match what MCP clients are given, scheme included.
+    public_base_url: str = "http://localhost:6500"
+    # Timezone used by the MCP tools to resolve "today" for the user.
+    app_timezone: str = "Europe/Rome"
+    oauth_access_token_minutes: int = 60
+    oauth_refresh_token_days: int = 30
+
+    @property
+    def mcp_resource_url(self) -> str:
+        return f"{self.public_base_url.rstrip('/')}/mcp"
 
 
 settings = Settings()
