@@ -42,7 +42,9 @@ from app.auth.totp import (
     qr_svg_data_uri,
     verify_code,
 )
+from app.config import settings
 from app.db import get_session
+from app.mcp.oauth import revoke_user_tokens
 from app.models.user import RecoveryCode, User, UserSession
 from app.permissions import effective_permissions
 from app.schemas.auth import (
@@ -182,7 +184,14 @@ async def setup_complete(payload: SetupCompleteRequest, request: Request, respon
 
 @router.get("/me")
 async def me(user: Current):
-    return {"id": user.id, "username": user.username, "display_name": user.display_name, "role": user.role, "permissions": sorted(p.value for p in effective_permissions(user))}
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": user.display_name,
+        "role": user.role,
+        "permissions": sorted(p.value for p in effective_permissions(user)),
+        "mcp_url": settings.mcp_resource_url,
+    }
 
 
 @router.post("/logout", status_code=204)
@@ -201,6 +210,7 @@ async def password(payload: PasswordChangeRequest, request: Request, db: Db, use
         raise HTTPException(422, str(exc)) from exc
     user.password_hash = hash_password(payload.new_password)
     await revoke_all(db, user.id, request.state.user_session.id)
+    await revoke_user_tokens(db, user.id)
     await record(db, user, "password.change", user.id, request=request)
     await db.commit()
 

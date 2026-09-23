@@ -6,7 +6,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 
 from app.auth.deps import get_current_user, require_admin
-from app.routers import admin, auth, diary, foods
+from app.routers import admin, auth, diary, foods, oauth
 from app.services.errors import Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
 
@@ -45,6 +45,7 @@ async def _permission_missing(request: Request, exc: PermissionMissing) -> JSONR
 
 
 app.include_router(auth.router)
+app.include_router(oauth.router)
 app.include_router(foods.router, dependencies=[Depends(get_current_user)])
 app.include_router(diary.diary_router, dependencies=[Depends(get_current_user)])
 app.include_router(diary.goals_router, dependencies=[Depends(get_current_user)])

@@ -10,6 +10,7 @@ from app.auth.deps import require_admin
 from app.auth.passwords import generate_temp_password, hash_password
 from app.auth.sessions import revoke_all
 from app.db import get_session
+from app.mcp.oauth import list_connections, revoke_user_tokens
 from app.models.goal import Goal
 from app.models.user import AuditEvent, RecoveryCode, Role, User, UserSession
 from app.permissions import (
@@ -20,6 +21,7 @@ from app.permissions import (
 )
 from app.schemas.admin import AdminDeleteRequest, AdminUserCreate, AdminUserPatch
 from app.schemas.diary import GoalCreate
+from app.schemas.oauth import McpConnectionOut
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -95,6 +97,7 @@ async def patch_user(user_id: int, payload: AdminUserPatch, request: Request, db
         setattr(target, field, value)
     if payload.is_active is False:
         await revoke_all(db, target.id)
+        await revoke_user_tokens(db, target.id)
     await record(db, actor, "admin.user_update", target.id, {"fields": sorted(changed)}, request)
     await db.commit()
     return _out(target)
@@ -136,7 +139,31 @@ async def unlock(user_id: int, request: Request, db: AsyncSession = Depends(get_
 async def revoke_sessions(user_id: int, request: Request, db: AsyncSession = Depends(get_session), actor: User = Depends(require_admin)):
     target = await _target(db, user_id)
     await revoke_all(db, target.id)
+    await revoke_user_tokens(db, target.id)
     await record(db, actor, "admin.sessions_revoke", target.id, request=request)
+    await db.commit()
+
+
+@router.get("/users/{user_id}/mcp-connections", response_model=list[McpConnectionOut])
+async def user_mcp_connections(
+    user_id: int,
+    db: AsyncSession = Depends(get_session),
+    actor: User = Depends(require_admin),
+):
+    target = await _target(db, user_id)
+    return await list_connections(db, target.id)
+
+
+@router.delete("/users/{user_id}/mcp-connections", status_code=204)
+async def revoke_user_mcp_connections(
+    user_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    actor: User = Depends(require_admin),
+):
+    target = await _target(db, user_id)
+    await revoke_user_tokens(db, target.id)
+    await record(db, actor, "mcp.revoke", target.id, {"source": "admin"}, request)
     await db.commit()
 
 
