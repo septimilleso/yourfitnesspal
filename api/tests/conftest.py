@@ -10,6 +10,7 @@ the same uncommitted data.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import rate_limit
 from app.db import engine, get_session, override_session_scope
 from app.main import app
 
@@ -27,3 +28,10 @@ async def db():
                 override_session_scope(None)
                 app.dependency_overrides.pop(get_session, None)
         await trans.rollback()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    rate_limit.reset_all()
+    yield
+    rate_limit.reset_all()

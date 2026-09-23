@@ -11,6 +11,7 @@ class Permission(str, enum.Enum):
     foods_custom_create = "foods.custom_create"
     diary_copy = "diary.copy"
     goals_edit = "goals.edit"
+    mcp_access = "mcp.access"
 
 
 PERMISSION_LABELS: dict[Permission, str] = {
@@ -18,8 +19,9 @@ PERMISSION_LABELS: dict[Permission, str] = {
     Permission.foods_custom_create: "Crea alimenti personalizzati",
     Permission.diary_copy: "Copia giorni del diario",
     Permission.goals_edit: "Modifica gli obiettivi",
+    Permission.mcp_access: "Connessioni AI (MCP)",
 }
-DEFAULT_PERMISSIONS = frozenset(Permission)
+DEFAULT_PERMISSIONS = frozenset(Permission) - {Permission.mcp_access}
 
 
 def effective_permissions(user: User) -> set[Permission]:
