@@ -17,9 +17,10 @@ niente di più.
   settimana, copia giorni, obiettivi). Nessun nuovo modello di dominio.
 - **Accesso:** nuovo permesso `mcp.access`, gestito dall'admin, **disattivato per default** per
   tutti gli utenti (esistenti e nuovi). L'admin è sempre abilitato (come per ogni permesso).
-- **Implementazione:** SDK MCP ufficiale Python (`mcp`, `FastMCP`), montato dentro l'app FastAPI
-  esistente. L'SDK fornisce gli endpoint OAuth standard; noi implementiamo il provider di storage
-  su Postgres. Nessun container nuovo.
+- **Implementazione:** SDK MCP ufficiale Python v2 (`mcp`, `MCPServer` — non `FastMCP`), montato
+  dentro l'app FastAPI esistente. Il trasporto è stateless con risposte JSON. L'SDK fornisce gli
+  endpoint OAuth standard; noi implementiamo il provider di storage su Postgres. Nessun container
+  nuovo.
 
 ### Fuori scope
 
@@ -33,7 +34,7 @@ niente di più.
 ```
 Claude ──HTTPS──► Cloudflare Tunnel ──► web (nginx) ──► api (FastAPI)
                                           │               ├─ /api/*            (REST esistente, cookie)
-                                          │               ├─ /mcp              (FastMCP, Bearer)
+                                          │               ├─ /mcp              (MCPServer, Bearer, stateless JSON)
                                           │               ├─ /.well-known/...  (metadata OAuth)
                                           │               └─ /register /authorize /token /revoke
                                           └─ /connect (SPA: login + consenso)
@@ -43,13 +44,13 @@ Claude ──HTTPS──► Cloudflare Tunnel ──► web (nginx) ──► ap
 
 ```
 api/app/mcp/__init__.py
-api/app/mcp/server.py        istanza FastMCP, registrazione tool/prompt, app ASGI da montare
+api/app/mcp/server.py        istanza MCPServer, registrazione tool/prompt, app ASGI da montare
 api/app/mcp/oauth.py         PostgresOAuthProvider (implementa OAuthAuthorizationServerProvider)
 api/app/mcp/context.py       current_user(): access token -> User, con tutti i controlli
 api/app/mcp/tools/foods.py   tool alimenti
 api/app/mcp/tools/diary.py   tool diario
 api/app/mcp/tools/goals.py   tool obiettivi
-api/app/models/oauth.py      OAuthClient, OAuthAuthCode, OAuthToken
+api/app/models/oauth.py      OAuthClient, OAuthAuthCode, OAuthTokenPair
 api/app/routers/oauth.py     endpoint usati dalla SPA: consenso + connessioni utente/admin
 api/app/schemas/oauth.py
 api/alembic/versions/<rev>_oauth_mcp.py
@@ -75,10 +76,9 @@ REST esistenti devono passare **senza modifiche**.
 
 ### Montaggio
 
-- `main.py` monta l'app ASGI di FastMCP (`streamable_http_app()`) in modo che siano serviti
+- `main.py` monta l'app ASGI stateless di `MCPServer` con risposte JSON, in modo che siano serviti
   `/mcp`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`,
-  `/register`, `/authorize`, `/token`, `/revoke`. Il `lifespan` di FastAPI avvia anche il session
-  manager di FastMCP.
+  `/register`, `/authorize`, `/token`, `/revoke`.
 - Il middleware CSRF esistente si applica solo a `/api/*`: non tocca gli endpoint OAuth/MCP
   (protetti da PKCE e Bearer).
 - I tool accedono all'`OffClient` condiviso (`app.state.off_client`), così il rate limit OFF resta
@@ -109,16 +109,17 @@ Documentate in `.env.example` e README.
 Una migration Alembic.
 
 **`oauth_clients`**
-- `id` PK, `client_id` (string univoca, generata), `client_secret_hash` (nullable; i client
-  pubblici non hanno secret), `client_name`, `redirect_uris` (JSONB), `metadata` (JSONB, il resto
-  del payload DCR), `created_at`.
+- `id` PK, `client_id` (string univoca, generata), `client_secret_enc` (nullable; i client
+  pubblici non hanno secret, quello dei client confidenziali è cifrato con la chiave TOTP derivata
+  da `APP_KEY` perché l'SDK confronta il secret in chiaro), `client_name`, `redirect_uris` (JSONB),
+  `metadata` (JSONB, il resto del payload DCR), `created_at`.
 
 **`oauth_auth_codes`**
 - `id` PK, `code_hash` (sha256, univoco), `client_id` FK, `user_id` FK (CASCADE),
   `redirect_uri`, `redirect_uri_provided_explicitly`, `code_challenge`, `scopes` (JSONB),
   `resource` (nullable), `expires_at` (5 minuti), `used_at` (nullable).
 
-**`oauth_tokens`**
+**`oauth_tokens`** (`OAuthTokenPair` model)
 - `id` PK, `user_id` FK (CASCADE), `client_id` FK (CASCADE), `family_id` (uuid, condiviso tra un
   refresh e i suoi successori), `access_token_hash` (univoco), `access_expires_at`,
   `refresh_token_hash` (univoco), `refresh_expires_at`, `auth_version`, `created_at`,
@@ -126,8 +127,10 @@ Una migration Alembic.
 - Una riga = una coppia access/refresh. La rotazione marca la riga `rotated_at` e ne crea una
   nuova nella stessa famiglia.
 
-I token e i codici sono salvati **solo come hash** (come `user_sessions`); i valori in chiaro
-esistono solo nella risposta al client.
+I codici di autorizzazione e i token sono salvati **solo come hash** (come `user_sessions`); i
+valori in chiaro esistono solo nella risposta al client. Il secret dei client confidenziali è invece
+salvato cifrato in `client_secret_enc` con la chiave TOTP derivata da `APP_KEY`, perché l'SDK deve
+confrontarlo in chiaro.
 
 **Permessi:** `Permission.mcp_access = "mcp.access"` con label "Connessioni AI (MCP)".
 `DEFAULT_PERMISSIONS` viene ridefinito come `frozenset(Permission) - {Permission.mcp_access}`, così
@@ -169,8 +172,8 @@ i nuovi utenti non lo ricevono. Nessuna modifica ai dati degli utenti esistenti.
 Il token è valido solo se **tutte** le condizioni reggono:
 - hash presente, `revoked_at` e `rotated_at` nulli, `access_expires_at` futuro;
 - utente `is_active`;
-- `auth_version` della riga uguale a quella dell'utente (cambio password, reset TOTP, reset admin
-  lo invalidano);
+- `auth_version` della riga uguale a quella dell'utente (reset TOTP o reset admin lo invalidano;
+  il cambio password revoca esplicitamente i token OAuth dall'endpoint `/api/auth/password`);
 - l'utente ha `mcp.access` in `effective_permissions`.
 
 `last_used_at` aggiornato al massimo ogni 5 minuti (come le sessioni).
@@ -178,15 +181,16 @@ Il token è valido solo se **tutte** le condizioni reggono:
 ### Revoca
 
 - L'utente revoca le proprie connessioni da Account; l'admin quelle di qualsiasi utente.
+- `POST /api/auth/password` revoca anche i token OAuth; non incrementa `auth_version`.
 - `DELETE /api/admin/users/{id}/sessions` (revoca sessioni esistente) revoca anche tutti i token
   OAuth dell'utente.
 - Eliminazione utente → CASCADE.
 
 ### Rate limiting
 
-`auth/rate_limit.py` oggi usa un solo dizionario per IP dedicato al login. Viene generalizzato con
-un parametro `bucket` (default `"login"`, comportamento invariato) e usato con bucket distinti per
-`/register` e `/token` (es. 20 richieste/minuto per IP) e per `POST /api/oauth/consent`.
+Il rate limiter del login resta dedicato agli accessi con password. Il rate limit OAuth usa una
+nuova funzione `consume(bucket, key, limit=...)`, separata dal limiter del login, per `/register` e
+`/token` (es. 20 richieste/minuto per IP) e per `POST /api/oauth/consent`.
 
 ### Pulizia
 
@@ -199,8 +203,9 @@ codici scaduti avviene in modo opportunistico a ogni emissione di codice.
 Tutti i tool operano **solo** sull'utente del token; nessun argomento `user_id`. Nomi, descrizioni
 e argomenti in inglese. Output JSON compatto con nutrienti arrotondati a 1 decimale e nomi degli
 alimenti inclusi. Le date sono ISO `YYYY-MM-DD`; dove indicato, il default è "oggi" in
-`APP_TIMEZONE`. `meal` è uno tra `breakfast` (colazione), `lunch` (pranzo), `dinner` (cena),
-`snack` (spuntino): la mappatura italiana è scritta nella descrizione del tool.
+`APP_TIMEZONE` per i tool MCP. La REST continua a usare UTC come prima. `meal` è uno tra
+`breakfast` (colazione), `lunch` (pranzo), `dinner` (cena), `snack` (spuntino): la mappatura
+italiana è scritta nella descrizione del tool.
 
 | Tool | Argomenti | Permesso richiesto |
 |---|---|---|
@@ -271,8 +276,10 @@ Tutte sotto `/api/oauth`, cookie di sessione, header CSRF per i metodi non-GET.
   `GET /api/auth/me`), breve guida
   (Claude → Impostazioni → Connettori → Aggiungi connettore personalizzato), lista connessioni con
   ultimo uso e **Revoca**.
-- **Admin → utente**: il permesso compare automaticamente tramite `PERMISSION_LABELS`; nuova
-  sottosezione connessioni MCP con **Revoca tutte**.
+- **Admin → utente**: pannello **Accesso** per gestire i permessi e abilitare/disabilitare le
+  connessioni AI (MCP), con sottosezione delle connessioni e **Revoca tutte**.
+- **Service worker**: `navigateFallbackDenylist` esclude `/authorize` e le altre route servite dal
+  server, così la navigazione OAuth non viene riscritta al fallback SPA.
 
 ## Test
 

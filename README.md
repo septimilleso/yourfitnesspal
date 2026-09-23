@@ -22,6 +22,10 @@ and published on a single host port.
   subset of meals.
 - **Goals** — daily kcal/protein/carbs/fat targets; these drive the ring, the bars, and the week's
   colouring.
+- **AI connections (MCP)** — users an admin has enabled can connect Claude (or any MCP client
+  with OAuth support) to their own diary at `<PUBLIC_BASE_URL>/mcp`, and ask it to search foods,
+  log meals, copy days and change goals. Login uses the same password + TOTP; each connection can
+  be revoked from Account.
 - **Installable PWA** — add to Home Screen for a full-screen, iOS-safe-area-aware app; the shell is
   precached, and food lookups fall back to cache when the network is slow or down.
 
@@ -50,6 +54,7 @@ api/                 FastAPI service
   app/models/        SQLAlchemy models (food, diary, goal, meal_template)
   app/routers/       auth, foods, diary + goals
   app/services/      OFF client (rate-limited), food cache, diary logic
+  app/mcp/           MCP server, OAuth provider and user-scoped tools
   alembic/           Migrations
   tests/             pytest suite
 web/                 React + Vite SPA (PWA)
@@ -110,6 +115,21 @@ budget, so several devices behind one NAT don't lock each other out.
 
 This is enough for a personal instance on a private network or behind an authenticating tunnel.
 It is **not** multi-tenant: anyone with the key sees the same diary.
+
+## Connecting an AI assistant (MCP)
+
+1. Set `PUBLIC_BASE_URL` to the public HTTPS origin (the tunnel hostname) and restart `api`.
+2. As admin, open Gestione utenti → Accesso and enable **Connessioni AI (MCP)** for the user.
+3. The user copies the URL from Account → Connessioni AI and, in Claude, adds it under
+   Settings → Connectors → Add custom connector. Claude opens the app's login + consent page.
+4. Tokens die immediately on password change, TOTP reset, deactivation, permission removal or
+   revocation from Account / the admin panel.
+
+Housekeeping: `docker compose exec api python -m app.cli purge-oauth` removes expired codes and
+tokens (safe to run from cron).
+
+Routes involved (all proxied by nginx to `api`): `/mcp`, `/.well-known/oauth-*`, `/register`,
+`/authorize`, `/token`, `/revoke`.
 
 ## API
 
@@ -225,6 +245,10 @@ gets the diary.
 | `DATABASE_URL`      | `postgresql+asyncpg://postgres:postgres@db:5432/yourfitnesspal` | Async SQLAlchemy URL; must use the `asyncpg` driver.                       |
 | `OFF_CONTACT_EMAIL` | `example@example.com`                                           | Sent to OpenFoodFacts as required by their policy.                        |
 | `COOKIE_SECURE`     | `true`                                                          | Set `false` only for temporary plain-HTTP testing.                        |
+| `PUBLIC_BASE_URL`   | `http://localhost:6500`                                         | Public HTTPS origin (Cloudflare Tunnel hostname), OAuth issuer and base for the MCP URL users paste into Claude; must match the browser origin exactly. |
+| `APP_TIMEZONE`      | `Europe/Rome`                                                   | Timezone the MCP tools use to decide what "today" is.                    |
+| `OAUTH_ACCESS_TOKEN_MINUTES` | `60`                                                    | Lifetime of MCP access tokens.                                            |
+| `OAUTH_REFRESH_TOKEN_DAYS`   | `30`                                                    | Lifetime of MCP refresh tokens.                                           |
 
 ## Known gaps
 
