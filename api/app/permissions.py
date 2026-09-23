@@ -3,6 +3,7 @@
 import enum
 
 from app.models.user import Role, User
+from app.services.errors import PermissionMissing
 
 
 class Permission(str, enum.Enum):
@@ -26,3 +27,9 @@ def effective_permissions(user: User) -> set[Permission]:
     if user.role is Role.admin:
         return set(Permission)
     return {permission for permission in Permission if permission.value in user.permissions}
+
+
+def ensure_permission(user: User, permission: Permission) -> None:
+    """Raise `PermissionMissing` unless `user` effectively holds `permission`."""
+    if permission not in effective_permissions(user):
+        raise PermissionMissing(permission.value)

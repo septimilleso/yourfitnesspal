@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.auth.deps import get_current_user, require_admin
 from app.routers import admin, auth, diary, foods
+from app.services.errors import Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
 
 
@@ -25,6 +26,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="YourFitnessPal API", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+
+@app.exception_handler(NotFound)
+async def _not_found(request: Request, exc: NotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(Invalid)
+async def _invalid(request: Request, exc: Invalid) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(PermissionMissing)
+async def _permission_missing(request: Request, exc: PermissionMissing) -> JSONResponse:
+    # Same body as the `require_permission` dependency's 403.
+    return JSONResponse(status_code=403, content={"detail": "forbidden"})
+
 
 app.include_router(auth.router)
 app.include_router(foods.router, dependencies=[Depends(get_current_user)])
