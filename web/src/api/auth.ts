@@ -2,7 +2,7 @@ import { client } from "./client";
 import type { Permission } from "../lib/permissions";
 
 export interface LoginResponse { status: "totp_required" | "setup_required" | string; must_change_password?: boolean; }
-export interface Me { id: number; username: string; display_name: string; role: "admin" | "user"; permissions: Permission[]; }
+export interface Me { id: number; username: string; display_name: string; role: "admin" | "user"; permissions: Permission[]; mcp_url: string; }
 export interface SetupStartResponse { otpauth_uri: string; secret: string; qr_svg_data_uri: string; }
 export interface RecoveryCodesResponse { recovery_codes: string[]; }
 export interface Session { id: number; created_at: string; last_seen_at: string; user_agent: string | null; ip: string | null; current: boolean; }

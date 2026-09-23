@@ -1,10 +1,11 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
 import { login, setupComplete, setupStart, verifyTotp, type SetupStartResponse } from "../api/auth";
 import { clearClientCaches } from "../auth/AuthContext";
+import { safeNext } from "../lib/safeNext";
 
 type Step = "credentials" | "totp" | "setup" | "recovery";
 
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function LoginPage() {
 
   const finish = async () => {
     await clearClientCaches(queryClient);
-    navigate("/", { replace: true });
+    navigate(safeNext(searchParams.get("next")) ?? "/", { replace: true });
   };
 
   async function credentials(event: FormEvent) {

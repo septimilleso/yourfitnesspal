@@ -46,6 +46,7 @@ describe("AuthGuard", () => {
   it("renders the protected route for an authenticated user", async () => {
     vi.mocked(getMe).mockResolvedValue({
       id: 1, username: "alice", display_name: "Alice", role: "user", permissions: [],
+      mcp_url: "http://localhost:6500/mcp",
     });
 
     renderWithRouter("/");

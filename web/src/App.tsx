@@ -10,6 +10,7 @@ import AccountPage from "./pages/AccountPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
 import LoginPage from "./pages/LoginPage";
+import ConnectPage from "./pages/ConnectPage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
@@ -38,6 +39,7 @@ function App() {
         <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/connect" element={<ConnectPage />} />
           <Route element={<AuthGuard />}>
             <Route element={<AppShell />}>
               <Route path="/" element={<DayPage />} />

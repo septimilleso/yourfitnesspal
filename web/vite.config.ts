@@ -33,6 +33,10 @@ export default defineConfig({
       workbox: {
         // App shell (HTML/JS/CSS/etc.) is precached and served cache-first
         // by the default globPatterns/navigateFallback behavior.
+        // Top-level navigations to server routes must reach the network, not
+        // the precached SPA shell -- /authorize in particular is where the AI
+        // client sends the browser to start the OAuth flow.
+        navigateFallbackDenylist: [/^\/api\//, /^\/mcp/, /^\/authorize/, /^\/token/, /^\/register/, /^\/revoke/, /^\/\.well-known\//],
         runtimeCaching: [
           {
               // Search/barcode are shared; /recent is user-specific. Logout

@@ -54,7 +54,7 @@ function setupMocks(overrides: Partial<ReturnType<typeof useGoal>> = {}) {
     isError: false,
   } as unknown as ReturnType<typeof usePutGoal>);
   vi.mocked(useMe).mockReturnValue({
-    data: { id: 1, username: "alice", display_name: "Alice", role: "user", permissions: ["goals.edit"] },
+    data: { id: 1, username: "alice", display_name: "Alice", role: "user", permissions: ["goals.edit"], mcp_url: "http://localhost:6500/mcp" },
   } as unknown as ReturnType<typeof useMe>);
   vi.mocked(useHasPermission).mockReturnValue(true);
 }
