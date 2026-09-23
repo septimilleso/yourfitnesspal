@@ -14,7 +14,10 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from app.config import settings
 from app.mcp.oauth import PostgresOAuthProvider
+from app.mcp.prompts import register_prompts
+from app.mcp.tools.diary import register_diary_tools
 from app.mcp.tools.foods import register_food_tools
+from app.mcp.tools.goals import register_goal_tools
 
 INSTRUCTIONS = """\
 YourFitnessPal is the user's personal food diary. Every tool acts only on the
@@ -59,6 +62,9 @@ def build_server() -> MCPServer:
         ),
     )
     register_food_tools(server)
+    register_diary_tools(server)
+    register_goal_tools(server)
+    register_prompts(server)
     return server
 
 
