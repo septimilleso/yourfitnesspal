@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "./client";
 import type { Permission } from "../lib/permissions";
 import type { Goal, PutGoalInput } from "./queries";
+import type { McpConnection } from "./oauth";
 
 export interface AdminUser {
   id: number; username: string; display_name: string;
@@ -46,3 +47,8 @@ export function useDeleteUser() {
 export function useAdminUserGoal(id: number | undefined) { return useQuery({ queryKey: ["admin", "users", id, "goal"], queryFn: () => client.get<Goal>(`/admin/users/${id}/goal`), enabled: id !== undefined }); }
 export function usePutAdminUserGoal(id: number) { const qc = useQueryClient(); return useMutation({ mutationFn: (input: PutGoalInput) => client.put<Goal>(`/admin/users/${id}/goal`, input), onSettled: () => invalidateUsers(qc) }); }
 export function useAuditLog() { return useQuery({ queryKey: ["admin", "audit"], queryFn: () => client.get<AdminAuditEvent[]>("/admin/audit?limit=200") }); }
+export function useAdminMcpConnections(id: number) { return useQuery({ queryKey: ["admin", "users", id, "mcp"], queryFn: () => client.get<McpConnection[]>(`/admin/users/${id}/mcp-connections`) }); }
+export function useRevokeAdminMcpConnections(id: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: () => client.delete<void>(`/admin/users/${id}/mcp-connections`), onSettled: () => void qc.invalidateQueries({ queryKey: ["admin", "users", id, "mcp"] }) });
+}

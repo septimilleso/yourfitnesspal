@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAdminUsers, useCreateUser, useDeleteUser, type AdminUser } from "../../api/admin";
+import UserAccessPanel from "./UserAccessPanel";
 
 function DeleteUserRow({ user, onDone }: { user: AdminUser; onDone: () => void }) {
   const [confirmText, setConfirmText] = useState("");
@@ -51,6 +52,7 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<"admin" | "user">("user");
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+  const [accessUserId, setAccessUserId] = useState<number | null>(null);
 
   return <div>
     <header className="app-header"><div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3"><Link to="/settings" className="btn-ghost">‹ Indietro</Link><h1 className="text-[17px] font-semibold">Gestione utenti</h1><button className="btn-primary" onClick={() => setShowForm(true)}>+ Nuovo</button></div></header>
@@ -73,6 +75,13 @@ export default function AdminUsersPage() {
             {!user.totp_enabled && <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">2FA da configurare</span>}
             <button
               type="button"
+              className="btn-ghost"
+              onClick={() => setAccessUserId(accessUserId === user.id ? null : user.id)}
+            >
+              Accesso
+            </button>
+            <button
+              type="button"
               className="btn-ghost text-red-600"
               onClick={() => setDeletingUserId(deletingUserId === user.id ? null : user.id)}
             >
@@ -81,6 +90,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
         {deletingUserId === user.id && <DeleteUserRow user={user} onDone={() => setDeletingUserId(null)} />}
+        {accessUserId === user.id && <UserAccessPanel user={user} />}
       </article>)}</section>
     </main>
   </div>;
