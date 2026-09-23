@@ -9,6 +9,7 @@ import sqlalchemy as sa
 from app.auth.passwords import generate_temp_password, hash_password, validate_password_policy
 from app.auth.sessions import revoke_all
 from app.db import AsyncSessionLocal
+from app.mcp.oauth import purge_expired
 from app.models.user import RecoveryCode, Role, User
 from app.services.audit import record
 
@@ -68,6 +69,11 @@ async def list_users() -> list[User]:
         return list((await session.scalars(sa.select(User).order_by(User.id))).all())
 
 
+async def purge_oauth() -> tuple[int, int]:
+    async with AsyncSessionLocal() as session:
+        return await purge_expired(session)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -80,6 +86,7 @@ def main() -> None:
     create_cmd.add_argument("username")
     create_cmd.add_argument("--display-name")
     sub.add_parser("list-users")
+    sub.add_parser("purge-oauth")
     args = parser.parse_args()
     if args.command == "set-password":
         password = None if args.temporary else getpass.getpass("Password: ")
@@ -92,6 +99,9 @@ def main() -> None:
         asyncio.run(reset_totp(args.username))
     elif args.command == "create-admin":
         print(f"Password temporanea: {asyncio.run(create_admin(args.username, args.display_name))}")
+    elif args.command == "purge-oauth":
+        codes, tokens = asyncio.run(purge_oauth())
+        print(f"Rimossi {codes} codici e {tokens} token OAuth scaduti")
     else:
         for user in asyncio.run(list_users()):
             print(f"{user.id}\t{user.username}\t{user.role.value}\t{user.is_active}\t{user.totp_enabled}")
