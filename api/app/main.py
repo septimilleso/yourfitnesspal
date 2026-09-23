@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.auth.deps import get_current_user, require_admin
 from app.auth.rate_limit import client_ip, consume
+from app.mcp.context import set_off_client
 from app.mcp.server import mcp_http_app, mcp_server
 from app.routers import admin, auth, diary, foods, oauth
 from app.services.errors import Invalid, NotFound, PermissionMissing
@@ -21,11 +22,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Constructing a fresh OffClient per-request made the rate limiting
     # inert in production.
     app.state.off_client = OffClient()
+    set_off_client(app.state.off_client)
     try:
         # The MCP SDK's session manager owns the task group /mcp runs in.
         async with mcp_server.session_manager.run():
             yield
     finally:
+        set_off_client(None)
         await app.state.off_client.aclose()
 
 

@@ -14,6 +14,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from app.config import settings
 from app.mcp.oauth import PostgresOAuthProvider
+from app.mcp.tools.foods import register_food_tools
 
 INSTRUCTIONS = """\
 YourFitnessPal is the user's personal food diary. Every tool acts only on the
@@ -43,7 +44,7 @@ def _transport_security() -> TransportSecuritySettings:
 
 
 def build_server() -> MCPServer:
-    return MCPServer(
+    server = MCPServer(
         name="YourFitnessPal",
         instructions=INSTRUCTIONS,
         auth_server_provider=PostgresOAuthProvider(),
@@ -57,6 +58,8 @@ def build_server() -> MCPServer:
             validate_token_resource=False,
         ),
     )
+    register_food_tools(server)
+    return server
 
 
 mcp_server = build_server()
