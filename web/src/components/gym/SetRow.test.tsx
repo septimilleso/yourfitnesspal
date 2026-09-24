@@ -1,0 +1,56 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { WorkoutSet } from "../../api/gym";
+import SetRow from "./SetRow";
+
+const baseSet: WorkoutSet = {
+  id: 11, weight_kg: 80, reps: 8, duration_s: null, completed_at: null,
+  previous: { weight_kg: 77.5, reps: 8, duration_s: null },
+};
+
+function setup(set: WorkoutSet = baseSet) {
+  const handlers = {
+    onSave: vi.fn(), onComplete: vi.fn(), onUncomplete: vi.fn(), onDelete: vi.fn(),
+  };
+  render(<SetRow index={0} tracking="weight_reps" set={set} {...handlers} />);
+  return handlers;
+}
+
+describe("SetRow", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("shows the previous values and copies them on tap", () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Usa precedente serie 1" }));
+    expect(screen.getByLabelText("kg serie 1")).toHaveValue("77,5");
+    act(() => vi.advanceTimersByTime(500));
+    expect(onSave).toHaveBeenCalledWith({ weight_kg: 77.5, reps: 8, duration_s: null });
+  });
+
+  it("debounces edits", () => {
+    const { onSave } = setup();
+    fireEvent.change(screen.getByLabelText("kg serie 1"), { target: { value: "85" } });
+    fireEvent.change(screen.getByLabelText("Rip. serie 1"), { target: { value: "6" } });
+    expect(onSave).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(500));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ weight_kg: 85, reps: 6, duration_s: null });
+  });
+
+  it("completes with the typed values and drops the pending save", () => {
+    const { onSave, onComplete } = setup();
+    fireEvent.change(screen.getByLabelText("kg serie 1"), { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Completa serie 1" }));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(onComplete).toHaveBeenCalledWith({ weight_kg: 90, reps: 8, duration_s: null });
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("unticks a completed set", () => {
+    const { onUncomplete } = setup({ ...baseSet, completed_at: "2026-09-24T18:00:00Z" });
+    fireEvent.click(screen.getByRole("button", { name: "Annulla serie 1" }));
+    expect(onUncomplete).toHaveBeenCalled();
+  });
+});
