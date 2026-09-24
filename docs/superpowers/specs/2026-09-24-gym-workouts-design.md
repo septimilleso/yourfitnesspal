@@ -177,8 +177,8 @@ utenti esistenti. Ogni service lo verifica con `ensure_permission`.
 ### Modifiche live
 
 Endpoint granulari, ognuno una transazione:
-- aggiungi, rimuovi, riordina, sostituisci esercizio; modifica `rest_seconds`, `note`,
-  `superset_group`;
+- aggiungi, rimuovi, sostituisci esercizio; modifica `rest_seconds` e `note`;
+- ordine e superserie di tutti gli esercizi insieme (`PUT .../layout`, normalizzato dal server);
 - aggiungi serie (copia i valori dell'ultima serie dell'esercizio), modifica, elimina;
 - rinomina il workout.
 
@@ -186,7 +186,8 @@ Tutti rispondono con il workout completo aggiornato: la SPA sostituisce la cache
 
 ### Spunta serie e timer
 
-`complete_set(set_id)` valida i campi e imposta `completed_at = now()`. Poi calcola il riposo:
+`complete_set(set_id, valori?)` salva prima i valori inviati con la spunta (così nulla di
+digitato va perso), valida i campi e imposta `completed_at = now()`. Poi calcola il riposo:
 
 - esercizio non in superserie → `rest_seconds` dell'esercizio;
 - in superserie → timer solo se ogni esercizio del gruppo ha una serie completata alla stessa
@@ -195,7 +196,7 @@ Tutti rispondono con il workout completo aggiornato: la SPA sostituisce la cache
 
 Se c'è un timer: `rest_ends_at = now() + rest`, `rest_total_s = rest`.
 `uncomplete_set` azzera `completed_at` e non tocca il timer.
-`adjust_rest(delta_s)` (±15) e `skip_rest()` modificano o azzerano `rest_ends_at`.
+`POST .../rest` accetta esattamente una tra `start_s` (timer manuale), `delta_s` (±15) e `skip`.
 
 ### Precedente
 
@@ -213,7 +214,10 @@ esercizio aggiunto, la nuova serie prende i valori da `previous` se esiste.
 - elimina le serie non completate e gli esercizi rimasti senza serie;
 - nessuna serie completata → `Invalid` (`empty_workout`), la UI propone "Annulla allenamento";
 - imposta `status = finished`, `finished_at`, azzera il timer;
-- risponde con il riepilogo e il `template_diff`.
+- risponde con il workout finito, che include `template_diff`.
+
+Ogni `WorkoutOut` di un workout finito con modello include `template_diff` (lista vuota dopo
+"Aggiorna modello"), così il riepilogo sopravvive a un reload.
 
 `cancel_workout(workout_id)` elimina il workout in corso.
 
@@ -253,22 +257,21 @@ Tutte sotto `/api`, autenticate, con il permesso `workouts.use`.
 | POST / PATCH / DELETE | `/exercises[/{id}]` | custom (DELETE = archivia) |
 | GET | `/templates` | cartelle e modelli con anteprima esercizi |
 | POST / PATCH / DELETE | `/template-folders[/{id}]` | cartelle |
-| PUT | `/template-folders/order` | riordino cartelle |
 | POST | `/templates` | crea (corpo completo: esercizi e serie) |
 | GET / PUT / DELETE | `/templates/{id}` | leggi, sostituisci per intero, elimina |
 | POST | `/templates/{id}/duplicate` | duplica ("Copia") |
-| PATCH | `/templates/{id}` | rinomina, sposta cartella, posizione |
+| PATCH | `/templates/{id}` | rinomina, sposta cartella |
 | GET | `/workouts/active` | workout in corso o 204 |
 | POST | `/workouts` | avvia (`template_id` opzionale) |
 | PATCH | `/workouts/{id}` | rinomina |
 | POST | `/workouts/{id}/exercises` | aggiungi esercizio |
-| PATCH / DELETE | `/workouts/{id}/exercises/{we_id}` | riposo, nota, superserie, sostituisci, rimuovi |
-| PUT | `/workouts/{id}/exercises/order` | riordina |
+| PATCH / DELETE | `/workouts/{id}/exercises/{we_id}` | riposo, nota, sostituisci, rimuovi |
+| PUT | `/workouts/{id}/layout` | ordine e superserie di tutti gli esercizi |
 | POST | `/workouts/{id}/exercises/{we_id}/sets` | aggiungi serie |
 | PATCH / DELETE | `/workouts/{id}/sets/{set_id}` | modifica valori, elimina |
-| POST | `/workouts/{id}/sets/{set_id}/complete` · `/uncomplete` | spunta |
-| POST | `/workouts/{id}/rest` | `{"delta_s": 15}` oppure `{"skip": true}` |
-| POST | `/workouts/{id}/finish` | `{"discard_incomplete": bool}` → riepilogo + diff |
+| POST | `/workouts/{id}/sets/{set_id}/complete` · `/uncomplete` | spunta (complete accetta i valori) |
+| POST | `/workouts/{id}/rest` | `{"start_s": 90}`, `{"delta_s": 15}` oppure `{"skip": true}` |
+| POST | `/workouts/{id}/finish` | `{"discard_incomplete": bool}` → workout finito con diff |
 | POST | `/workouts/{id}/apply-to-template` | aggiorna modello |
 | POST | `/workouts/{id}/save-as-template` | `{name, folder_id?}` |
 | DELETE | `/workouts/{id}` | annulla in corso / elimina dallo storico |
@@ -276,7 +279,8 @@ Tutte sotto `/api`, autenticate, con il permesso `workouts.use`.
 | GET | `/workouts/{id}` | dettaglio |
 
 L'editor modelli lavora in locale e salva con un unico `PUT /templates/{id}`. La sessione live
-invece salva ogni modifica subito.
+invece salva ogni modifica subito. Nessun riordino manuale di cartelle e modelli nella v1:
+cartelle in ordine di creazione, un modello spostato va in fondo alla cartella.
 
 ## UI (web)
 
@@ -323,7 +327,7 @@ Riusato da editor e sessione live.
 - Righe serie: `Serie | Precedente | kg | Rip. | ✓`. Le colonne seguono il tracking (`reps`:
   senza kg; `duration`: una colonna `Tempo`). "Precedente" è grigio (`80 kg × 8`, `—` se
   assente); tap su "Precedente" copia i valori nei campi. Serie spuntata: riga verde.
-  Menu o swipe sulla serie: Elimina.
+  Tap sul numero della serie: menu con Elimina.
 - Tra due serie una linea con il riposo (`1:30`). Tap → picker del riposo dell'esercizio.
 - "+ Aggiungi serie (1:30)" sotto ogni esercizio; "+ Aggiungi esercizio" e
   "Annulla allenamento" in fondo.
@@ -331,12 +335,13 @@ Riusato da editor e sessione live.
   al blur. Il ✓ invia prima eventuali modifiche in sospeso.
 - Timer di riposo: barra fissa in alto con countdown `m:ss`, avanzamento, `-15s`, `+15s`,
   `Salta`. Il tempo si calcola da `rest_ends_at` (con correzione dell'offset orologio
-  server/client ricavato dall'header `Date`). A zero: beep WebAudio breve (AudioContext
+  server/client ricavato dal campo `server_now` di ogni risposta). A zero: beep WebAudio breve (AudioContext
   sbloccato al primo tap del ✓) e `navigator.vibrate([200,100,200])` se disponibile.
 - Barra "Allenamento in corso · 12:34" sopra la tab bar in tutte le pagine, anche in modalità
   Dieta, che riapre la sessione.
-- Errori di rete: toast "Non salvato, riprovo" con retry automatico del mutation (react-query
-  `retry`); lo stato del campo resta quello digitato.
+- Errori: toast con il messaggio ("Non salvato: controlla la connessione" per la rete) e retry
+  automatico dei soli errori di rete; lo stato del campo resta quello digitato. Tutte le
+  modifiche live girano in un'unica coda react-query (`scope`), quindi arrivano in ordine.
 
 ### Termina e riepilogo
 
@@ -350,7 +355,7 @@ Riusato da editor e sessione live.
 ### Storico (`/gym/history`)
 
 Lista raggruppata per mese; card con nome, data, durata, esercizi (`3 × Squat (Barbell)`).
-Scroll infinito. Dettaglio: serie per esercizio, menu con Elimina e "Salva come modello".
+Pulsante "Carica altri". Dettaglio: serie per esercizio, menu con Elimina e "Salva come modello".
 
 ### Esercizi (`/gym/exercises`)
 
@@ -366,6 +371,7 @@ muscolo primario, tracking. I custom si modificano ed eliminano (archiviazione).
   scrivono la risposta direttamente in `["gym","workout","active"]`.
 - Pagine in `web/src/pages/gym/`, componenti in `web/src/components/gym/`
   (`SetRow`, `RestTimerBar`, `ExercisePicker`, `ActiveWorkoutBar`, `TemplateCard`, ...).
+- Dialoghi semplici (nome cartella, nota, conferme) con `window.prompt` / `window.confirm`.
 - `web/src/lib/restTimer.ts`: calcolo del tempo residuo e beep, testabile senza DOM.
 - PWA: nessuna cache runtime per `/api/workouts` e `/api/templates`.
 
@@ -418,7 +424,7 @@ I test del DB girano sul deploy remoto (niente Postgres locale).
 3. Avvio il modello: vedo "Precedente" vuoto la prima volta e i campi precompilati a 80 × 8.
 4. Spuntare una serie avvia il timer da 1:30 con `-15s`, `+15s`, `Salta`; a zero suona e vibra.
 5. Ricaricando la pagina a metà, allenamento e timer restano.
-6. Cambio la serie 1 a 85 kg, termino: il riepilogo mostra "Squat: serie 1 80 → 85 kg" e
+6. Cambio la serie 1 a 85 kg, termino: il riepilogo mostra "Squat: serie 1 80 kg × 8 → 85 kg × 8" e
    "Aggiorna modello" aggiorna il modello.
 7. Il successivo avvio mostra "Precedente" `85 kg × 8` sulla serie 1.
 8. In una superserie A+B il timer parte solo dopo il ✓ di B.
