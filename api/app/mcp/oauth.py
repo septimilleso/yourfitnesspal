@@ -259,6 +259,12 @@ class PostgresOAuthProvider:
     async def exchange_authorization_code(
         self, client: OAuthClientInformationFull, authorization_code: StoredAuthCode
     ) -> OAuthToken:
+        # `TokenError` is a frozen dataclass; raising it *inside* an
+        # `@asynccontextmanager` block makes CPython's contextlib crash while
+        # re-raising it (it tries to set `__traceback__`, which a frozen
+        # dataclass's `__setattr__` refuses). So every error path here exits
+        # `session_scope()` normally first, and only raises after.
+        error: str | None = None
         async with session_scope() as db:
             used = await db.execute(
                 sa.update(OAuthAuthCode)
@@ -269,12 +275,15 @@ class PostgresOAuthProvider:
                 .values(used_at=_now())
             )
             if used.rowcount != 1:
-                raise TokenError("invalid_grant", "authorization code already used")
-            user = await db.get(User, authorization_code.user_id)
-            if user is None or not user_may_connect(user):
-                await db.commit()
-                raise TokenError("invalid_grant", "access to this account is not allowed")
-            return await issue_tokens(db, user, client.client_id, authorization_code.scopes)
+                error = "authorization code already used"
+            else:
+                user = await db.get(User, authorization_code.user_id)
+                if user is None or not user_may_connect(user):
+                    await db.commit()
+                    error = "access to this account is not allowed"
+                else:
+                    return await issue_tokens(db, user, client.client_id, authorization_code.scopes)
+        raise TokenError("invalid_grant", error)
 
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
@@ -314,6 +323,9 @@ class PostgresOAuthProvider:
         refresh_token: StoredRefreshToken,
         scopes: list[str],
     ) -> OAuthToken:
+        # Same reason as exchange_authorization_code: raise only after
+        # session_scope() has exited, never from inside the `async with`.
+        invalid = False
         async with session_scope() as db:
             rotated = await db.execute(
                 sa.update(OAuthTokenPair)
@@ -325,16 +337,20 @@ class PostgresOAuthProvider:
                 .values(rotated_at=_now())
             )
             if rotated.rowcount != 1:
-                raise TokenError("invalid_grant", "refresh token is no longer valid")
-            user = await db.get(User, int(refresh_token.subject))
-            if user is None:
-                raise TokenError("invalid_grant", "refresh token is no longer valid")
-            granted = (
-                [s for s in scopes if s in refresh_token.scopes] if scopes else refresh_token.scopes
-            )
-            return await issue_tokens(
-                db, user, client.client_id, granted, family_id=refresh_token.family_id
-            )
+                invalid = True
+            else:
+                user = await db.get(User, int(refresh_token.subject))
+                if user is None:
+                    invalid = True
+                else:
+                    granted = (
+                        [s for s in scopes if s in refresh_token.scopes]
+                        if scopes else refresh_token.scopes
+                    )
+                    return await issue_tokens(
+                        db, user, client.client_id, granted, family_id=refresh_token.family_id
+                    )
+        raise TokenError("invalid_grant", "refresh token is no longer valid")
 
     async def load_access_token(self, token: str) -> AccessToken | None:
         async with session_scope() as db:

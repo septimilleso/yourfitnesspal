@@ -29,13 +29,15 @@ async def mcp_client(user: User, client_id: str = "test-client") -> AsyncIterato
         auth_context_var.reset(reset)
 
 
-async def call(client: Client, name: str, **args: Any) -> dict:
+async def call(client: Client, name: str, /, **args: Any) -> dict:
+    # `name` is positional-only: several tools (e.g. create_custom_food) have
+    # their own `name` argument, which would otherwise collide as a keyword.
     result = await client.call_tool(name, args)
     assert not result.is_error, result.content
     return result.structured_content
 
 
-async def call_error(client: Client, name: str, **args: Any) -> str:
+async def call_error(client: Client, name: str, /, **args: Any) -> str:
     result = await client.call_tool(name, args)
     assert result.is_error, result.structured_content
     return result.content[0].text
