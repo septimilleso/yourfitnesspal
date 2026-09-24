@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import type { Goal, WeekDayTotal } from "../api/queries";
 import { useGoal, useWeekDiary } from "../api/queries";
 import CopyDaysDialog from "../components/CopyDaysDialog";
+import ModeSwitch from "../components/ModeSwitch";
 import { formatIsoDateShort, shiftIsoDate, todayIso } from "../lib/date";
 
 /** Monday of the ISO week containing `iso` (`getUTCDay()` is 0=Sunday..6=
@@ -173,6 +174,7 @@ function WeekPage() {
   return (
     <div>
       <header className="app-header">
+        <ModeSwitch />
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-2 py-2">
           <button
             type="button"

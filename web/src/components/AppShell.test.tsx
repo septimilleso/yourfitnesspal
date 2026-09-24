@@ -1,9 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useHasPermission } from "../auth/AuthContext";
 import AppShell from "./AppShell";
+
+vi.mock("../auth/AuthContext", async () => {
+  const actual = await vi.importActual<typeof import("../auth/AuthContext")>("../auth/AuthContext");
+  return { ...actual, useHasPermission: vi.fn(() => false) };
+});
+
+vi.mock("./gym/ActiveWorkoutBar", () => ({
+  default: () => <div data-testid="active-workout-bar" />,
+}));
 
 function renderShell(initialPath = "/") {
   return render(
@@ -14,6 +24,8 @@ function renderShell(initialPath = "/") {
           <Route path="/search" element={<div>Search Page</div>} />
           <Route path="/week" element={<div>Week Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
+          <Route path="/gym" element={<div>Gym Page</div>} />
+          <Route path="/gym/history" element={<div>History Page</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -21,6 +33,11 @@ function renderShell(initialPath = "/") {
 }
 
 describe("AppShell", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.mocked(useHasPermission).mockReturnValue(false);
+  });
+
   it("renders a nav bar with all 4 tabs as real links", () => {
     renderShell();
 
@@ -70,5 +87,28 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("link", { name: "Settimana" })).toHaveClass("text-brand-600");
     expect(screen.getByRole("link", { name: "Giorno" })).toHaveClass("text-slate-400");
+  });
+
+  it("shows the gym tabs on gym pages", () => {
+    vi.mocked(useHasPermission).mockReturnValue(true);
+    renderShell("/gym");
+
+    expect(screen.getByRole("link", { name: "Storico" })).toHaveAttribute("href", "/gym/history");
+    expect(screen.getByRole("link", { name: "Inizia" })).toHaveAttribute("href", "/gym");
+    expect(screen.getByRole("link", { name: "Esercizi" })).toHaveAttribute("href", "/gym/exercises");
+    expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
+    expect(screen.queryByRole("link", { name: "Giorno" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("active-workout-bar")).toBeInTheDocument();
+  });
+
+  it("keeps the gym tabs on settings after visiting the gym", async () => {
+    vi.mocked(useHasPermission).mockReturnValue(true);
+    const user = userEvent.setup();
+    renderShell("/gym");
+
+    await user.click(screen.getByRole("link", { name: "Impostazioni" }));
+
+    expect(screen.getByText("Settings Page")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Storico" })).toBeInTheDocument();
   });
 });

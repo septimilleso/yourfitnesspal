@@ -5,6 +5,7 @@ import { MEALS, useDayDiary, useDeleteEntry } from "../api/queries";
 import DaySummary from "../components/DaySummary";
 import EditEntrySheet from "../components/EditEntrySheet";
 import MealSection from "../components/MealSection";
+import ModeSwitch from "../components/ModeSwitch";
 import { formatIsoDateLong, relativeDayLabel, shiftIsoDate, todayIso } from "../lib/date";
 
 /** Day diary: date header with prev/next navigation (date lives in the
@@ -43,6 +44,7 @@ function DayPage() {
   return (
     <div>
       <header className="app-header">
+        <ModeSwitch />
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-2 py-2">
           <button
             type="button"

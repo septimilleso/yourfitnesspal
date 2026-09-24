@@ -5,10 +5,17 @@ import { ApiError } from "./api/client";
 import { AuthProvider } from "./auth/AuthContext";
 import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
+import PermissionGuard from "./auth/PermissionGuard";
 import AppShell from "./components/AppShell";
 import AccountPage from "./pages/AccountPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
+import ExercisesPage from "./pages/gym/ExercisesPage";
+import GymStartPage from "./pages/gym/GymStartPage";
+import HistoryPage from "./pages/gym/HistoryPage";
+import TemplateEditorPage from "./pages/gym/TemplateEditorPage";
+import WorkoutDetailPage from "./pages/gym/WorkoutDetailPage";
+import WorkoutPage from "./pages/gym/WorkoutPage";
 import LoginPage from "./pages/LoginPage";
 import ConnectPage from "./pages/ConnectPage";
 import SearchPage from "./pages/SearchPage";
@@ -41,12 +48,23 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/connect" element={<ConnectPage />} />
           <Route element={<AuthGuard />}>
+            <Route element={<PermissionGuard permission="workouts.use" />}>
+              <Route path="/gym/workout" element={<WorkoutPage />} />
+            </Route>
             <Route element={<AppShell />}>
               <Route path="/" element={<DayPage />} />
               <Route path="/week" element={<WeekPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/account" element={<AccountPage />} />
+              <Route element={<PermissionGuard permission="workouts.use" />}>
+                <Route path="/gym" element={<GymStartPage />} />
+                <Route path="/gym/exercises" element={<ExercisesPage />} />
+                <Route path="/gym/history" element={<HistoryPage />} />
+                <Route path="/gym/history/:id" element={<WorkoutDetailPage />} />
+                <Route path="/gym/templates/new" element={<TemplateEditorPage />} />
+                <Route path="/gym/templates/:id" element={<TemplateEditorPage />} />
+              </Route>
               <Route element={<AdminGuard />}>
                 <Route path="/admin/users" element={<AdminUsersPage />} />
               </Route>

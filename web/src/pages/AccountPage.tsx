@@ -10,6 +10,7 @@ import {
 } from "../api/auth";
 import { useHasPermission, useLogout, useMe } from "../auth/AuthContext";
 import McpConnectionsSection from "../components/McpConnectionsSection";
+import ModeSwitch from "../components/ModeSwitch";
 import { formatDateTime } from "../lib/format";
 
 function errorMessage(error: unknown, fallback: string) {
@@ -92,7 +93,7 @@ function AccountPage() {
 
   return (
     <div>
-      <header className="app-header"><div className="mx-auto max-w-2xl px-4 py-3"><h1 className="text-[17px] font-semibold text-slate-900">Account</h1></div></header>
+      <header className="app-header"><ModeSwitch /><div className="mx-auto max-w-2xl px-4 py-3"><h1 className="text-[17px] font-semibold text-slate-900">Account</h1></div></header>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         <section className="space-y-2"><h2 className="section-label">Profilo</h2><div className="card divide-y divide-slate-100">
           <div className="row justify-between"><span className="text-sm text-slate-500">Nome</span><span className="font-medium">{me?.display_name}</span></div>
