@@ -3,8 +3,9 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.models.workout import WorkoutStatus
 from app.schemas.exercise import ExerciseOut
 from app.services.gym_rules import DEFAULT_REST_SECONDS
 
@@ -87,3 +88,114 @@ class TemplatePatch(BaseModel):
 
     name: Name100 | None = None
     folder_id: int | None = None
+
+
+class WorkoutSetOut(SetValues):
+    id: int
+    completed_at: datetime | None
+    # Same position in the last finished workout with this exercise.
+    previous: SetValues | None
+
+
+class WorkoutExerciseOut(BaseModel):
+    id: int
+    exercise: ExerciseOut
+    rest_seconds: int
+    superset_group: int | None
+    note: str | None
+    sets: list[WorkoutSetOut]
+
+
+class WorkoutOut(BaseModel):
+    id: int
+    name: str
+    template_id: int | None
+    status: WorkoutStatus
+    started_at: datetime
+    finished_at: datetime | None
+    rest_ends_at: datetime | None
+    rest_total_s: int | None
+    # Server clock at response time: the SPA derives its clock offset from it,
+    # so the rest countdown is right even if the phone's clock drifts.
+    server_now: datetime
+    exercises: list[WorkoutExerciseOut]
+    # Finished workouts made from a template: readable differences from it.
+    template_diff: list[str] = Field(default_factory=list)
+
+
+class WorkoutStart(BaseModel):
+    template_id: int | None = None
+
+
+class WorkoutRename(BaseModel):
+    name: Name100
+
+
+class WorkoutExerciseAdd(BaseModel):
+    exercise_id: int
+
+
+class WorkoutExercisePatch(BaseModel):
+    """Only the fields sent are changed. `exercise_id` replaces the exercise."""
+
+    exercise_id: int | None = None
+    rest_seconds: RestSeconds | None = None
+    note: Note = None
+
+
+class LayoutItem(BaseModel):
+    id: int
+    superset_group: int | None = None
+
+
+class LayoutIn(BaseModel):
+    """Order and superset grouping of every exercise of the workout."""
+
+    items: list[LayoutItem]
+
+
+class SetPatch(SetValues):
+    """Only the fields sent are changed (`null` clears a value)."""
+
+
+class RestIn(BaseModel):
+    """Exactly one of: start a timer, move the running one, or skip it."""
+
+    start_s: int | None = Field(default=None, ge=1, le=600)
+    delta_s: int | None = Field(default=None, ge=-600, le=600)
+    skip: bool = False
+
+    @model_validator(mode="after")
+    def _one_action(self) -> "RestIn":
+        chosen = [self.start_s is not None, self.delta_s is not None, self.skip]
+        if sum(chosen) != 1:
+            raise ValueError("send exactly one of start_s, delta_s, skip")
+        return self
+
+
+class FinishIn(BaseModel):
+    discard_incomplete: bool = False
+
+
+class SaveAsTemplateIn(BaseModel):
+    name: Name100
+    folder_id: int | None = None
+
+
+class HistoryExercise(BaseModel):
+    name: str
+    sets: int
+
+
+class HistoryItem(BaseModel):
+    id: int
+    name: str
+    started_at: datetime
+    finished_at: datetime
+    exercises: list[HistoryExercise]
+
+
+class HistoryPage(BaseModel):
+    items: list[HistoryItem]
+    # Pass as `before` to get the next page; null on the last page.
+    next_before: datetime | None

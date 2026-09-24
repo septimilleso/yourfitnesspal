@@ -69,3 +69,41 @@ async def test_templates_api(db) -> None:
         assert (
             await client.delete(f"/api/template-folders/{folder.json()['id']}")
         ).status_code == 204
+
+
+async def test_live_workout_api(db) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Squat")
+    async with await http_client(db, user) as client:
+        assert (await client.get("/api/workouts/active")).status_code == 204
+        started = await client.post("/api/workouts", json={})
+        assert started.status_code == 201
+        workout_id = started.json()["id"]
+        assert (await client.get("/api/workouts/active")).json()["id"] == workout_id
+
+        body = (await client.post(
+            f"/api/workouts/{workout_id}/exercises", json={"exercise_id": squat.id}
+        )).json()
+        item_id = body["exercises"][0]["id"]
+        set_id = body["exercises"][0]["sets"][0]["id"]
+        added = await client.post(f"/api/workouts/{workout_id}/exercises/{item_id}/sets")
+        assert len(added.json()["exercises"][0]["sets"]) == 2
+
+        done = await client.post(
+            f"/api/workouts/{workout_id}/sets/{set_id}/complete",
+            json={"weight_kg": 80, "reps": 8},
+        )
+        assert done.status_code == 200
+        assert done.json()["exercises"][0]["sets"][0]["completed_at"] is not None
+        assert done.json()["rest_ends_at"] is not None
+        skipped = await client.post(f"/api/workouts/{workout_id}/rest", json={"skip": True})
+        assert skipped.json()["rest_ends_at"] is None
+        bad = await client.post(f"/api/workouts/{workout_id}/rest", json={})
+        assert bad.status_code == 422
+        renamed = await client.patch(f"/api/workouts/{workout_id}", json={"name": "Gambe"})
+        assert renamed.json()["name"] == "Gambe"
+        layout = await client.put(
+            f"/api/workouts/{workout_id}/layout",
+            json={"items": [{"id": item_id, "superset_group": None}]},
+        )
+        assert layout.status_code == 200
