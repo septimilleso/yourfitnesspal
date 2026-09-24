@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 
 import { ApiError } from "./api/client";
 import { AuthProvider } from "./auth/AuthContext";
@@ -39,6 +39,11 @@ const queryClient = new QueryClient({
   } }),
 });
 
+function TemplateEditorRoute() {
+  const { id } = useParams();
+  return <TemplateEditorPage key={id ?? "new"} />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -62,8 +67,8 @@ function App() {
                 <Route path="/gym/exercises" element={<ExercisesPage />} />
                 <Route path="/gym/history" element={<HistoryPage />} />
                 <Route path="/gym/history/:id" element={<WorkoutDetailPage />} />
-                <Route path="/gym/templates/new" element={<TemplateEditorPage />} />
-                <Route path="/gym/templates/:id" element={<TemplateEditorPage />} />
+                <Route path="/gym/templates/new" element={<TemplateEditorRoute />} />
+                <Route path="/gym/templates/:id" element={<TemplateEditorRoute />} />
               </Route>
               <Route element={<AdminGuard />}>
                 <Route path="/admin/users" element={<AdminUsersPage />} />

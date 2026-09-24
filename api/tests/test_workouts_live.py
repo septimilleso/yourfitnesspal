@@ -1,8 +1,11 @@
 """The live workout session (needs Postgres)."""
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.models.exercise import Tracking
 from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
@@ -20,6 +23,21 @@ from app.services.errors import Invalid, NotFound
 from tests.factories import GYM, make_exercise, make_user
 
 T0 = datetime(2026, 9, 24, 18, 0, tzinfo=UTC)
+
+
+async def test_start_integrity_conflict_matches_existing_active_error(monkeypatch) -> None:
+    db = SimpleNamespace(add=lambda _: None, rollback=AsyncMock())
+    user = SimpleNamespace(id=1, role="user", permissions=GYM)
+    monkeypatch.setattr(workouts, "_active_id", AsyncMock(return_value=None))
+    monkeypatch.setattr(
+        workouts,
+        "_save",
+        AsyncMock(side_effect=IntegrityError("insert", {}, RuntimeError("unique"))),
+    )
+
+    with pytest.raises(Invalid, match="a workout is already in progress"):
+        await workouts.start_workout(db, user, WorkoutStart())
+    db.rollback.assert_awaited_once()
 
 
 @pytest.fixture
@@ -149,6 +167,71 @@ async def test_edit_sets_and_exercises(db, clock) -> None:
     assert workout.exercises[1].sets == []
     with pytest.raises(NotFound):
         await workouts.delete_set(db, user, workout.id, first)
+
+
+async def test_replacing_exercise_resets_sets_only_when_tracking_changes(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    weight_exercise = await make_exercise(db, name="Zzq Weight")
+    duration_exercise = await make_exercise(
+        db, name="Zzq Duration", tracking=Tracking.duration
+    )
+    same_tracking = await make_exercise(db, name="Zzq Other Weight")
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=weight_exercise.id)
+    )
+    item = workout.exercises[0]
+    workout = await workouts.complete_set(
+        db, user, workout.id, item.sets[0].id, SetPatch(weight_kg=80, reps=8)
+    )
+
+    workout = await workouts.patch_exercise(
+        db, user, workout.id, item.id,
+        WorkoutExercisePatch(exercise_id=duration_exercise.id),
+    )
+    changed = workout.exercises[0].sets[0]
+    assert changed.completed_at is None
+    assert (changed.weight_kg, changed.reps, changed.duration_s) == (None, None, None)
+
+    workout = await workouts.patch_exercise(
+        db, user, workout.id, item.id,
+        WorkoutExercisePatch(exercise_id=weight_exercise.id),
+    )
+    workout = await workouts.complete_set(
+        db, user, workout.id, item.sets[0].id, SetPatch(weight_kg=80, reps=8)
+    )
+    workout = await workouts.patch_exercise(
+        db, user, workout.id, item.id,
+        WorkoutExercisePatch(exercise_id=same_tracking.id),
+    )
+    unchanged = workout.exercises[0].sets[0]
+    assert unchanged.completed_at == T0
+    assert (unchanged.weight_kg, unchanged.reps, unchanged.duration_s) == (80, 8, None)
+
+
+async def test_template_replace_clears_fields_not_used_by_new_tracking(db) -> None:
+    user = await make_user(db, permissions=GYM)
+    weight_exercise = await make_exercise(db, name="Zzq Template Weight")
+    duration_exercise = await make_exercise(
+        db, name="Zzq Template Duration", tracking=Tracking.duration
+    )
+    template = await _template(db, user, {
+        "exercise_id": weight_exercise.id,
+        "sets": [{"weight_kg": 80, "reps": 8, "duration_s": 90}],
+    })
+
+    replaced = await templates.replace_template(
+        db, user, template.id, TemplateIn.model_validate({
+            "name": template.name,
+            "exercises": [{
+                "exercise_id": duration_exercise.id,
+                "sets": [{"weight_kg": 80, "reps": 8, "duration_s": 90}],
+            }],
+        }),
+    )
+
+    [set_values] = replaced.exercises[0].sets
+    assert (set_values.weight_kg, set_values.reps, set_values.duration_s) == (None, None, 90)
 
 
 async def test_complete_set_validates_and_starts_rest(db, clock) -> None:

@@ -107,7 +107,11 @@ function WorkoutSession() {
         label: item.note ? "Modifica nota" : "Aggiungi nota",
         onSelect: () => {
           const note = window.prompt("Nota", item.note ?? "");
-          if (note !== null) patchExercise.mutate({ workoutId, id: item.id, note: note.trim() || null });
+          if (note !== null) {
+            patchExercise.mutate({
+              workoutId, id: item.id, note: note.trim().slice(0, 500) || null,
+            });
+          }
         },
       },
     ];

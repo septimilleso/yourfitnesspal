@@ -68,6 +68,14 @@ function SetRow({ index, tracking, set, onSave, onComplete, onUncomplete, onDele
     timer.current = setTimeout(flush, SAVE_DELAY_MS);
   }
 
+  function deleteSet() {
+    if (timer.current !== null) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    onDelete();
+  }
+
   function toggle() {
     if (set.completed_at) {
       onUncomplete();
@@ -93,7 +101,7 @@ function SetRow({ index, tracking, set, onSave, onComplete, onUncomplete, onDele
         label={`Serie ${number}`}
         trigger={number}
         triggerClassName="h-9 w-full rounded-lg bg-slate-100 text-[15px] font-semibold text-slate-700"
-        actions={[{ label: "Elimina serie", onSelect: onDelete, destructive: true }]}
+        actions={[{ label: "Elimina serie", onSelect: deleteSet, destructive: true }]}
       />
       <button
         type="button"

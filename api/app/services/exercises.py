@@ -79,7 +79,7 @@ async def search_exercises(
     conditions = [visible_exercise_filter(user), Exercise.archived_at.is_(None)]
     q = q.strip()
     if q:
-        conditions.append(Exercise.name.ilike(f"%{q}%"))
+        conditions.append(Exercise.name.icontains(q, autoescape=True))
     if equipment:
         conditions.append(Exercise.equipment == equipment)
     if muscle:

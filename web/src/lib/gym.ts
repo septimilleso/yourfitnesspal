@@ -222,6 +222,9 @@ const LIVE_ERRORS: Record<string, string> = {
 };
 
 export function liveErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) return LIVE_ERRORS[error.message] ?? error.message;
+  if (error instanceof ApiError) {
+    if (error.status === 422) return "Valori non validi";
+    return LIVE_ERRORS[error.message] ?? error.message;
+  }
   return "Non salvato: controlla la connessione";
 }

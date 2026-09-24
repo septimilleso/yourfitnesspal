@@ -48,6 +48,21 @@ describe("SetRow", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it("does not save a pending edit when the set is deleted and unmounted", () => {
+    const handlers = {
+      onSave: vi.fn(), onComplete: vi.fn(), onUncomplete: vi.fn(), onDelete: vi.fn(),
+    };
+    const view = render(
+      <SetRow index={0} tracking="weight_reps" set={baseSet} {...handlers} />,
+    );
+    fireEvent.change(screen.getByLabelText("kg serie 1"), { target: { value: "85" } });
+    fireEvent.click(screen.getByRole("button", { name: "Serie 1" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Elimina serie" }));
+    view.unmount();
+    expect(handlers.onDelete).toHaveBeenCalledOnce();
+    expect(handlers.onSave).not.toHaveBeenCalled();
+  });
+
   it("unticks a completed set", () => {
     const { onUncomplete } = setup({ ...baseSet, completed_at: "2026-09-24T18:00:00Z" });
     fireEvent.click(screen.getByRole("button", { name: "Annulla serie 1" }));

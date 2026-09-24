@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -56,6 +57,7 @@ from app.services.gym_rules import (
     rest_after_completion,
     set_problem,
     template_diff,
+    tracking_fields,
 )
 from app.services.templates import (
     find_template,
@@ -281,7 +283,11 @@ async def start_workout(db: AsyncSession, user: User, payload: WorkoutStart) -> 
         ]
         template.last_used_at = started
     db.add(workout)
-    return await _save(db, user, workout)
+    try:
+        return await _save(db, user, workout)
+    except IntegrityError as exc:
+        await db.rollback()
+        raise Invalid("a workout is already in progress") from exc
 
 
 async def rename_workout(
@@ -322,8 +328,16 @@ async def patch_exercise(
         exercise = (await get_visible_exercises(db, user, [payload.exercise_id]))[
             payload.exercise_id
         ]
+        old_tracking = item.exercise.tracking
         item.exercise_id = exercise.id
         item.exercise = exercise
+        if exercise.tracking is not old_tracking:
+            used_fields = tracking_fields(exercise.tracking)
+            for workout_set in item.sets:
+                workout_set.completed_at = None
+                for name in SET_FIELDS:
+                    if name not in used_fields:
+                        setattr(workout_set, name, None)
     if "rest_seconds" in fields and payload.rest_seconds is not None:
         item.rest_seconds = payload.rest_seconds
     if "note" in fields:

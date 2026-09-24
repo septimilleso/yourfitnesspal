@@ -27,7 +27,7 @@ from app.schemas.workout import (
 )
 from app.services.errors import NotFound
 from app.services.exercises import exercise_out, get_visible_exercises
-from app.services.gym_rules import normalize_supersets
+from app.services.gym_rules import normalize_supersets, tracking_fields
 
 
 def template_out(template: WorkoutTemplate) -> TemplateOut:
@@ -96,19 +96,27 @@ async def _build_exercises(
 ) -> list[TemplateExercise]:
     exercises = await get_visible_exercises(db, user, {item.exercise_id for item in items})
     groups = normalize_supersets([item.superset_group for item in items])
-    return [
-        TemplateExercise(
-            exercise_id=item.exercise_id, exercise=exercises[item.exercise_id], position=position,
-            rest_seconds=item.rest_seconds, superset_group=groups[position], note=item.note,
-            sets=[
-                TemplateSet(
-                    position=number, weight_kg=s.weight_kg, reps=s.reps, duration_s=s.duration_s
-                )
-                for number, s in enumerate(item.sets)
-            ],
+    result = []
+    for position, item in enumerate(items):
+        exercise = exercises[item.exercise_id]
+        used_fields = tracking_fields(exercise.tracking)
+        result.append(
+            TemplateExercise(
+                exercise_id=item.exercise_id, exercise=exercise, position=position,
+                rest_seconds=item.rest_seconds, superset_group=groups[position], note=item.note,
+                sets=[
+                    TemplateSet(
+                        position=number,
+                        **{
+                            field: getattr(values, field) if field in used_fields else None
+                            for field in ("weight_kg", "reps", "duration_s")
+                        },
+                    )
+                    for number, values in enumerate(item.sets)
+                ],
+            )
         )
-        for position, item in enumerate(items)
-    ]
+    return result
 
 
 async def list_templates(db: AsyncSession, user: User) -> TemplatesResponse:

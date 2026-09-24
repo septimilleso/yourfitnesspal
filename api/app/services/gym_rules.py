@@ -12,6 +12,16 @@ from app.models.exercise import Tracking
 
 DEFAULT_REST_SECONDS = 90
 
+TRACKING_FIELDS = {
+    Tracking.weight_reps: ("weight_kg", "reps"),
+    Tracking.reps: ("reps",),
+    Tracking.duration: ("duration_s",),
+}
+
+
+def tracking_fields(tracking: Tracking) -> tuple[str, ...]:
+    return TRACKING_FIELDS[tracking]
+
 # (weight_kg, reps, duration_s)
 SetTuple = tuple[float | Decimal | None, int | None, int | None]
 

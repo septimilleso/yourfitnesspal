@@ -101,6 +101,12 @@ describe("supersets", () => {
 });
 
 describe("liveErrorMessage", () => {
+  it("shows a generic Italian message for invalid API values", () => {
+    expect(liveErrorMessage(new ApiError(422, "[object Object]", { detail: [] }))).toBe(
+      "Valori non validi",
+    );
+  });
+
   it("translates known API errors and network failures", () => {
     expect(liveErrorMessage(new ApiError(400, "weight and reps are required", null))).toBe(
       "Inserisci kg e ripetizioni",

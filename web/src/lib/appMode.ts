@@ -40,7 +40,8 @@ export function rememberPath(pathname: string, search: string): void {
   const mode = modeFromPath(pathname);
   if (!mode) return;
   write(MODE_KEY, mode);
-  write(pathKey(mode), pathname + search);
+  const rememberedSearch = pathname.startsWith("/gym/history/") ? "" : search;
+  write(pathKey(mode), pathname + rememberedSearch);
 }
 
 export function lastPath(mode: AppMode): string {

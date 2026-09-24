@@ -23,6 +23,12 @@ describe("appMode", () => {
     expect(lastPath("diet")).toBe("/week?start=2026-09-21");
   });
 
+  it("does not remember workout summary URLs", () => {
+    rememberPath("/gym/history/3", "");
+    rememberPath("/gym/history/3", "?summary=1");
+    expect(lastPath("gym")).toBe("/gym/history/3");
+  });
+
   it("keeps the last mode on shared pages", () => {
     rememberPath("/gym", "");
     expect(currentMode("/settings")).toBe("gym");
