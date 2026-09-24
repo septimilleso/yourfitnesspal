@@ -22,6 +22,9 @@ and published on a single host port.
   subset of meals.
 - **Goals** — daily kcal/protein/carbs/fat targets; these drive the ring, the bars, and the week's
   colouring.
+- **Gym log (Strong-style)** — exercise catalog from free-exercise-db plus custom exercises, workout
+  templates in folders, a live session with previous values, per-exercise rest timer and supersets,
+  a summary that can update the template, and workout history.
 - **AI connections (MCP)** — users an admin has enabled can connect Claude (or any MCP client
   with OAuth support) to their own diary at `<PUBLIC_BASE_URL>/mcp`, and ask it to search foods,
   log meals, copy days and change goals. Login uses the same password + TOTP; each connection can
@@ -125,6 +128,10 @@ It is **not** multi-tenant: anyone with the key sees the same diary.
 4. Tokens die immediately on password change, TOTP reset, deactivation, permission removal or
    revocation from Account / the admin panel.
 
+Gym tools: `search_exercises`, `list_workout_templates`, `get_workout_template`,
+`create_workout_template`, `list_workouts` and `get_workout`. The user also needs the
+`workouts.use` permission.
+
 Housekeeping: `docker compose exec api python -m app.cli purge-oauth` removes expired codes and
 tokens (safe to run from cron).
 
@@ -151,6 +158,10 @@ All routes are under `/api` and require the session cookie unless noted.
 | `POST`   | `/api/diary/copy`             | Bulk-copy days onto a target start date (append/replace).    |
 | `GET`    | `/api/goals`                  | Currently active goal.                                       |
 | `PUT`    | `/api/goals`                  | Set the daily kcal/protein/carbs/fat targets.                |
+| —        | `/api/exercises`              | Search the exercise catalog and manage custom exercises.    |
+| —        | `/api/templates`               | Create and manage workout templates.                        |
+| —        | `/api/template-folders`        | Organize workout templates in folders.                      |
+| —        | `/api/workouts`                | Run live workouts and review workout history.               |
 
 FastAPI mounts its interactive docs at `/docs`, but the session-cookie middleware guards every path
 except the two public ones — so `/docs` answers `401` until you hold a session cookie. In local
@@ -212,6 +223,10 @@ git pull origin <deployed-branch>
 docker compose up -d --build
 docker compose exec api alembic upgrade head   # only if a migration shipped
 ```
+
+This release includes two migrations: `9a4d2c7e1f03` (schema) and `b81f5e3a6c42` (catalog load).
+Run them with the usual `docker compose exec api alembic upgrade head`. The catalog lives in
+`api/app/data/exercises.json`; see `api/app/data/README.md` for its source and regeneration details.
 
 Two things that make a deploy *look* like it did nothing:
 
