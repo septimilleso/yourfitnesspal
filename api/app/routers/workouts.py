@@ -4,16 +4,23 @@ Thin layer over app/services/workouts.py; every live endpoint answers with
 the full workout so the SPA can replace its cached copy.
 """
 
-from fastapi import APIRouter, Depends, Response
+from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.models.user import User
 from app.schemas.workout import (
+    FinishIn,
+    HistoryPage,
     LayoutIn,
     RestIn,
+    SaveAsTemplateIn,
     SetPatch,
+    TemplateOut,
     WorkoutExerciseAdd,
     WorkoutExercisePatch,
     WorkoutOut,
@@ -33,6 +40,16 @@ async def active(
     if workout is None:
         return Response(status_code=204)
     return workout
+
+
+@router.get("", response_model=HistoryPage)
+async def history(
+    before: datetime | None = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> HistoryPage:
+    return await workouts.list_history(session, user, before=before, limit=limit)
 
 
 @router.post("", response_model=WorkoutOut, status_code=201)
@@ -164,3 +181,41 @@ async def rest(
     user: User = Depends(get_current_user),
 ) -> WorkoutOut:
     return await workouts.rest(session, user, workout_id, payload)
+
+
+@router.post("/{workout_id}/finish", response_model=WorkoutOut)
+async def finish(
+    workout_id: int,
+    payload: FinishIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> WorkoutOut:
+    return await workouts.finish_workout(session, user, workout_id, payload)
+
+
+@router.delete("/{workout_id}", status_code=204)
+async def delete(
+    workout_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> None:
+    await workouts.delete_workout(session, user, workout_id)
+
+
+@router.post("/{workout_id}/apply-to-template", response_model=TemplateOut)
+async def apply_to_template(
+    workout_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> TemplateOut:
+    return await workouts.apply_to_template(session, user, workout_id)
+
+
+@router.post("/{workout_id}/save-as-template", response_model=TemplateOut, status_code=201)
+async def save_as_template(
+    workout_id: int,
+    payload: SaveAsTemplateIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> TemplateOut:
+    return await workouts.save_as_template(session, user, workout_id, payload)

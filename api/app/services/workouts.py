@@ -17,13 +17,27 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.user import User
-from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
+from app.models.workout import (
+    TemplateExercise,
+    TemplateSet,
+    Workout,
+    WorkoutExercise,
+    WorkoutSet,
+    WorkoutStatus,
+    WorkoutTemplate,
+)
 from app.permissions import Permission, ensure_permission
 from app.schemas.workout import (
+    FinishIn,
+    HistoryExercise,
+    HistoryItem,
+    HistoryPage,
     LayoutIn,
     RestIn,
+    SaveAsTemplateIn,
     SetPatch,
     SetValues,
+    TemplateOut,
     WorkoutExerciseAdd,
     WorkoutExerciseOut,
     WorkoutExercisePatch,
@@ -43,7 +57,13 @@ from app.services.gym_rules import (
     set_problem,
     template_diff,
 )
-from app.services.templates import find_template, own_template
+from app.services.templates import (
+    find_template,
+    next_template_position,
+    own_folder,
+    own_template,
+    template_out,
+)
 
 SET_FIELDS = ("weight_kg", "reps", "duration_s")
 
@@ -447,3 +467,115 @@ async def rest(db: AsyncSession, user: User, workout_id: int, payload: RestIn) -
             workout.rest_ends_at = ends
             workout.rest_total_s = max(1, (workout.rest_total_s or 0) + (payload.delta_s or 0))
     return await _save(db, user, workout)
+
+
+async def finish_workout(
+    db: AsyncSession, user: User, workout_id: int, payload: FinishIn
+) -> WorkoutOut:
+    """Close the session. Undone sets are only dropped when the user confirmed
+    (`discard_incomplete`); exercises left without sets are dropped too."""
+    workout = await _load_live(db, user, workout_id)
+    all_sets = [s for item in workout.exercises for s in item.sets]
+    if not any(s.completed_at is not None for s in all_sets):
+        raise Invalid("empty_workout")
+    if any(s.completed_at is None for s in all_sets) and not payload.discard_incomplete:
+        raise Invalid("incomplete_sets")
+    for item in workout.exercises:
+        item.sets[:] = [s for s in item.sets if s.completed_at is not None]
+    workout.exercises[:] = [item for item in workout.exercises if item.sets]
+    _renumber(workout)
+    workout.status = WorkoutStatus.finished
+    workout.finished_at = now()
+    _clear_rest(workout)
+    return await _save(db, user, workout)
+
+
+async def delete_workout(db: AsyncSession, user: User, workout_id: int) -> None:
+    await db.delete(await load_workout(db, user, workout_id))
+    await db.commit()
+
+
+async def _load_finished(db: AsyncSession, user: User, workout_id: int) -> Workout:
+    workout = await load_workout(db, user, workout_id)
+    if workout.status is not WorkoutStatus.finished:
+        raise Invalid("workout is not finished")
+    return workout
+
+
+def _template_exercises(workout: Workout) -> list[TemplateExercise]:
+    return [
+        TemplateExercise(
+            exercise_id=item.exercise_id, exercise=item.exercise, position=item.position,
+            rest_seconds=item.rest_seconds, superset_group=item.superset_group, note=item.note,
+            sets=[
+                TemplateSet(
+                    position=s.position, weight_kg=s.weight_kg, reps=s.reps,
+                    duration_s=s.duration_s,
+                )
+                for s in item.sets
+            ],
+        )
+        for item in workout.exercises
+    ]
+
+
+async def apply_to_template(db: AsyncSession, user: User, workout_id: int) -> TemplateOut:
+    """Make the workout's template match what was actually done."""
+    workout = await _load_finished(db, user, workout_id)
+    if workout.template_id is None:
+        raise Invalid("workout has no template")
+    template = await own_template(db, user, workout.template_id)
+    template.exercises = _template_exercises(workout)
+    await db.commit()
+    return template_out(await own_template(db, user, template.id))
+
+
+async def save_as_template(
+    db: AsyncSession, user: User, workout_id: int, payload: SaveAsTemplateIn
+) -> TemplateOut:
+    workout = await _load_finished(db, user, workout_id)
+    if payload.folder_id is not None:
+        await own_folder(db, user, payload.folder_id)
+    template = WorkoutTemplate(
+        user_id=user.id, folder_id=payload.folder_id, name=payload.name,
+        position=await next_template_position(db, user, payload.folder_id),
+        last_used_at=workout.finished_at, exercises=_template_exercises(workout),
+    )
+    db.add(template)
+    await db.flush()
+    workout.template_id = template.id
+    await db.commit()
+    return template_out(await own_template(db, user, template.id))
+
+
+async def list_history(
+    db: AsyncSession, user: User, *, before: datetime | None = None, limit: int = 20
+) -> HistoryPage:
+    ensure_permission(user, Permission.workouts)
+    stmt = (
+        sa.select(Workout)
+        .where(Workout.user_id == user.id, Workout.status == WorkoutStatus.finished)
+        .options(
+            selectinload(Workout.exercises).selectinload(WorkoutExercise.exercise),
+            selectinload(Workout.exercises).selectinload(WorkoutExercise.sets),
+        )
+        .order_by(Workout.finished_at.desc(), Workout.id.desc())
+        .limit(limit + 1)
+    )
+    if before is not None:
+        stmt = stmt.where(Workout.finished_at < before)
+    rows = (await db.scalars(stmt)).all()
+    page = rows[:limit]
+    return HistoryPage(
+        items=[
+            HistoryItem(
+                id=w.id, name=w.name, started_at=w.started_at, finished_at=w.finished_at,
+                exercises=[
+                    HistoryExercise(name=item.exercise.name, sets=len(item.sets))
+                    for item in w.exercises
+                ],
+            )
+            for w in page
+        ],
+        next_before=page[-1].finished_at if len(rows) > limit else None,
+    )

@@ -107,3 +107,39 @@ async def test_live_workout_api(db) -> None:
             json={"items": [{"id": item_id, "superset_group": None}]},
         )
         assert layout.status_code == 200
+
+
+async def test_finish_and_history_api(db) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Squat")
+    async with await http_client(db, user) as client:
+        workout_id = (await client.post("/api/workouts", json={})).json()["id"]
+        body = (await client.post(
+            f"/api/workouts/{workout_id}/exercises", json={"exercise_id": squat.id}
+        )).json()
+        set_id = body["exercises"][0]["sets"][0]["id"]
+
+        empty = await client.post(f"/api/workouts/{workout_id}/finish", json={})
+        assert (empty.status_code, empty.json()) == (400, {"detail": "empty_workout"})
+
+        await client.post(f"/api/workouts/{workout_id}/exercises/{body['exercises'][0]['id']}/sets")
+        await client.post(
+            f"/api/workouts/{workout_id}/sets/{set_id}/complete", json={"weight_kg": 60, "reps": 5}
+        )
+        pending = await client.post(f"/api/workouts/{workout_id}/finish", json={})
+        assert (pending.status_code, pending.json()) == (400, {"detail": "incomplete_sets"})
+        done = await client.post(
+            f"/api/workouts/{workout_id}/finish", json={"discard_incomplete": True}
+        )
+        assert done.json()["status"] == "finished"
+
+        saved = await client.post(
+            f"/api/workouts/{workout_id}/save-as-template", json={"name": "Da storico"}
+        )
+        assert saved.status_code == 201
+        applied = await client.post(f"/api/workouts/{workout_id}/apply-to-template")
+        assert applied.status_code == 200
+
+        history = (await client.get("/api/workouts", params={"limit": 5})).json()
+        assert history["items"][0]["id"] == workout_id
+        assert (await client.delete(f"/api/workouts/{workout_id}")).status_code == 204
