@@ -18,9 +18,10 @@ from app.mcp.prompts import register_prompts
 from app.mcp.tools.diary import register_diary_tools
 from app.mcp.tools.foods import register_food_tools
 from app.mcp.tools.goals import register_goal_tools
+from app.mcp.tools.workouts import register_workout_tools
 
 INSTRUCTIONS = """\
-YourFitnessPal is the user's personal food diary. Every tool acts only on the
+YourFitnessPal is the user's personal food diary and gym log. Every tool acts only on the
 signed-in user's own data.
 
 - To log food: find it first (search_foods, get_recent_foods or
@@ -31,6 +32,9 @@ signed-in user's own data.
 - Meals: breakfast = colazione, lunch = pranzo, dinner = cena, snack = spuntino.
 - Dates are ISO (YYYY-MM-DD); when omitted they default to today in the
   user's timezone.
+- Gym: search_exercises finds exercises (English names); create_workout_template
+  builds a template from exercise_ids and sets; list_workouts / get_workout read
+  finished workouts. Weights are in kg. The live session is only in the app.
 - Before writing several entries, copying days or changing the goal, confirm
   the plan with the user.
 """
@@ -64,6 +68,7 @@ def build_server() -> MCPServer:
     register_food_tools(server)
     register_diary_tools(server)
     register_goal_tools(server)
+    register_workout_tools(server)
     register_prompts(server)
     return server
 
