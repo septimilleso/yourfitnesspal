@@ -12,6 +12,7 @@ class Permission(str, enum.Enum):
     diary_copy = "diary.copy"
     goals_edit = "goals.edit"
     mcp_access = "mcp.access"
+    workouts = "workouts.use"
 
 
 PERMISSION_LABELS: dict[Permission, str] = {
@@ -20,6 +21,7 @@ PERMISSION_LABELS: dict[Permission, str] = {
     Permission.diary_copy: "Copia giorni del diario",
     Permission.goals_edit: "Modifica gli obiettivi",
     Permission.mcp_access: "Connessioni AI (MCP)",
+    Permission.workouts: "Allenamenti",
 }
 DEFAULT_PERMISSIONS = frozenset(Permission) - {Permission.mcp_access}
 

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.passwords import hash_password
 from app.auth.sessions import create_session
 from app.main import app
+from app.models.exercise import Exercise, Tracking
 from app.models.food import Food
 from app.models.user import Role, User
 
@@ -57,6 +58,35 @@ async def make_food(
     db.add(food)
     await db.flush()
     return food
+
+
+GYM = ["workouts.use"]
+
+
+async def make_exercise(
+    db: AsyncSession,
+    *,
+    name: str = "Test Squat",
+    tracking: Tracking = Tracking.weight_reps,
+    owner: User | None = None,
+    equipment: str | None = "barbell",
+    muscle: str = "quadriceps",
+) -> Exercise:
+    """A catalog exercise, or a custom one owned by `owner`.
+
+    Tests use made-up names (e.g. "Zzq Press") so they never collide with the
+    876 real catalog rows the data migration loads into the test database.
+    """
+    exercise = Exercise(
+        source="custom" if owner else "catalog",
+        source_id=None if owner else f"test-{name}",
+        owner_user_id=owner.id if owner else None,
+        name=name, equipment=equipment, primary_muscles=[muscle], secondary_muscles=[],
+        category="strength", instructions=[], tracking=tracking,
+    )
+    db.add(exercise)
+    await db.flush()
+    return exercise
 
 
 async def http_client(
