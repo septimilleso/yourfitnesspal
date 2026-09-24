@@ -37,6 +37,12 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# One event loop for the whole test session: the async engine's connection
+# pool is a module-level singleton, and asyncpg connections are bound to the
+# event loop they were opened on. With the default per-test loop, tests
+# sharing that pool across loops fail with asyncpg's "another operation is
+# in progress" once enough tests run together.
+asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
