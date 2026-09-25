@@ -8,13 +8,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon-32x32.png", "apple-touch-icon.png"],
       manifest: {
         name: "YourFitnessPal",
         short_name: "YFP",
         description: "Track meals, macros, and weight without ads or paywalls.",
-        theme_color: "#0f172a",
-        background_color: "#f8fafc",
+        theme_color: "#fdf7e8",
+        background_color: "#fdf7e8",
         display: "standalone",
         start_url: "/",
         icons: [
@@ -22,15 +22,24 @@ export default defineConfig({
             src: "pwa-192x192.png",
             sizes: "192x192",
             type: "image/png",
+            purpose: "any",
           },
           {
             src: "pwa-512x512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
       },
       workbox: {
+        globPatterns: ["**/*.{js,css,html,png,webp,svg,ico}"],
         // App shell (HTML/JS/CSS/etc.) is precached and served cache-first
         // by the default globPatterns/navigateFallback behavior.
         // Top-level navigations to server routes must reach the network, not
