@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from math import ceil, sqrt
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
@@ -278,16 +279,23 @@ def pwa_icons() -> None:
     for size, filename in ((192, "pwa-192x192.png"), (512, "pwa-512x512.png"), (32, "favicon-32x32.png")):
         clean.resize((size, size), Image.Resampling.LANCZOS).save(PUBLIC / filename, optimize=True)
 
-    # A slightly inset copy keeps the chef cat inside the maskable safe area.
-    opaque_background = Image.new("RGBA", (512, 512), (*sage, 255))
-    inset = clean.resize((440, 440), Image.Resampling.LANCZOS)
-    opaque_background.alpha_composite(inset, (36, 36))
-    opaque_background.convert("RGB").save(PUBLIC / "pwa-maskable-512x512.png", optimize=True)
+    # Keep the largest axis-aligned square inside the rounded body so no corner
+    # or outline pixels survive when this crop is scaled to full bleed.
+    diameter = min(crop.size)
+    radius = round(diameter * 0.21)
+    inset = ceil(radius * (1 - 1 / sqrt(2))) + 2
+    left = (crop.width - diameter) // 2 + inset
+    top = (crop.height - diameter) // 2 + inset
+    inner_side = diameter - inset * 2
+    inner = crop.crop((left, top, left + inner_side, top + inner_side))
+    opaque_inner = Image.new("RGBA", inner.size, (*sage, 255))
+    opaque_inner.alpha_composite(inner)
 
-    apple = Image.new("RGBA", (180, 180), (*sage, 255))
-    apple_art = clean.resize((158, 158), Image.Resampling.LANCZOS)
-    apple.alpha_composite(apple_art, (11, 11))
-    apple.convert("RGB").save(PUBLIC / "apple-touch-icon.png", optimize=True)
+    for size, filename in ((512, "pwa-maskable-512x512.png"), (180, "apple-touch-icon.png")):
+        opaque_inner.resize((size, size), Image.Resampling.LANCZOS).convert("RGB").save(
+            PUBLIC / filename,
+            optimize=True,
+        )
 
 
 def report_outputs() -> None:
