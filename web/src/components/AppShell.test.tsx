@@ -54,6 +54,12 @@ describe("AppShell", () => {
     expect(screen.getByText("Giorno Page")).toBeInTheDocument();
   });
 
+  it("renders outlet content directly inside the shell stacking context", () => {
+    renderShell();
+
+    expect(screen.getByText("Giorno Page").parentElement).toHaveClass("isolate");
+  });
+
   it("renders the diet pixel-art tab icons", () => {
     renderShell();
 

@@ -59,12 +59,10 @@ function AppShell() {
     <div className="relative isolate min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center"
+        className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
         style={{ backgroundImage: `url("${pattern(mode)}")` }}
       />
-      <div className="relative z-10">
-        <Outlet />
-      </div>
+      <Outlet />
       {canGym && <ActiveWorkoutBar />}
       <nav
         aria-label="Navigazione principale"
