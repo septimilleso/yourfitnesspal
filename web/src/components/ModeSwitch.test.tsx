@@ -28,6 +28,12 @@ describe("ModeSwitch", () => {
     expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
   });
 
+  it("renders nothing without gym permission on settings", () => {
+    vi.mocked(useHasPermission).mockReturnValue(false);
+    const { container } = renderAt("/settings");
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("uses the gym gear icon in the gym section", () => {
     vi.mocked(useHasPermission).mockReturnValue(true);
     renderAt("/gym");

@@ -43,6 +43,8 @@ describe("periods", () => {
       "L'intervallo può coprire al massimo 366 giorni.",
     );
     expect(validateCustomPeriod("2026-09-01", "2026-09-25", today)).toBeNull();
+    expect(validateCustomPeriod("0", "1", today)).toBe("Date non valide.");
+    expect(validateCustomPeriod("2026-09-10", "1", today)).toBe("Date non valide.");
   });
 });
 
@@ -65,6 +67,16 @@ describe("chartPoints", () => {
     expect(points).toHaveLength(5);
     expect(points[0]).toMatchObject({ key: "2026-08-03", kcal: 2000, logged: true });
     expect(points[1]).toMatchObject({ key: "2026-08-10", kcal: 1000, protein_g: 10 });
+  });
+
+  it("keys the first partial week to its first date in the range", () => {
+    const days: WeekDayTotal[] = [];
+    for (let i = 0; i < 35; i += 1) {
+      const date = new Date(Date.UTC(2026, 7, 5 + i)).toISOString().slice(0, 10);
+      days.push(day(date, 1000));
+    }
+    const points = chartPoints(days);
+    expect(points[0].key).toBe("2026-08-05");
   });
 });
 

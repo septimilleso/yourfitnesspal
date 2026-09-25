@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["stats"])
 
 
 @router.post("/activity", status_code=204)
-async def record_activity(
+async def post_activity(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> None:
@@ -21,7 +21,7 @@ async def record_activity(
 
 
 @router.get("/stats/streak", response_model=StreakOut)
-async def get_streak(
+async def read_streak(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> StreakOut:

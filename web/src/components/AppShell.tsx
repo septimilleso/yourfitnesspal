@@ -17,7 +17,7 @@ interface Tab {
 const DIET_TABS: Tab[] = [
   { to: "/", label: "Giorno", end: true, icon: "plate" },
   { to: "/search", label: "Cerca", icon: "basket" },
-  { to: "/week", label: "Settimana", icon: "chart" },
+  { to: "/week", label: "Settimana", icon: "cookbook" },
   { to: "/stats", label: "Statistiche", icon: "chart" },
 ];
 
@@ -57,7 +57,7 @@ function AppShell() {
     <div className="relative isolate min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
       <div
         aria-hidden="true"
-        className={`pointer-events-none fixed inset-0 -z-10 bg-cover ${isDietStats ? "bg-bottom" : "bg-center"}`}
+        className={`pointer-events-none fixed inset-0 -z-10 bg-cover ${isDietStats ? "landscape:bg-contain bg-bottom bg-no-repeat" : "bg-center"}`}
         style={{ backgroundImage: `url("${isDietStats ? statsScene() : pattern(mode)}")` }}
       />
       <Outlet />

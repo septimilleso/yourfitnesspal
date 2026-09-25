@@ -1,7 +1,11 @@
 """Pure streak computation (no database)."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
+import pytest
+
+from app.services import activity
 from app.services.activity import Streak, compute_streak
 
 TODAY = date(2026, 9, 25)
@@ -9,6 +13,12 @@ TODAY = date(2026, 9, 25)
 
 def days_ago(*offsets: int) -> list[date]:
     return [TODAY - timedelta(days=n) for n in offsets]
+
+
+def test_local_today_uses_app_timezone(monkeypatch: pytest.MonkeyPatch) -> None:
+    for timezone in ("Pacific/Kiritimati", "Pacific/Pago_Pago"):
+        monkeypatch.setattr(activity.settings, "app_timezone", timezone)
+        assert activity.local_today() == datetime.now(ZoneInfo(timezone)).date()
 
 
 def test_no_days() -> None:

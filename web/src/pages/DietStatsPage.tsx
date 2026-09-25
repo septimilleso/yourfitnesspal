@@ -80,11 +80,11 @@ function DietStatsPage() {
           onCustom={openCustom}
           onDates={setDates}
         />
-        {range.isError ? (
+        {error !== null ? null : range.isError ? (
           <p role="alert" className="card px-4 py-3 text-sm text-red-600">
             Impossibile caricare le statistiche.
           </p>
-        ) : range.isLoading && error === null ? (
+        ) : range.isLoading ? (
           <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>
         ) : (
           <>

@@ -15,6 +15,7 @@ function ModeSwitch() {
   const canGym = useHasPermission("workouts.use");
   const { pathname, search } = useLocation();
   const mode = currentMode(pathname);
+  if (!canGym && pathname === "/settings") return null;
   return (
     <div className="relative mx-auto flex min-h-[48px] max-w-2xl items-center justify-center px-14 pt-2">
       {canGym && (

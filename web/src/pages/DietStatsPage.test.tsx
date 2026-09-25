@@ -80,6 +80,7 @@ describe("DietStatsPage", () => {
     renderAt("/stats?from=2026-09-10&to=2026-09-01");
     expect(screen.getByRole("alert")).toHaveTextContent("La data iniziale deve precedere quella finale.");
     expect(vi.mocked(useDiaryRange).mock.lastCall?.[2]).toBe(false);
+    expect(screen.queryByText("Medie del periodo")).not.toBeInTheDocument();
   });
 
   it("opens the custom range on the current period", async () => {
@@ -90,8 +91,16 @@ describe("DietStatsPage", () => {
     expect(screen.getByLabelText("Al")).toHaveValue("2026-09-25");
   });
 
-  it("shows empty states without logged days and works without a goal", () => {
+  it("shows no goal line or target when logged days have no goal", () => {
     vi.mocked(useGoal).mockReturnValue({ data: null } as unknown as ReturnType<typeof useGoal>);
+    mockRange([day("2026-09-24", 1800), day("2026-09-25", 2200)]);
+    renderAt();
+    expect(screen.queryByTestId("goal-line")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Obiettivo" })).not.toBeInTheDocument();
+    expect(screen.getByText("Giorni sopra obiettivo").nextElementSibling).toHaveTextContent("–");
+  });
+
+  it("shows the empty state when there are no logged days", () => {
     mockRange([day("2026-09-25", 0)]);
     renderAt();
     expect(screen.getAllByText("Nessun dato nel periodo").length).toBeGreaterThan(0);

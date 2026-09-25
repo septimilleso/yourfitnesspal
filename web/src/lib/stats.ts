@@ -40,6 +40,8 @@ export function countDays(start: string, end: string): number {
 /** Error message for an invalid custom range, or `null` when it is valid. */
 export function validateCustomPeriod(from: string, to: string, today: string): string | null {
   if (!from || !to) return "Scegli entrambe le date.";
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (!datePattern.test(from) || !datePattern.test(to)) return "Date non valide.";
   if (from > to) return "La data iniziale deve precedere quella finale.";
   if (to > today) return "Le date non possono essere nel futuro.";
   if (countDays(from, to) > MAX_RANGE_DAYS) return "L'intervallo può coprire al massimo 366 giorni.";
@@ -94,7 +96,7 @@ function toPoint(key: string, days: WeekDayTotal[]): ChartPoint {
 }
 
 /** One point per day up to 31 days; beyond that one point per ISO week
- * (keyed by its Monday) with the average of that week's logged days. */
+ * (grouped by Monday) with the average of that week's logged days. */
 export function chartPoints(days: WeekDayTotal[]): ChartPoint[] {
   if (days.length <= DAILY_POINTS_LIMIT) {
     return days.map((day) => toPoint(day.date, [day]));
@@ -104,7 +106,7 @@ export function chartPoints(days: WeekDayTotal[]): ChartPoint[] {
     const monday = startOfWeek(day.date);
     weeks.set(monday, [...(weeks.get(monday) ?? []), day]);
   }
-  return [...weeks.entries()].map(([monday, weekDays]) => toPoint(monday, weekDays));
+  return [...weeks.values()].map((weekDays) => toPoint(weekDays[0].date, weekDays));
 }
 
 export interface PeriodSummary {

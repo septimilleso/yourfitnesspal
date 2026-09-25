@@ -76,6 +76,18 @@ describe("AppShell", () => {
     );
   });
 
+  it("uses the cookbook icon for the week tab and chart for stats", () => {
+    renderShell();
+    expect(screen.getByRole("link", { name: "Settimana" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/art/diet/icons/cookbook.png",
+    );
+    expect(screen.getByRole("link", { name: "Statistiche" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/art/diet/icons/chart.png",
+    );
+  });
+
   it("keeps the nav bar visible on the search page", () => {
     renderShell("/search");
 
@@ -154,5 +166,6 @@ describe("AppShell", () => {
     const background = container.querySelector('[aria-hidden="true"].fixed') as HTMLElement;
     expect(background.style.backgroundImage).toContain("/art/diet/stats.webp");
     expect(background).toHaveClass("bg-bottom");
+    expect(background).toHaveClass("landscape:bg-contain");
   });
 });

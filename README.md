@@ -142,29 +142,29 @@ Routes involved (all proxied by nginx to `api`): `/mcp`, `/.well-known/oauth-*`,
 
 All routes are under `/api` and require the session cookie unless noted.
 
-| Method   | Path                          | Purpose                                                     |
-| -------- | ----------------------------- | ----------------------------------------------------------- |
-| `POST`   | `/api/auth/login`             | Exchange `{ "key": … }` for a session cookie. *Public.*      |
-| `GET`    | `/api/health`                 | Liveness probe. *Public.*                                    |
-| `GET`    | `/api/foods/search?q=`        | Full-text search (OFF + local cache), flags OFF outages.     |
-| `GET`    | `/api/foods/recent`           | Recently logged foods.                                       |
-| `GET`    | `/api/foods/barcode/{code}`   | Resolve an EAN/UPC, caching the product locally.             |
-| `POST`   | `/api/foods`                  | Create a custom food from a hand-entered nutrition label.    |
-| `GET`    | `/api/diary/day/{date}`       | One day: entries per meal, totals, active goal.              |
-| `GET`    | `/api/diary/week?start=`      | Seven days of totals from an ISO start date.                 |
-| `GET`    | `/api/diary/range?start=&end=` | Per-day totals for an inclusive range (max 366 days).        |
-| `POST`   | `/api/activity`               | Record that the web app was opened today (streak).           |
-| `GET`    | `/api/stats/streak`           | Current and best run of consecutive app-open days.           |
-| `POST`   | `/api/diary/entries`          | Log `{ date, meal, food_id, grams }`.                        |
-| `PATCH`  | `/api/diary/entries/{id}`     | Change a logged entry's quantity and/or move it to another meal. |
-| `DELETE` | `/api/diary/entries/{id}`     | Remove a logged entry.                                       |
-| `POST`   | `/api/diary/copy`             | Bulk-copy days onto a target start date (append/replace).    |
-| `GET`    | `/api/goals`                  | Currently active goal.                                       |
-| `PUT`    | `/api/goals`                  | Set the daily kcal/protein/carbs/fat targets.                |
-| —        | `/api/exercises`              | Search the exercise catalog and manage custom exercises.    |
-| —        | `/api/templates`               | Create and manage workout templates.                        |
-| —        | `/api/template-folders`        | Organize workout templates in folders.                      |
-| —        | `/api/workouts`                | Run live workouts and review workout history.               |
+| Method   | Path                           | Purpose                                                          |
+| -------- | ------------------------------ | ---------------------------------------------------------------- |
+| `POST`   | `/api/auth/login`              | Exchange `{ "key": … }` for a session cookie. *Public.*          |
+| `GET`    | `/api/health`                  | Liveness probe. *Public.*                                        |
+| `GET`    | `/api/foods/search?q=`         | Full-text search (OFF + local cache), flags OFF outages.         |
+| `GET`    | `/api/foods/recent`            | Recently logged foods.                                           |
+| `GET`    | `/api/foods/barcode/{code}`    | Resolve an EAN/UPC, caching the product locally.                 |
+| `POST`   | `/api/foods`                   | Create a custom food from a hand-entered nutrition label.        |
+| `GET`    | `/api/diary/day/{date}`        | One day: entries per meal, totals, active goal.                  |
+| `GET`    | `/api/diary/week?start=`       | Seven days of totals from an ISO start date.                     |
+| `GET`    | `/api/diary/range?start=&end=` | Per-day totals for an inclusive range (max 366 days).            |
+| `POST`   | `/api/activity`                | Record that the web app was opened today (streak).               |
+| `GET`    | `/api/stats/streak`            | Current and best run of consecutive app-open days.               |
+| `POST`   | `/api/diary/entries`           | Log `{ date, meal, food_id, grams }`.                            |
+| `PATCH`  | `/api/diary/entries/{id}`      | Change a logged entry's quantity and/or move it to another meal. |
+| `DELETE` | `/api/diary/entries/{id}`      | Remove a logged entry.                                           |
+| `POST`   | `/api/diary/copy`              | Bulk-copy days onto a target start date (append/replace).        |
+| `GET`    | `/api/goals`                   | Currently active goal.                                           |
+| `PUT`    | `/api/goals`                   | Set the daily kcal/protein/carbs/fat targets.                    |
+| —        | `/api/exercises`               | Search the exercise catalog and manage custom exercises.         |
+| —        | `/api/templates`               | Create and manage workout templates.                             |
+| —        | `/api/template-folders`        | Organize workout templates in folders.                           |
+| —        | `/api/workouts`                | Run live workouts and review workout history.                    |
 
 FastAPI mounts its interactive docs at `/docs`, but the session-cookie middleware guards every path
 except the two public ones — so `/docs` answers `401` until you hold a session cookie. In local
