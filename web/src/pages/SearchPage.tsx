@@ -7,6 +7,7 @@ import CustomFoodForm from "../components/CustomFoodForm";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
 import { formatIsoDateLong, todayIso } from "../lib/date";
+import { mascot } from "../lib/art";
 import { MEAL_LABELS } from "../lib/meals";
 
 type Tab = "recenti" | "preferiti" | "miei";
@@ -230,9 +231,18 @@ function SearchPage() {
                 </li>
               ))}
               {results.length === 0 && !isLoadingResults && !offUnavailable && (
-                <p className="px-4 py-6 text-center text-sm text-slate-400">
-                  {isSearching ? "Nessun risultato." : "Nessun alimento recente."}
-                </p>
+                <li className="px-4 py-6 text-center">
+                  <img
+                    src={mascot("diet")}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="mx-auto mb-3 h-[120px] w-auto object-contain"
+                  />
+                  <p className="text-sm text-slate-400">
+                    {isSearching ? "Nessun risultato." : "Nessun alimento recente."}
+                  </p>
+                </li>
               )}
             </ul>
           </>

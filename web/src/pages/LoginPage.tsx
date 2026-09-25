@@ -6,6 +6,7 @@ import { ApiError } from "../api/client";
 import { login, setupComplete, setupStart, verifyTotp, type SetupStartResponse } from "../api/auth";
 import { clearClientCaches } from "../auth/AuthContext";
 import { safeNext } from "../lib/safeNext";
+import { scene } from "../lib/art";
 
 type Step = "credentials" | "totp" | "setup" | "recovery";
 
@@ -71,7 +72,7 @@ export default function LoginPage() {
   }
 
   const alert = error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
-  return <div className="flex min-h-screen items-center justify-center bg-app px-4"><main className="card w-full max-w-sm space-y-5 p-6">
+  return <div className="flex min-h-screen items-start justify-center bg-app bg-cover bg-bottom bg-no-repeat px-4 pt-8" style={{ backgroundImage: `url("${scene("diet")}")` }}><main className="card w-full max-w-sm space-y-5 bg-white/90 p-6 backdrop-blur-sm">
     <header className="text-center"><h1 className="text-2xl font-bold">YourFitnessPal</h1><p className="text-sm text-slate-500">Accesso sicuro al tuo account</p></header>
     {step === "credentials" && <form className="space-y-4" onSubmit={credentials}>
       <label className="field-label">Username<input className="field mt-1" autoComplete="username" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>

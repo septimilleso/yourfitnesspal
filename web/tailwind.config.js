@@ -4,18 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* Page background: iOS "grouped table view" grey. White cards only
-           read as cards when the page behind them isn't also white. */
-        app: "#f2f2f7",
+        app: "#fdf7e8",
         /* Accent. Green = the app's one "on track" signal, used for the
            calorie ring, primary buttons and the active tab. */
         brand: {
-          50: "#ecfdf5",
-          100: "#d1fae5",
-          200: "#a7f3d0",
-          500: "#10b981",
-          600: "#059669",
-          700: "#047857",
+          50: "#f3f7f0",
+          100: "#e3ecdc",
+          200: "#c7d9ba",
+          500: "#7a9e6a",
+          600: "#567a49",
+          700: "#426039",
+        },
+        coral: {
+          400: "#f58a78",
+          500: "#ec6f5c",
         },
         /* One colour per macro, so a bar/legend is identifiable without
            reading its label. */

@@ -1,107 +1,35 @@
-import { type ReactNode, useEffect } from "react";
+import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
 import { currentMode, rememberPath } from "../lib/appMode";
+import { artIcon, pattern, type DietIcon, type GymIcon } from "../lib/art";
 import ActiveWorkoutBar from "./gym/ActiveWorkoutBar";
 
 interface Tab {
   to: string;
   label: string;
-  icon: ReactNode;
+  icon: DietIcon | GymIcon;
   end?: boolean;
 }
-
-/** Tab icons: 24px stroked line icons (Apple's tab bars are icon-first,
- * label-second -- a bar of four bare words is hard to scan and gives no
- * anchor for muscle memory). `currentColor` so the active/inactive tint is
- * driven entirely by the link's text colour. */
-const iconProps = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  className: "h-6 w-6",
-  "aria-hidden": true,
-};
 
 const SETTINGS_TAB: Tab = {
   to: "/settings",
   label: "Impostazioni",
-  icon: (
-    <svg {...iconProps}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
-    </svg>
-  ),
+  icon: "gear",
 };
 
 const DIET_TABS: Tab[] = [
-  {
-    to: "/",
-    label: "Giorno",
-    end: true,
-    icon: (
-      <svg {...iconProps}>
-        <rect x="3" y="5" width="18" height="16" rx="3" />
-        <path d="M3 10h18M8 3v4M16 3v4" />
-      </svg>
-    ),
-  },
-  {
-    to: "/search",
-    label: "Cerca",
-    icon: (
-      <svg {...iconProps}>
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-3.5-3.5" />
-      </svg>
-    ),
-  },
-  {
-    to: "/week",
-    label: "Settimana",
-    icon: (
-      <svg {...iconProps}>
-        <path d="M4 19V9M10 19V5M16 19v-7M4 19h16" />
-      </svg>
-    ),
-  },
+  { to: "/", label: "Giorno", end: true, icon: "plate" },
+  { to: "/search", label: "Cerca", icon: "basket" },
+  { to: "/week", label: "Settimana", icon: "chart" },
   SETTINGS_TAB,
 ];
 
 const GYM_TABS: Tab[] = [
-  {
-    to: "/gym/history",
-    label: "Storico",
-    icon: (
-      <svg {...iconProps}>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    ),
-  },
-  {
-    to: "/gym",
-    label: "Inizia",
-    end: true,
-    icon: (
-      <svg {...iconProps}>
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    ),
-  },
-  {
-    to: "/gym/exercises",
-    label: "Esercizi",
-    icon: (
-      <svg {...iconProps}>
-        <path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11" />
-      </svg>
-    ),
-  },
+  { to: "/gym/history", label: "Storico", icon: "calendar" },
+  { to: "/gym", label: "Inizia", end: true, icon: "dumbbell" },
+  { to: "/gym/exercises", label: "Esercizi", icon: "book" },
   SETTINGS_TAB,
 ];
 
@@ -124,15 +52,23 @@ function AppShell() {
     rememberPath(pathname, search);
   }, [pathname, search]);
 
-  const tabs = canGym && currentMode(pathname) === "gym" ? GYM_TABS : DIET_TABS;
+  const mode = currentMode(pathname);
+  const tabs = canGym && mode === "gym" ? GYM_TABS : DIET_TABS;
 
   return (
-    <div className="min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
-      <Outlet />
+    <div className="relative isolate min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: `url("${pattern(mode)}")` }}
+      />
+      <div className="relative z-10">
+        <Outlet />
+      </div>
       {canGym && <ActiveWorkoutBar />}
       <nav
         aria-label="Navigazione principale"
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/80 bg-white/85 backdrop-blur-xl pb-[var(--safe-bottom)]"
+        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/80 bg-app/85 backdrop-blur-xl pb-[var(--safe-bottom)]"
       >
         {tabs.map((tab) => (
           <NavLink
@@ -145,8 +81,20 @@ function AppShell() {
               }`
             }
           >
-            {tab.icon}
-            {tab.label}
+            {({ isActive }) => (
+              <>
+                <img
+                  src={artIcon(mode, tab.icon)}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className={`h-7 w-7 transition-transform ${
+                    isActive ? "scale-110" : "grayscale opacity-60"
+                  }`}
+                />
+                <span className={isActive ? "text-brand-700" : ""}>{tab.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

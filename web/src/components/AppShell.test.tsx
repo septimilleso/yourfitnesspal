@@ -54,6 +54,15 @@ describe("AppShell", () => {
     expect(screen.getByText("Giorno Page")).toBeInTheDocument();
   });
 
+  it("renders the diet pixel-art tab icons", () => {
+    renderShell();
+
+    expect(screen.getByRole("link", { name: "Giorno" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/art/diet/icons/plate.png",
+    );
+  });
+
   it("keeps the nav bar visible on the search page", () => {
     renderShell("/search");
 
@@ -99,6 +108,10 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("link", { name: "Giorno" })).not.toBeInTheDocument();
     expect(screen.getByTestId("active-workout-bar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Inizia" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/art/gym/icons/dumbbell.png",
+    );
   });
 
   it("keeps the gym tabs on settings after visiting the gym", async () => {

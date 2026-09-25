@@ -1,5 +1,6 @@
 import type { Exercise, useExercises } from "../../api/gym";
 import { exerciseSubtitle } from "../../lib/gym";
+import { mascot } from "../../lib/art";
 
 interface ExerciseListProps {
   query: ReturnType<typeof useExercises>;
@@ -15,7 +16,18 @@ function ExerciseList({ query, selectedIds, onSelect }: ExerciseListProps) {
   }
   const items = query.data?.items ?? [];
   if (items.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-500">Nessun esercizio trovato.</p>;
+    return (
+      <div className="card px-4 py-6 text-center">
+        <img
+          src={mascot("gym")}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="mx-auto mb-3 h-[120px] w-auto object-contain"
+        />
+        <p className="text-sm text-slate-500">Nessun esercizio trovato.</p>
+      </div>
+    );
   }
   return (
     <div className="space-y-2">

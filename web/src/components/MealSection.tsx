@@ -2,16 +2,8 @@ import { Link } from "react-router-dom";
 
 import type { DiaryEntry, Meal } from "../api/queries";
 import { MEAL_LABELS } from "../lib/meals";
+import { MEAL_ICONS } from "../lib/art";
 import FoodRow from "./FoodRow";
-
-/** A glyph per meal slot, so the four sections are distinguishable while
- * scrolling without reading each heading. */
-const MEAL_ICONS: Record<Meal, string> = {
-  breakfast: "☕️",
-  lunch: "🍝",
-  dinner: "🍽️",
-  snack: "🍎",
-};
 
 interface MealSectionProps {
   meal: Meal;
@@ -34,7 +26,13 @@ function MealSection({ meal, date, entries, onEdit, onDelete, deletingId }: Meal
           meal's boundary is visible even when it holds a single food. */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900">
-          <span aria-hidden>{MEAL_ICONS[meal]}</span>
+          <img
+            src={MEAL_ICONS[meal]}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="h-6 w-6"
+          />
           {MEAL_LABELS[meal]}
         </h2>
         <span className="tabular-nums text-sm font-medium text-slate-500">

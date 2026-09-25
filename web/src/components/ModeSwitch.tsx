@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
 import { type AppMode, currentMode, lastPath } from "../lib/appMode";
+import { artIcon } from "../lib/art";
 
 const MODES: { mode: AppMode; label: string }[] = [
   { mode: "diet", label: "Dieta" },
@@ -28,6 +29,13 @@ function ModeSwitch() {
               item.mode === mode ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
             }`}
           >
+            <img
+              src={artIcon(item.mode, "cat")}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="mr-1 inline-block h-5 w-5 align-middle"
+            />
             {item.label}
           </Link>
         ))}

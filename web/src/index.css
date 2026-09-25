@@ -111,7 +111,7 @@
   /* Translucent, blurred bar pinned to the top of a page -- the iOS large
      navigation bar treatment. Pads itself past the status bar / notch. */
   .app-header {
-    @apply sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl;
+    @apply sticky top-0 z-20 border-b border-slate-200/80 bg-[#fdf7e8]/85 backdrop-blur-xl;
     padding-top: var(--safe-top);
   }
 }
