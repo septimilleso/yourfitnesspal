@@ -65,9 +65,23 @@
     @apply rounded-2xl border border-slate-200 bg-white shadow-card;
   }
 
-  /* Diet stats sits on the chef-cat illustration: let it show through. */
-  .stats-page .card {
+  /* Settings cards let the section's cat illustration show through. */
+  .settings-page .card {
     @apply bg-white/85 backdrop-blur-sm;
+  }
+
+  /* Landscape/desktop: show the whole illustration as a centered column
+     (941x1672) with faded side edges instead of a cropped cover. */
+  @media (orientation: landscape) {
+    .settings-scene {
+      left: 50%;
+      right: auto;
+      aspect-ratio: 941 / 1672;
+      transform: translateX(-50%);
+      background-size: cover;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+      mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+    }
   }
 
   /* Section label above a card, iOS Settings style. */

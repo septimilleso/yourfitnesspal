@@ -220,7 +220,7 @@ def save_mascot(mode: str) -> None:
 def save_backgrounds(mode: str) -> None:
     out_dir = PUBLIC / "art" / ("diet" if mode == "dieta" else "gym")
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("pattern", "scene", "stats"):
+    for name in ("pattern", "scene", "settings"):
         source = ART / mode / f"{name}.png"
         if not source.exists():
             continue

@@ -161,11 +161,26 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Statistiche" })).toHaveAttribute("href", "/gym/stats");
   });
 
-  it("uses the chef-cat background on the diet stats page", () => {
+  it("uses the diet pattern background on the stats page", () => {
     const { container } = renderShell("/stats");
     const background = container.querySelector('[aria-hidden="true"].fixed') as HTMLElement;
-    expect(background.style.backgroundImage).toContain("/art/diet/stats.webp");
-    expect(background).toHaveClass("bg-bottom");
-    expect(background).toHaveClass("landscape:bg-contain");
+    expect(background.style.backgroundImage).toContain("/art/diet/pattern.webp");
+  });
+
+  it("shows the diet settings illustration when no mode is stored", () => {
+    renderShell("/settings");
+
+    expect(screen.getByTestId("settings-scene").style.backgroundImage).toContain(
+      "/art/diet/settings.webp",
+    );
+  });
+
+  it("shows the gym settings illustration when gym mode is stored", () => {
+    window.localStorage.setItem("yfp.mode", "gym");
+    renderShell("/settings");
+
+    expect(screen.getByTestId("settings-scene").style.backgroundImage).toContain(
+      "/art/gym/settings.webp",
+    );
   });
 });

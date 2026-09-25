@@ -115,9 +115,4 @@ describe("DietStatsPage", () => {
     renderAt();
     expect(screen.getByText("Impossibile caricare le statistiche.")).toBeInTheDocument();
   });
-
-  it("leaves room at the bottom to see the cat", () => {
-    const { container } = renderAt();
-    expect(container.querySelector('[data-testid="cat-spacer"]')).toHaveClass("h-[55vh]");
-  });
 });

@@ -103,3 +103,7 @@ vitest:
 5. `lib/stats.ts`: medie sui soli giorni registrati, aggregazione settimanale oltre 31 giorni, ripartizione percentuale, giorni sopra obiettivo.
 6. `DietStatsPage`: cambio periodo aggiorna la richiesta, intervallo personalizzato non valido blocca la richiesta, stato senza dati, stato senza obiettivo.
 7. `StreakCard`: valori e caso `current = 0`.
+
+## Modifica 2026-09-25: sfondo in impostazioni
+
+L'illustrazione del gatto passa dalla pagina Statistiche dieta alla pagina Impostazioni; Statistiche usa lo sfondo pattern come le altre pagine; in Impostazioni l'immagine segue la sezione corrente (dieta: gatto chef, palestra: gatto palestra); su schermi orizzontali/desktop l'immagine è una colonna centrata intera a tutta altezza, sopra il pattern, con i bordi laterali sfumati.

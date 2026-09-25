@@ -45,9 +45,9 @@ export function scene(mode: AppMode): string {
   return `/art/${mode}/scene.webp`;
 }
 
-/** Chef-cat illustration behind the diet stats page. */
-export function statsScene(): string {
-  return "/art/diet/stats.webp";
+/** Cat illustration behind the settings page, per section. */
+export function settingsScene(mode: AppMode): string {
+  return `/art/${mode}/settings.webp`;
 }
 
 export const MEAL_ICONS: Record<Meal, string> = {

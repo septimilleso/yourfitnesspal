@@ -29,9 +29,7 @@ function readChoice(params: URLSearchParams): PeriodChoice {
   return { kind: "preset", days: (PRESETS as number[]).includes(days) ? (days as Preset) : 7 };
 }
 
-/** Diet stats: streak, goals, period picker, charts and averages, over the
- * chef-cat background (set by AppShell for /stats). The bottom spacer lets
- * the user scroll past the cards so the cat is fully visible. */
+/** Diet stats: streak, goals, period picker, charts and averages. */
 function DietStatsPage() {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
@@ -61,7 +59,7 @@ function DietStatsPage() {
   }
 
   return (
-    <div className="stats-page">
+    <div>
       <header className="app-header">
         <ModeSwitch />
         <div className="mx-auto max-w-2xl px-4 py-3">
@@ -98,7 +96,6 @@ function DietStatsPage() {
           </>
         )}
       </div>
-      <div aria-hidden="true" data-testid="cat-spacer" className="h-[55vh]" />
     </div>
   );
 }

@@ -8,7 +8,7 @@ function SettingsPage() {
   const { data: me } = useMe();
 
   return (
-    <div>
+    <div className="settings-page">
       <header className="app-header">
         <ModeSwitch />
         <div className="mx-auto max-w-2xl px-4 py-3">

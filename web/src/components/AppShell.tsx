@@ -3,9 +3,10 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
 import { currentMode, rememberPath } from "../lib/appMode";
-import { artIcon, pattern, statsScene, type DietIcon, type GymIcon } from "../lib/art";
+import { artIcon, pattern, type DietIcon, type GymIcon } from "../lib/art";
 import ActivityTracker from "./ActivityTracker";
 import ActiveWorkoutBar from "./gym/ActiveWorkoutBar";
+import SettingsBackdrop from "./SettingsBackdrop";
 
 interface Tab {
   to: string;
@@ -32,8 +33,9 @@ const GYM_TABS: Tab[] = [
  * page via `<Outlet>` plus a bottom navigation bar. The bar shows the diet
  * tabs or the gym tabs depending on the section (see lib/appMode.ts); tabs end
  * with the section's statistics page, settings open from the header gear
- * (`SettingsButton`), and the shell pings `POST /api/activity` via
- * `ActivityTracker`. Shared pages such as settings keep the last section's tabs.
+ * `SettingsButton`), and the shell pings `POST /api/activity` via
+ * `ActivityTracker`. Shared pages such as settings keep the last section's tabs
+ * and show that section's cat illustration.
  *
  * iOS layout notes: the bar is translucent + blurred (content scrolls
  * visibly under it, as in a native tab bar) and pads itself by
@@ -51,15 +53,19 @@ function AppShell() {
 
   const mode = currentMode(pathname);
   const tabs = canGym && mode === "gym" ? GYM_TABS : DIET_TABS;
-  const isDietStats = pathname === "/stats";
+  const isSettings = pathname === "/settings";
 
   return (
     <div className="relative isolate min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none fixed inset-0 -z-10 bg-cover ${isDietStats ? "landscape:bg-contain bg-bottom bg-no-repeat" : "bg-center"}`}
-        style={{ backgroundImage: `url("${isDietStats ? statsScene() : pattern(mode)}")` }}
-      />
+      {isSettings ? (
+        <SettingsBackdrop mode={mode} />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+          style={{ backgroundImage: `url("${pattern(mode)}")` }}
+        />
+      )}
       <Outlet />
       <ActivityTracker />
       {canGym && <ActiveWorkoutBar />}
