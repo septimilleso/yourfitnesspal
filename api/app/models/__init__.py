@@ -1,3 +1,4 @@
+from app.models.activity import UserActivityDay
 from app.models.base import Base
 from app.models.diary import DiaryEntry, Meal
 from app.models.exercise import Exercise, Tracking
@@ -38,6 +39,7 @@ __all__ = [
     "TemplateSet",
     "Tracking",
     "User",
+    "UserActivityDay",
     "UserSession",
     "Workout",
     "WorkoutExercise",
