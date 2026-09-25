@@ -9,6 +9,8 @@ describe("appMode", () => {
     expect(modeFromPath("/")).toBe("diet");
     expect(modeFromPath("/week")).toBe("diet");
     expect(modeFromPath("/search")).toBe("diet");
+    expect(modeFromPath("/stats")).toBe("diet");
+    expect(modeFromPath("/gym/stats")).toBe("gym");
     expect(modeFromPath("/gym")).toBe("gym");
     expect(modeFromPath("/gym/history/3")).toBe("gym");
     expect(modeFromPath("/settings")).toBeNull();

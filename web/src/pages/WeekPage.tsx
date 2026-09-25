@@ -5,17 +5,7 @@ import type { Goal, WeekDayTotal } from "../api/queries";
 import { useGoal, useWeekDiary } from "../api/queries";
 import CopyDaysDialog from "../components/CopyDaysDialog";
 import ModeSwitch from "../components/ModeSwitch";
-import { formatIsoDateShort, shiftIsoDate, todayIso } from "../lib/date";
-
-/** Monday of the ISO week containing `iso` (`getUTCDay()` is 0=Sunday..6=
- * Saturday). UTC throughout -- consistent with `shiftIsoDate`, so this
- * never depends on the browser's local timezone/DST. */
-function startOfWeek(iso: string): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  const diff = dow === 0 ? -6 : 1 - dow;
-  return shiftIsoDate(iso, diff);
-}
+import { formatIsoDateShort, shiftIsoDate, startOfWeek, todayIso } from "../lib/date";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 

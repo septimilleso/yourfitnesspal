@@ -45,6 +45,11 @@ export function scene(mode: AppMode): string {
   return `/art/${mode}/scene.webp`;
 }
 
+/** Chef-cat illustration behind the diet stats page. */
+export function statsScene(): string {
+  return "/art/diet/stats.webp";
+}
+
 export const MEAL_ICONS: Record<Meal, string> = {
   breakfast: artIcon("diet", "egg"),
   lunch: artIcon("diet", "salad"),

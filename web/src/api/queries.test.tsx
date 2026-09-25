@@ -8,10 +8,13 @@ import {
   useCreateEntry,
   useDayDiary,
   useDeleteEntry,
+  useDiaryRange,
   useFoodByBarcode,
   useFoodSearch,
   usePatchEntry,
   useRecentFoods,
+  useStreak,
+  recordActivity,
 } from "./queries";
 
 vi.mock("./client", async () => {
@@ -43,6 +46,42 @@ function makeWrapper() {
   }
   return { Wrapper, queryClient };
 }
+
+describe("useDiaryRange", () => {
+  it("fetches totals for the inclusive range", async () => {
+    const response = { start: "2026-09-01", end: "2026-09-07", days: [] };
+    vi.mocked(client.get).mockResolvedValueOnce(response);
+    const { Wrapper } = makeWrapper();
+    const { result } = renderHook(() => useDiaryRange("2026-09-01", "2026-09-07"), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.get).toHaveBeenCalledWith("/diary/range?start=2026-09-01&end=2026-09-07");
+    expect(result.current.data).toEqual(response);
+  });
+
+  it("does not fetch when disabled", () => {
+    const { Wrapper } = makeWrapper();
+    renderHook(() => useDiaryRange("2026-09-07", "2026-09-01", false), { wrapper: Wrapper });
+    expect(client.get).not.toHaveBeenCalled();
+  });
+});
+
+describe("useStreak", () => {
+  it("fetches the streak", async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ current: 3, best: 5 });
+    const { Wrapper } = makeWrapper();
+    const { result } = renderHook(() => useStreak(), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.data).toEqual({ current: 3, best: 5 }));
+    expect(client.get).toHaveBeenCalledWith("/stats/streak");
+  });
+});
+
+describe("recordActivity", () => {
+  it("posts to /activity", async () => {
+    vi.mocked(client.post).mockResolvedValueOnce(undefined);
+    await recordActivity();
+    expect(client.post).toHaveBeenCalledWith("/activity");
+  });
+});
 
 describe("useDayDiary", () => {
   it("fetches the day response for the given date", async () => {

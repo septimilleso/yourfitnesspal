@@ -238,6 +238,34 @@ export function useWeekDiary(start: string) {
   });
 }
 
+/** `GET /api/diary/range?start=&end=`: one total per day, inclusive, empty
+ * days included. `enabled` lets the stats page skip invalid custom ranges. */
+export function useDiaryRange(start: string, end: string, enabled = true) {
+  return useQuery({
+    queryKey: ["diary", "range", start, end] as const,
+    queryFn: () => client.get<WeekResponse>(`/diary/range?start=${start}&end=${end}`),
+    enabled,
+  });
+}
+
+export interface Streak {
+  current: number;
+  best: number;
+}
+
+/** `GET /api/stats/streak`: consecutive days the app was opened. */
+export function useStreak() {
+  return useQuery({
+    queryKey: ["streak"] as const,
+    queryFn: () => client.get<Streak>("/stats/streak"),
+  });
+}
+
+/** `POST /api/activity`: records that the app was opened today. */
+export function recordActivity(): Promise<void> {
+  return client.post<void>("/activity");
+}
+
 /** `GET /api/goals`. A goal may not exist yet -- the backend 404s in that
  * case, which is treated here as "no goal" (`null`) rather than a query
  * error, so `WeekPage`/`CopyDaysDialog` callers can render without a goal

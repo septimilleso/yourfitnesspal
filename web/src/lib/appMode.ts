@@ -26,7 +26,12 @@ function write(key: string, value: string): void {
 
 export function modeFromPath(pathname: string): AppMode | null {
   if (pathname === "/gym" || pathname.startsWith("/gym/")) return "gym";
-  if (pathname === "/" || pathname.startsWith("/week") || pathname.startsWith("/search")) {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/week") ||
+    pathname.startsWith("/search") ||
+    pathname.startsWith("/stats")
+  ) {
     return "diet";
   }
   return null;

@@ -17,8 +17,17 @@ import {
   formatIsoDateShort,
   relativeDayLabel,
   shiftIsoDate,
+  startOfWeek,
   todayIso,
 } from "./date";
+
+describe("startOfWeek", () => {
+  it("returns the Monday of the ISO week", () => {
+    expect(startOfWeek("2026-09-25")).toBe("2026-09-21");
+    expect(startOfWeek("2026-09-21")).toBe("2026-09-21");
+    expect(startOfWeek("2026-09-27")).toBe("2026-09-21");
+  });
+});
 
 describe("shiftIsoDate", () => {
   it("moves exactly one calendar day forward across the boundary that previously broke", () => {

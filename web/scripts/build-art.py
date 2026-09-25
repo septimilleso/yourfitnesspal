@@ -220,8 +220,11 @@ def save_mascot(mode: str) -> None:
 def save_backgrounds(mode: str) -> None:
     out_dir = PUBLIC / "art" / ("diet" if mode == "dieta" else "gym")
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("pattern", "scene"):
-        image = Image.open(ART / mode / f"{name}.png").convert("RGB")
+    for name in ("pattern", "scene", "stats"):
+        source = ART / mode / f"{name}.png"
+        if not source.exists():
+            continue
+        image = Image.open(source).convert("RGB")
         if image.width > 941:
             height = round(image.height * 941 / image.width)
             image = image.resize((941, height), Image.Resampling.LANCZOS)
