@@ -64,29 +64,51 @@ describe("SettingsPage", () => {
     mutate.mockClear();
   });
 
-  it("renders pre-filled values from the existing goal", () => {
+  it("renders normalized percentages and read-only gram previews", () => {
     setupMocks();
     renderSettingsPage();
 
     expect(screen.getByLabelText(/calorie/i)).toHaveValue(2000);
-    expect(screen.getByLabelText(/proteine/i)).toHaveValue(150);
-    expect(screen.getByLabelText(/carboidrati/i)).toHaveValue(250);
-    expect(screen.getByLabelText(/grassi/i)).toHaveValue(70);
+    expect(screen.getByLabelText(/proteine/i)).toHaveValue(27);
+    expect(screen.getByLabelText(/carboidrati/i)).toHaveValue(45);
+    expect(screen.getByLabelText(/grassi/i)).toHaveValue(28);
+    expect(screen.getByText("135 g")).toBeInTheDocument();
+    expect(screen.getByText("225 g")).toBeInTheDocument();
+    expect(screen.getByText("62 g")).toBeInTheDocument();
   });
 
-  it("submits the mutation with the edited payload shape", async () => {
+  it("submits calculated grams using the existing payload shape", async () => {
     setupMocks();
     const user = userEvent.setup();
     renderSettingsPage();
 
     await user.clear(screen.getByLabelText(/calorie/i));
     await user.type(screen.getByLabelText(/calorie/i), "2200");
+    await user.clear(screen.getByLabelText(/proteine/i));
+    await user.type(screen.getByLabelText(/proteine/i), "35");
+    await user.clear(screen.getByLabelText(/carboidrati/i));
+    await user.type(screen.getByLabelText(/carboidrati/i), "35");
+    await user.clear(screen.getByLabelText(/grassi/i));
+    await user.type(screen.getByLabelText(/grassi/i), "30");
     await user.click(screen.getByRole("button", { name: /salva/i }));
 
     expect(mutate).toHaveBeenCalledWith(
-      { kcal: 2200, protein_g: 150, carbs_g: 250, fat_g: 70 },
+      { kcal: 2200, protein_g: 193, carbs_g: 193, fat_g: 73 },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
+  });
+
+  it("blocks saving when percentages do not total 100", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderSettingsPage();
+
+    await user.clear(screen.getByLabelText(/carboidrati/i));
+    await user.type(screen.getByLabelText(/carboidrati/i), "44");
+
+    expect(screen.getByRole("button", { name: /salva/i })).toBeDisabled();
+    expect(screen.getByText(/somma.*100/i)).toBeInTheDocument();
+    expect(mutate).not.toHaveBeenCalled();
   });
 
   it("renders an empty form when no goal exists yet", () => {
@@ -94,6 +116,19 @@ describe("SettingsPage", () => {
     renderSettingsPage();
 
     expect(screen.getByLabelText(/calorie/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/proteine/i)).toHaveValue(null);
+  });
+
+  it("requires percentages when existing macro grams are all zero", () => {
+    setupMocks({
+      data: { ...goal, protein_g: 0, carbs_g: 0, fat_g: 0 },
+    });
+    renderSettingsPage();
+
+    expect(screen.getByLabelText(/proteine/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/carboidrati/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/grassi/i)).toHaveValue(null);
+    expect(screen.getByRole("button", { name: /salva/i })).toBeDisabled();
   });
 
   it("shows a success confirmation after a successful save", async () => {
