@@ -32,7 +32,7 @@ Le impostazioni occupano un tab della barra in basso e contengono gli obiettivi 
 
 - `GET /api/diary/range?start=YYYY-MM-DD&end=YYYY-MM-DD` restituisce `{ start, end, days: [{ date, total }] }`, con un elemento per ogni giorno dell'intervallo, inclusi i giorni vuoti (totali a zero). Stesso formato di `WeekDayTotal`.
 - `get_week` riusa la stessa funzione con `end = start + 6`.
-- Validazione: `start > end` o intervallo oltre 366 giorni restituiscono `422`.
+- Validazione: `start > end` o intervallo oltre 366 giorni restituiscono `400` (eccezione `Invalid`, come il resto della API diario).
 
 ## Frontend
 
@@ -91,7 +91,7 @@ pytest (su deploy remoto, vedi memoria):
 1. `POST /api/activity` crea una riga, seconda chiamata stesso giorno non duplica, `401` senza sessione.
 2. Calcolo streak: lista vuota, solo oggi, serie terminata ieri, buco di un giorno, `best` su serie passata più lunga.
 3. `GET /api/stats/streak` usa il fuso `app_timezone`.
-4. `GET /api/diary/range`: giorni vuoti inclusi, totali corretti, `422` su `start > end` e oltre 366 giorni, isolamento tra utenti.
+4. `GET /api/diary/range`: giorni vuoti inclusi, totali corretti, `400` su `start > end` e oltre 366 giorni, isolamento tra utenti.
 5. `get_week` invariato (test esistenti verdi).
 
 vitest:
