@@ -105,8 +105,17 @@ async def get_day(db: AsyncSession, user: User, for_date: date) -> DayResponse:
     )
 
 
-async def get_week(db: AsyncSession, user: User, start: date) -> WeekResponse:
-    end = start + timedelta(days=6)
+MAX_RANGE_DAYS = 366
+
+
+async def get_range(db: AsyncSession, user: User, start: date, end: date) -> WeekResponse:
+    """Per-day totals for every day in `start..end` (inclusive), empty days
+    included with zero totals."""
+    if end < start:
+        raise Invalid("end must not be before start")
+    length = (end - start).days + 1
+    if length > MAX_RANGE_DAYS:
+        raise Invalid(f"range must not exceed {MAX_RANGE_DAYS} days")
     stmt = (
         sa.select(DiaryEntry)
         .where(DiaryEntry.user_id == user.id, DiaryEntry.date >= start, DiaryEntry.date <= end)
@@ -114,7 +123,7 @@ async def get_week(db: AsyncSession, user: User, start: date) -> WeekResponse:
     )
     entries = (await db.execute(stmt)).scalars().all()
     entries_by_date: dict[date, list[DiaryEntry]] = {
-        start + timedelta(days=i): [] for i in range(7)
+        start + timedelta(days=i): [] for i in range(length)
     }
     for entry in entries:
         entries_by_date[entry.date].append(entry)
@@ -123,6 +132,10 @@ async def get_week(db: AsyncSession, user: User, start: date) -> WeekResponse:
         for day, day_entries in sorted(entries_by_date.items())
     ]
     return WeekResponse(start=start, end=end, days=days)
+
+
+async def get_week(db: AsyncSession, user: User, start: date) -> WeekResponse:
+    return await get_range(db, user, start, start + timedelta(days=6))
 
 
 async def create_entries(

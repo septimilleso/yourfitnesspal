@@ -1,4 +1,4 @@
-"""Diary API: entry CRUD, day/week totals, and goals.
+"""Diary API: entry CRUD, day/week/range totals, and goals.
 
 Thin HTTP layer over `app/services/diary_ops.py` and `app/services/goals.py`
 (shared with the MCP tools). Domain errors raised there are mapped to HTTP
@@ -49,6 +49,16 @@ async def get_week(
     user: User = Depends(get_current_user),
 ) -> WeekResponse:
     return await diary_ops.get_week(session, user, start)
+
+
+@diary_router.get("/range", response_model=WeekResponse)
+async def get_range(
+    start: Annotated[date, Query()],
+    end: Annotated[date, Query()],
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> WeekResponse:
+    return await diary_ops.get_range(session, user, start, end)
 
 
 @diary_router.post("/entries", response_model=DiaryEntryOut, status_code=201)

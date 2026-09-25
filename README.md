@@ -152,6 +152,9 @@ All routes are under `/api` and require the session cookie unless noted.
 | `POST`   | `/api/foods`                  | Create a custom food from a hand-entered nutrition label.    |
 | `GET`    | `/api/diary/day/{date}`       | One day: entries per meal, totals, active goal.              |
 | `GET`    | `/api/diary/week?start=`      | Seven days of totals from an ISO start date.                 |
+| `GET`    | `/api/diary/range?start=&end=` | Per-day totals for an inclusive range (max 366 days).        |
+| `POST`   | `/api/activity`               | Record that the web app was opened today (streak).           |
+| `GET`    | `/api/stats/streak`           | Current and best run of consecutive app-open days.           |
 | `POST`   | `/api/diary/entries`          | Log `{ date, meal, food_id, grams }`.                        |
 | `PATCH`  | `/api/diary/entries/{id}`     | Change a logged entry's quantity and/or move it to another meal. |
 | `DELETE` | `/api/diary/entries/{id}`     | Remove a logged entry.                                       |
