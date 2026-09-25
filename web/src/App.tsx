@@ -19,6 +19,7 @@ import WorkoutDetailPage from "./pages/gym/WorkoutDetailPage";
 import WorkoutPage from "./pages/gym/WorkoutPage";
 import LoginPage from "./pages/LoginPage";
 import ConnectPage from "./pages/ConnectPage";
+import DietStatsPage from "./pages/DietStatsPage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
@@ -61,6 +62,7 @@ function App() {
               <Route path="/" element={<DayPage />} />
               <Route path="/week" element={<WeekPage />} />
               <Route path="/search" element={<SearchPage />} />
+              <Route path="/stats" element={<DietStatsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/account" element={<AccountPage />} />
               <Route element={<PermissionGuard permission="workouts.use" />}>

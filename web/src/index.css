@@ -65,6 +65,11 @@
     @apply rounded-2xl border border-slate-200 bg-white shadow-card;
   }
 
+  /* Diet stats sits on the chef-cat illustration: let it show through. */
+  .stats-page .card {
+    @apply bg-white/85 backdrop-blur-sm;
+  }
+
   /* Section label above a card, iOS Settings style. */
   .section-label {
     @apply px-1 text-[13px] font-semibold uppercase tracking-wide text-slate-500;
