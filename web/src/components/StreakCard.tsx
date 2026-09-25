@@ -1,7 +1,9 @@
 import { useStreak } from "../api/queries";
+import BadgeGrid from "./BadgeGrid";
+import type { AppMode } from "../lib/appMode";
 
 /** "N giorni di fila" card at the top of both stats pages. */
-function StreakCard() {
+function StreakCard({ mode }: { mode: AppMode }) {
   const { data, isLoading, isError } = useStreak();
 
   let body: React.ReactNode;
@@ -23,9 +25,12 @@ function StreakCard() {
   }
 
   return (
-    <section className="card flex items-center gap-3 px-4 py-3">
-      <span aria-hidden="true" className="text-3xl leading-none">🔥</span>
-      {body}
+    <section className="card space-y-3 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="text-3xl leading-none">🔥</span>
+        {body}
+      </div>
+      {data && !isLoading && !isError && <BadgeGrid mode={mode} current={data.current} />}
     </section>
   );
 }

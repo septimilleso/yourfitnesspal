@@ -68,7 +68,7 @@ function DietStatsPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        <StreakCard />
+        <StreakCard mode="diet" />
         <GoalForm />
         <PeriodPicker
           choice={choice}

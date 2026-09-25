@@ -33,6 +33,11 @@ export function artIcon(mode: AppMode, name: DietIcon | GymIcon): string {
   return `/art/${mode}/icons/${name}.png`;
 }
 
+/** Streak badge `n` (1..30) of the section's set. */
+export function badgeIcon(mode: AppMode, n: number): string {
+  return `/art/${mode}/badges/${String(n).padStart(2, "0")}.webp`;
+}
+
 export function mascot(mode: AppMode): string {
   return `/art/${mode}/mascot.webp`;
 }

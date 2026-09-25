@@ -12,7 +12,7 @@ function GymStatsPage() {
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        <StreakCard />
+        <StreakCard mode="gym" />
         <section className="card px-4 py-6 text-center text-sm text-slate-500">
           Statistiche palestra in arrivo.
         </section>

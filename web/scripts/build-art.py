@@ -231,6 +231,17 @@ def save_backgrounds(mode: str) -> None:
         image.save(out_dir / f"{name}.webp", "WEBP", quality=80, method=6)
 
 
+def save_badges(mode: str) -> None:
+    source_dir = ART / mode / "badges"
+    if not source_dir.is_dir():
+        return
+    out_dir = PUBLIC / "art" / ("diet" if mode == "dieta" else "gym") / "badges"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for source in sorted(source_dir.glob("[0-9][0-9].png")):
+        image = Image.open(source).convert("RGBA").resize((192, 192), Image.Resampling.LANCZOS)
+        image.save(out_dir / f"{source.stem}.webp", "WEBP", quality=85, method=6)
+
+
 def sage_color(image: Image.Image) -> tuple[int, int, int]:
     candidates = []
     for red, green, blue, alpha in image.get_flattened_data():
@@ -312,6 +323,7 @@ def main() -> None:
         save_icon_sheet(mode)
         save_mascot(mode)
         save_backgrounds(mode)
+        save_badges(mode)
     pwa_icons()
     report_outputs()
 

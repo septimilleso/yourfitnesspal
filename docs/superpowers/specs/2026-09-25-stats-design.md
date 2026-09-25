@@ -107,3 +107,7 @@ vitest:
 ## Modifica 2026-09-25: sfondo in impostazioni
 
 L'illustrazione del gatto passa dalla pagina Statistiche dieta alla pagina Impostazioni; Statistiche usa lo sfondo pattern come le altre pagine; in Impostazioni l'immagine segue la sezione corrente (dieta: gatto chef, palestra: gatto palestra); su schermi orizzontali/desktop l'immagine è una colonna centrata intera a tutta altezza, sopra il pattern, con i bordi laterali sfumati.
+
+## Modifica 2026-09-25: badge
+
+Si ottiene un badge ogni 5 giorni della serie attuale, fino a un massimo di 30 badge; se la serie si azzera, i badge tornano bloccati. Dieta e palestra hanno ciascuna il proprio set di 30 illustrazioni. La raccolta è mostrata nella card della serie in cima a entrambe le pagine Statistiche.
