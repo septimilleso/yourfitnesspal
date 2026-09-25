@@ -3,7 +3,8 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
 import { currentMode, rememberPath } from "../lib/appMode";
-import { artIcon, pattern, type DietIcon, type GymIcon } from "../lib/art";
+import { artIcon, pattern, statsScene, type DietIcon, type GymIcon } from "../lib/art";
+import ActivityTracker from "./ActivityTracker";
 import ActiveWorkoutBar from "./gym/ActiveWorkoutBar";
 
 interface Tab {
@@ -13,30 +14,26 @@ interface Tab {
   end?: boolean;
 }
 
-const SETTINGS_TAB: Tab = {
-  to: "/settings",
-  label: "Impostazioni",
-  icon: "gear",
-};
-
 const DIET_TABS: Tab[] = [
   { to: "/", label: "Giorno", end: true, icon: "plate" },
   { to: "/search", label: "Cerca", icon: "basket" },
   { to: "/week", label: "Settimana", icon: "chart" },
-  SETTINGS_TAB,
+  { to: "/stats", label: "Statistiche", icon: "chart" },
 ];
 
 const GYM_TABS: Tab[] = [
   { to: "/gym/history", label: "Storico", icon: "calendar" },
   { to: "/gym", label: "Inizia", end: true, icon: "dumbbell" },
   { to: "/gym/exercises", label: "Esercizi", icon: "book" },
-  SETTINGS_TAB,
+  { to: "/gym/stats", label: "Statistiche", icon: "chart" },
 ];
 
 /** Persistent app shell for every authenticated route: renders the current
  * page via `<Outlet>` plus a bottom navigation bar. The bar shows the diet
- * tabs or the gym tabs depending on the section (see lib/appMode.ts); shared
- * pages such as settings keep the last section's tabs.
+ * tabs or the gym tabs depending on the section (see lib/appMode.ts); tabs end
+ * with the section's statistics page, settings open from the header gear
+ * (`SettingsButton`), and the shell pings `POST /api/activity` via
+ * `ActivityTracker`. Shared pages such as settings keep the last section's tabs.
  *
  * iOS layout notes: the bar is translucent + blurred (content scrolls
  * visibly under it, as in a native tab bar) and pads itself by
@@ -54,15 +51,17 @@ function AppShell() {
 
   const mode = currentMode(pathname);
   const tabs = canGym && mode === "gym" ? GYM_TABS : DIET_TABS;
+  const isDietStats = pathname === "/stats";
 
   return (
     <div className="relative isolate min-h-screen bg-app pb-[calc(var(--nav-height)+0.5rem)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
-        style={{ backgroundImage: `url("${pattern(mode)}")` }}
+        className={`pointer-events-none fixed inset-0 -z-10 bg-cover ${isDietStats ? "bg-bottom" : "bg-center"}`}
+        style={{ backgroundImage: `url("${isDietStats ? statsScene() : pattern(mode)}")` }}
       />
       <Outlet />
+      <ActivityTracker />
       {canGym && <ActiveWorkoutBar />}
       <nav
         aria-label="Navigazione principale"

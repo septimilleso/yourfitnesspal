@@ -12,6 +12,7 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
 import ExercisesPage from "./pages/gym/ExercisesPage";
 import GymStartPage from "./pages/gym/GymStartPage";
+import GymStatsPage from "./pages/gym/GymStatsPage";
 import HistoryPage from "./pages/gym/HistoryPage";
 import TemplateEditorPage from "./pages/gym/TemplateEditorPage";
 import WorkoutDetailPage from "./pages/gym/WorkoutDetailPage";
@@ -67,6 +68,7 @@ function App() {
                 <Route path="/gym/exercises" element={<ExercisesPage />} />
                 <Route path="/gym/history" element={<HistoryPage />} />
                 <Route path="/gym/history/:id" element={<WorkoutDetailPage />} />
+                <Route path="/gym/stats" element={<GymStatsPage />} />
                 <Route path="/gym/templates/new" element={<TemplateEditorRoute />} />
                 <Route path="/gym/templates/:id" element={<TemplateEditorRoute />} />
               </Route>

@@ -15,6 +15,10 @@ vi.mock("./gym/ActiveWorkoutBar", () => ({
   default: () => <div data-testid="active-workout-bar" />,
 }));
 
+vi.mock("./ActivityTracker", () => ({
+  default: () => <div data-testid="activity-tracker" />,
+}));
+
 function renderShell(initialPath = "/") {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -24,7 +28,9 @@ function renderShell(initialPath = "/") {
           <Route path="/search" element={<div>Search Page</div>} />
           <Route path="/week" element={<div>Week Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
+          <Route path="/stats" element={<div>Stats Page</div>} />
           <Route path="/gym" element={<div>Gym Page</div>} />
+          <Route path="/gym/stats" element={<div>Gym Stats Page</div>} />
           <Route path="/gym/history" element={<div>History Page</div>} />
         </Route>
       </Routes>
@@ -45,7 +51,8 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Giorno" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Cerca" })).toHaveAttribute("href", "/search");
     expect(screen.getByRole("link", { name: "Settimana" })).toHaveAttribute("href", "/week");
-    expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "Statistiche" })).toHaveAttribute("href", "/stats");
+    expect(screen.queryByRole("link", { name: "Impostazioni" })).not.toBeInTheDocument();
   });
 
   it("renders the current page's content via the outlet", () => {
@@ -111,7 +118,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Storico" })).toHaveAttribute("href", "/gym/history");
     expect(screen.getByRole("link", { name: "Inizia" })).toHaveAttribute("href", "/gym");
     expect(screen.getByRole("link", { name: "Esercizi" })).toHaveAttribute("href", "/gym/exercises");
-    expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "Statistiche" })).toHaveAttribute("href", "/gym/stats");
     expect(screen.queryByRole("link", { name: "Giorno" })).not.toBeInTheDocument();
     expect(screen.getByTestId("active-workout-bar")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Inizia" }).querySelector("img")).toHaveAttribute(
@@ -120,14 +127,32 @@ describe("AppShell", () => {
     );
   });
 
-  it("keeps the gym tabs on settings after visiting the gym", async () => {
+  it("keeps the gym tabs on stats after visiting the gym", async () => {
     vi.mocked(useHasPermission).mockReturnValue(true);
     const user = userEvent.setup();
     renderShell("/gym");
 
-    await user.click(screen.getByRole("link", { name: "Impostazioni" }));
+    await user.click(screen.getByRole("link", { name: "Statistiche" }));
 
-    expect(screen.getByText("Settings Page")).toBeInTheDocument();
+    expect(screen.getByText("Gym Stats Page")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Storico" })).toBeInTheDocument();
+  });
+
+  it("renders the activity tracker", () => {
+    renderShell();
+    expect(screen.getByTestId("activity-tracker")).toBeInTheDocument();
+  });
+
+  it("links the gym stats tab", () => {
+    vi.mocked(useHasPermission).mockReturnValue(true);
+    renderShell("/gym");
+    expect(screen.getByRole("link", { name: "Statistiche" })).toHaveAttribute("href", "/gym/stats");
+  });
+
+  it("uses the chef-cat background on the diet stats page", () => {
+    const { container } = renderShell("/stats");
+    const background = container.querySelector('[aria-hidden="true"].fixed') as HTMLElement;
+    expect(background.style.backgroundImage).toContain("/art/diet/stats.webp");
+    expect(background).toHaveClass("bg-bottom");
   });
 });
