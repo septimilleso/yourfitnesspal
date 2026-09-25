@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { AppMode } from "../lib/appMode";
 import { badgeProgress, BADGE_COUNT, DAYS_PER_BADGE } from "../lib/badges";
 import { badgeIcon } from "../lib/art";
@@ -5,6 +7,7 @@ import { badgeIcon } from "../lib/art";
 /** One badge is earned every five days of the current streak. */
 function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
   const { earned, nextIn } = badgeProgress(current);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="space-y-2 border-t border-slate-100 pt-3">
@@ -16,8 +19,21 @@ function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
             : `Prossimo badge tra ${nextIn} ${nextIn === 1 ? "giorno" : "giorni"}`}
         </p>
       </div>
-      <ul className="grid grid-cols-5 gap-2">
-        {Array.from({ length: BADGE_COUNT }, (_, index) => index + 1).map((n) => {
+      {!expanded && (
+        <div className="flex items-center gap-3">
+          <img
+            src={badgeIcon(mode, earned || 1)}
+            alt={earned >= 1 ? `Badge ${earned}` : "Badge 1 bloccato"}
+            draggable={false}
+            className={`h-16 w-16 rounded-xl ${earned >= 1 ? "" : "grayscale opacity-30"}`}
+          />
+          <span className="text-sm text-slate-600">
+            {earned >= 1 ? "Ultimo badge sbloccato" : "Primo badge a 5 giorni di fila"}
+          </span>
+        </div>
+      )}
+      <ul id="badge-grid" hidden={!expanded} className="grid grid-cols-5 gap-2">
+        {expanded && Array.from({ length: BADGE_COUNT }, (_, index) => index + 1).map((n) => {
           const unlocked = n <= earned;
           return (
             <li key={n} className="flex flex-col items-center gap-0.5">
@@ -33,6 +49,15 @@ function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
           );
         })}
       </ul>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls="badge-grid"
+        onClick={() => setExpanded((value) => !value)}
+        className="min-h-[44px] w-full text-sm font-medium text-brand-700"
+      >
+        {expanded ? "Nascondi badge" : "Mostra tutti i badge"}
+      </button>
     </div>
   );
 }

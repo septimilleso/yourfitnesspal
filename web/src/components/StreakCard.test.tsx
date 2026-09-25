@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useStreak } from "../api/queries";
@@ -36,6 +36,7 @@ describe("StreakCard", () => {
   it("shows earned and locked diet badges for the current streak", () => {
     mockStreak({ data: { current: 12, best: 12 } });
     render(<StreakCard mode="diet" />);
+    fireEvent.click(screen.getByRole("button", { name: "Mostra tutti i badge" }));
     expect(screen.getByAltText("Badge 1")).toHaveAttribute("src", "/art/diet/badges/01.webp");
     expect(screen.getByAltText("Badge 2")).toBeInTheDocument();
     expect(screen.getAllByAltText(/bloccato$/)).toHaveLength(28);
@@ -46,7 +47,7 @@ describe("StreakCard", () => {
   it("uses the gym badge artwork in gym mode", () => {
     mockStreak({ data: { current: 5, best: 5 } });
     render(<StreakCard mode="gym" />);
-    expect(screen.getByAltText("Badge 1")).toHaveAttribute("src", "/art/gym/badges/01.webp");
+    expect(screen.getByRole("img", { name: "Badge 1" })).toHaveAttribute("src", "/art/gym/badges/01.webp");
   });
 
   it("shows a complete collection at 150 days", () => {
