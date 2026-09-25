@@ -21,10 +21,20 @@ function renderAt(path: string) {
 describe("ModeSwitch", () => {
   beforeEach(() => window.localStorage.clear());
 
-  it("renders nothing without the gym permission", () => {
+  it("shows only the settings gear without the gym permission", () => {
     vi.mocked(useHasPermission).mockReturnValue(false);
-    const { container } = renderAt("/");
-    expect(container).toBeEmptyDOMElement();
+    renderAt("/");
+    expect(screen.queryByRole("group", { name: "Sezione" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "/settings");
+  });
+
+  it("uses the gym gear icon in the gym section", () => {
+    vi.mocked(useHasPermission).mockReturnValue(true);
+    renderAt("/gym");
+    expect(screen.getByRole("link", { name: "Impostazioni" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/art/gym/icons/gear.png",
+    );
   });
 
   it("links to the other section's last page", () => {
