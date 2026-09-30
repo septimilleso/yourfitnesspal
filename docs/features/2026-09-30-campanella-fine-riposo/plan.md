@@ -58,7 +58,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Creare `AuthContext.test.tsx` per `useLogout`. Mockare `logout` di `../api/auth` e `useNavigate`. Usare un `QueryClient` reale con `vi.spyOn(queryClient, "clear")` e stubbare `window.caches` con `{ delete: vi.fn().mockResolvedValue(true) }`. Verificare l'ordine con `mock.invocationCallOrder`: `logout()`, poi `queryClient.clear()`, poi `caches.delete("api-foods-cache")`, poi `navigate("/login", { replace: true })`. Eseguire l'hook con `renderHook` dentro `QueryClientProvider` e `MemoryRouter`.
 - Verifica: `cd web && npx vitest run src/components/gym/RestTimerBar.test.tsx src/auth/AuthContext.test.tsx`, risultato atteso: tutti verdi sul codice attuale. Poi `cd web && npm test`: suite verde.
 
-### [~] T2. Configurazione VAPID, dipendenza pywebpush e generazione chiavi
+### [x] T2. Configurazione VAPID, dipendenza pywebpush e generazione chiavi
 
 - Copre: C22 (parte config), R4 (lato server), requisito di avvio senza chiavi
 - File: `api/app/config.py` (modifica), `api/pyproject.toml` (modifica), `api/scripts/gen_vapid_keys.py` (nuovo), `api/tests/test_config.py` (modifica), `.env.example` (modifica), `README.md` (modifica)
@@ -75,7 +75,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `.venv/Scripts/python -m pytest tests/test_config.py -q`: verde;
   - `.venv/Scripts/python scripts/gen_vapid_keys.py`: stampa due righe; la pubblica decodificata è lunga 65 byte e inizia con `0x04`.
 
-### [ ] T3. Modello `PushSubscription`, campo `rest_notified_at` e migrazione
+### [~] T3. Modello `PushSubscription`, campo `rest_notified_at` e migrazione
 
 - Copre: C22 (migrazione), R5 (unicità per endpoint), R7 (riposi scaduti prima della migrazione)
 - File: `api/app/models/push.py` (nuovo), `api/app/models/__init__.py` (modifica), `api/app/models/workout.py` (modifica), `api/alembic/versions/e3f9b2a7c514_push_subscriptions.py` (nuovo), `api/tests/test_push_models.py` (nuovo)
@@ -393,3 +393,4 @@ Decisioni prese con l'utente (2026-09-30):
 
 Commit di partenza: 5dd8c3f
 - T1 — DONE — review: 1 round — commit: 3c89f03 — minor: vi.clearAllMocks() aggiunto al beforeEach esistente; test rest_ends_at null debole (nessun avanzamento timer)
+- T2 — DONE — review: 1 round — commit: 8781ef2 — note: pip install bloccato per l'agent, eseguito dall'utente; minor: push_enabled non fa strip()
