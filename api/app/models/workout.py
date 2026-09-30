@@ -108,6 +108,11 @@ class Workout(Base):
             postgresql_where=sa.text("status = 'in_progress'"),
         ),
         sa.Index("ix_workouts_user_finished", "user_id", "finished_at"),
+        sa.Index(
+            "ix_workouts_rest_pending",
+            "rest_ends_at",
+            postgresql_where=sa.text("status = 'in_progress' AND rest_ends_at IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
@@ -131,6 +136,10 @@ class Workout(Base):
         sa.DateTime(timezone=True), nullable=True
     )
     rest_ends_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    # valore di `rest_ends_at` per cui è già partito il push
+    rest_notified_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True
     )
     rest_total_s: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)

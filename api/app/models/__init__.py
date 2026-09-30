@@ -6,6 +6,7 @@ from app.models.food import Food, FoodPortion
 from app.models.goal import Goal
 from app.models.meal_template import MealTemplate, MealTemplateItem
 from app.models.oauth import OAuthAuthCode, OAuthClient, OAuthTokenPair
+from app.models.push import PushSubscription
 from app.models.user import AuditEvent, RecoveryCode, Role, User, UserSession
 from app.models.workout import (
     TemplateExercise,
@@ -32,6 +33,7 @@ __all__ = [
     "OAuthAuthCode",
     "OAuthClient",
     "OAuthTokenPair",
+    "PushSubscription",
     "RecoveryCode",
     "Role",
     "TemplateExercise",
