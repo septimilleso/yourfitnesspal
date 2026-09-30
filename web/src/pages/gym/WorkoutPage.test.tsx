@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Workout } from "../../api/gym";
 import { useActiveWorkout, useCancelWorkout, useFinishWorkout, useLiveMutation } from "../../api/gym";
@@ -38,6 +38,12 @@ const workout: Workout = {
 };
 
 const finish = vi.fn();
+
+function installVisualViewport(offsetTop: number) {
+  const viewport = Object.assign(new EventTarget(), { offsetTop, height: 600 });
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+  return viewport;
+}
 
 function renderPage() {
   return render(
@@ -89,5 +95,48 @@ describe("WorkoutPage", () => {
     vi.mocked(useActiveWorkout).mockReturnValue({ data: null, isLoading: false, isError: false } as unknown as ReturnType<typeof useActiveWorkout>);
     renderPage();
     expect(screen.getByText("Nessun allenamento in corso.")).toBeInTheDocument();
+  });
+
+  describe("WorkoutPage header and visual viewport", () => {
+    beforeEach(() => {
+      const now = new Date();
+      vi.mocked(useActiveWorkout).mockReturnValue({
+        data: {
+          ...workout,
+          rest_ends_at: new Date(now.getTime() + 90_000).toISOString(),
+          rest_total_s: 90,
+          server_now: now.toISOString(),
+        },
+        isLoading: false,
+        isError: false,
+      } as unknown as ReturnType<typeof useActiveWorkout>);
+    });
+
+    afterEach(() => {
+      delete (window as unknown as { visualViewport?: VisualViewport }).visualViewport;
+    });
+
+    it("keeps the header in the visible area when the visual viewport moves", () => {
+      const viewport = installVisualViewport(0);
+      renderPage();
+
+      act(() => {
+        viewport.offsetTop = 300;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+
+      const header = screen.getByRole("timer").closest("header");
+      expect(header).not.toBeNull();
+      expect(header?.style.top).toBe("300px");
+    });
+
+    it("works without the visualViewport API", () => {
+      renderPage();
+
+      const timer = screen.getByRole("timer");
+      const header = timer.closest("header");
+      expect(header).not.toBeNull();
+      expect(header?.style.top).toBe("");
+    });
   });
 });

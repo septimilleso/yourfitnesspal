@@ -25,6 +25,7 @@ import {
 import { LiveErrorContext } from "../../lib/liveErrors";
 import { unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
+import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
 
 type PickerState = { mode: "add" } | { mode: "replace"; itemId: number } | null;
 
@@ -60,6 +61,7 @@ function WorkoutSession() {
   const report = useContext(LiveErrorContext);
   const { data: workout, isLoading, isError } = useActiveWorkout();
   const now = useNow(1000);
+  const viewportTop = useVisualViewportTop();
   const rename = useLiveMutation(gymApi.renameWorkout);
   const addExercise = useLiveMutation(gymApi.addExercise);
   const patchExercise = useLiveMutation(gymApi.patchExercise);
@@ -182,7 +184,7 @@ function WorkoutSession() {
 
   return (
     <div className="min-h-screen bg-app pb-[calc(2rem+var(--safe-bottom))]" onPointerDown={unlockAudio}>
-      <header className="app-header">
+      <header className="app-header" style={viewportTop ? { top: viewportTop } : undefined}>
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-2 py-2">
           <div className="flex">
             <button type="button" aria-label="Riduci" className="btn-ghost w-11" onClick={() => navigate("/gym")}>
