@@ -18,6 +18,7 @@ dependencies = [
     "cryptography>=43",
     "mcp>=2.2,<3",
     "tzdata>=2024.1",
+    "pywebpush>=2.5,<3",
 ]
 
 [project.optional-dependencies]

@@ -227,6 +227,18 @@ docker compose up -d --build
 docker compose exec api alembic upgrade head   # only if a migration shipped
 ```
 
+For rest-finished push alerts, generate a VAPID key pair from the repository root:
+
+```sh
+python api/scripts/gen_vapid_keys.py
+```
+
+Copy the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` assignments into the deploy host's
+`.env`, and set `VAPID_SUBJECT` to a contact URI such as `mailto:you@example.com`. Keep the private
+key only in `.env`; do not commit it. If the VAPID values are absent, push alerts remain disabled
+and the rest of the application works normally. This feature adds a database migration; apply it
+with `docker compose exec api alembic upgrade head` as part of the deploy.
+
 This release includes two migrations: `9a4d2c7e1f03` (schema) and `b81f5e3a6c42` (catalog load).
 Run them with the usual `docker compose exec api alembic upgrade head`. The catalog lives in
 `api/app/data/exercises.json`; see `api/app/data/README.md` for its source and regeneration details.
