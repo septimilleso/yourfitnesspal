@@ -16,3 +16,7 @@ dist/
 
 # Editor / OS
 .DS_Store
+
+# Local tooling
+.claude/settings.local.json
+web/.vite/

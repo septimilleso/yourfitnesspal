@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "roles": {
+    "planning":       { "model": "opus",              "effort": "medium" },
+    "implementation": { "model": "claude-gpt-6-luna", "effort": "high" },
+    "review":         { "model": "sonnet",            "effort": "high" }
+  },
+  "commit": "per-task",
+  "testCommand": "cd web && npm test"
+}
