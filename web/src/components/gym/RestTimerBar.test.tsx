@@ -22,6 +22,7 @@ function workout(restEndsAt: string | null): Workout {
 
 describe("RestTimerBar", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
   });
@@ -30,6 +31,32 @@ describe("RestTimerBar", () => {
   it("renders nothing without a running rest", () => {
     render(<RestTimerBar workout={workout(null)} onAdjust={vi.fn()} onSkip={vi.fn()} />);
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  });
+
+  it("does not alert or render when mounted after the rest has ended", () => {
+    render(<RestTimerBar workout={workout("2026-09-24T17:59:59Z")} onAdjust={vi.fn()} onSkip={vi.fn()} />);
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(beep).not.toHaveBeenCalled();
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
+  it("does not beep without a rest end time", () => {
+    render(<RestTimerBar workout={workout(null)} onAdjust={vi.fn()} onSkip={vi.fn()} />);
+    expect(beep).not.toHaveBeenCalled();
+  });
+
+  it("beeps once for each rest end time after rerender", () => {
+    const { rerender } = render(
+      <RestTimerBar workout={workout("2026-09-24T18:00:05Z")} onAdjust={vi.fn()} onSkip={vi.fn()} />,
+    );
+    act(() => vi.advanceTimersByTime(6000));
+    expect(beep).toHaveBeenCalledTimes(1);
+
+    rerender(<RestTimerBar workout={workout("2026-09-24T18:00:10Z")} onAdjust={vi.fn()} onSkip={vi.fn()} />);
+    expect(screen.getByRole("timer")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(beep).toHaveBeenCalledTimes(2);
   });
 
   it("counts down, then beeps once and hides", () => {
