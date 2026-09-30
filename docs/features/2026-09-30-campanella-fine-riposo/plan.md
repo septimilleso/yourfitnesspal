@@ -301,7 +301,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      Il test di caratterizzazione di T1 resta verde. Si aggiorna solo il mock perché includa il nuovo modulo.
 - Verifica: `cd web && npx vitest run src/auth/AuthContext.test.tsx`, verde; `cd web && npm test`, suite verde.
 
-### [~] T11. Campione di campanella e audio che si mixa con la musica
+### [x] T11. Campione di campanella e audio che si mixa con la musica
 
 - Copre: C7 (parte audio), C13 (preparazione), C15, R9, R10
 - File: `web/scripts/make-bell.mjs` (nuovo), `web/public/sounds/rest-bell.wav` (nuovo, generato e committato), `web/vite.config.ts` (modifica), `web/src/lib/restTimer.ts` (modifica), `web/src/lib/restTimer.test.ts` (modifica)
@@ -328,7 +328,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `grep -c "sounds/rest-bell.wav" web/dist/sw.js`: almeno 1;
   - `cd web && npm test`: suite verde.
 
-### [ ] T12. Regola dei 5 secondi in `RestTimerBar` e ripresa audio nella sessione live
+### [~] T12. Regola dei 5 secondi in `RestTimerBar` e ripresa audio nella sessione live
 
 - Copre: C7, C15, C16, C17, C21
 - File: `web/src/components/gym/RestTimerBar.tsx` (modifica), `web/src/components/gym/RestTimerBar.test.tsx` (modifica), `web/src/pages/gym/WorkoutPage.tsx` (modifica)
@@ -402,3 +402,4 @@ Commit di partenza: 5dd8c3f
 - T8 — DONE — review: 1 round — commit: a54b9cd — minor: unsubscribeDeviceOnLogout fa server e locale in parallelo (locale rimossa anche se server lento/fallisce, accettato: più sicuro per R11/C8); test timeout non distingue timeout assente
 - T9 — DONE — review: 1 round — commit: 44b0300 — minor: con avviso attivo e permesso poi "denied" il toggle è spento e disabilitato, la subscription server resta (la toglie il logout T10)
 - T10 — DONE — review: 1 round — commit: 5f484bb — minor: test di caratterizzazione T1 esteso con le asserzioni C8 invece di restare invariato (copertura completa, 2 test invece di 3); caso errore usa mockRejectedValue (più severo del contratto reale)
+- T11 — DONE — review: 1 round — commit: 6242f15 — minor: bellLoadStarted resta true se fetch/decode falliscono, niente nuovo tentativo fino al reload (fallback 880 Hz)
