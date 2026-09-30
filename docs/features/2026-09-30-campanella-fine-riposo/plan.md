@@ -75,7 +75,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `.venv/Scripts/python -m pytest tests/test_config.py -q`: verde;
   - `.venv/Scripts/python scripts/gen_vapid_keys.py`: stampa due righe; la pubblica decodificata è lunga 65 byte e inizia con `0x04`.
 
-### [~] T3. Modello `PushSubscription`, campo `rest_notified_at` e migrazione
+### [x] T3. Modello `PushSubscription`, campo `rest_notified_at` e migrazione
 
 - Copre: C22 (migrazione), R5 (unicità per endpoint), R7 (riposi scaduti prima della migrazione)
 - File: `api/app/models/push.py` (nuovo), `api/app/models/__init__.py` (modifica), `api/app/models/workout.py` (modifica), `api/alembic/versions/e3f9b2a7c514_push_subscriptions.py` (nuovo), `api/tests/test_push_models.py` (nuovo)
@@ -110,7 +110,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   I test DB vengono eseguiti in T13.
 
-### [ ] T4. Servizio e router delle subscription push
+### [~] T4. Servizio e router delle subscription push
 
 - Copre: C3 (deduplica, cancellazione solo delle proprie, CSRF), R5, R12, R4 (chiave pubblica assente)
 - File: `api/app/schemas/push.py` (nuovo), `api/app/services/push.py` (nuovo), `api/app/routers/push.py` (nuovo), `api/app/main.py` (modifica), `api/tests/test_push_router.py` (nuovo)
@@ -394,3 +394,4 @@ Decisioni prese con l'utente (2026-09-30):
 Commit di partenza: 5dd8c3f
 - T1 — DONE — review: 1 round — commit: 3c89f03 — minor: vi.clearAllMocks() aggiunto al beforeEach esistente; test rest_ends_at null debole (nessun avanzamento timer)
 - T2 — DONE — review: 1 round — commit: 8781ef2 — note: pip install bloccato per l'agent, eseguito dall'utente; minor: push_enabled non fa strip()
+- T3 — DONE — review: 1 round — commit: a435702 — test DB non eseguiti in locale (T13); minor: UPDATE migrazione marca anche workout non in_progress (innocuo)
