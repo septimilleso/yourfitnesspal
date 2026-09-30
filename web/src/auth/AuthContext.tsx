@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, logout, type Me } from "../api/auth";
 import type { Permission } from "../lib/permissions";
+import { unsubscribeDeviceOnLogout } from "../lib/push";
 
 const AuthContext = createContext<Me | null | undefined>(undefined);
 
@@ -30,7 +31,16 @@ export function clearClientCaches(queryClient: ReturnType<typeof useQueryClient>
 export function useLogout() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  return async () => { await logout(); clearClientCaches(queryClient); navigate("/login", { replace: true }); };
+  return async () => {
+    try {
+      await unsubscribeDeviceOnLogout();
+    } catch {
+      // Continue with logout even if unsubscribe fails
+    }
+    await logout();
+    clearClientCaches(queryClient);
+    navigate("/login", { replace: true });
+  };
 }
 
 export default AuthContext;
