@@ -72,6 +72,28 @@ describe("RestTimerBar", () => {
     expect(beep).toHaveBeenCalledTimes(1);
   });
 
+  it("does not alert when returning from the background more than 5 seconds late", () => {
+    render(<RestTimerBar workout={workout("2026-09-24T18:00:05Z")} onAdjust={vi.fn()} onSkip={vi.fn()} />);
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole("timer")).toBeInTheDocument();
+
+    vi.setSystemTime(NOW + 60_000);
+    act(() => vi.advanceTimersByTime(250));
+
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(beep).not.toHaveBeenCalled();
+  });
+
+  it("alerts when zero is observed 4 seconds after the rest ends", () => {
+    render(<RestTimerBar workout={workout("2026-09-24T18:00:05Z")} onAdjust={vi.fn()} onSkip={vi.fn()} />);
+    act(() => vi.advanceTimersByTime(2000));
+    vi.setSystemTime(NOW + 9000);
+    act(() => vi.advanceTimersByTime(250));
+
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(beep).toHaveBeenCalledTimes(1);
+  });
+
   it("adjusts and skips", () => {
     const onAdjust = vi.fn();
     const onSkip = vi.fn();

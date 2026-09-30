@@ -11,9 +11,11 @@ interface RestTimerBarProps {
   onSkip: () => void;
 }
 
+const LATE_ALERT_MS = 5000;
+
 /** Countdown under the workout header. Keep it mounted: it renders nothing
  * when no rest runs, but still has to notice the moment a rest reaches zero
- * to beep (once per `rest_ends_at`). */
+ * to beep once per `rest_ends_at` when observed within five seconds. */
 function RestTimerBar({ workout, onAdjust, onSkip }: RestTimerBarProps) {
   const now = useNow(250);
   const offset = useMemo(() => clockOffsetMs(workout.server_now, Date.now()), [workout.server_now]);
@@ -30,10 +32,13 @@ function RestTimerBar({ workout, onAdjust, onSkip }: RestTimerBarProps) {
     }
     if (seenRunning.current === endsAt && fired.current !== endsAt) {
       fired.current = endsAt;
-      beep();
-      vibrate();
+      const late = Date.now() + offset - Date.parse(endsAt);
+      if (late <= LATE_ALERT_MS) {
+        beep();
+        vibrate();
+      }
     }
-  }, [remaining, workout.rest_ends_at]);
+  }, [offset, remaining, workout.rest_ends_at]);
 
   if (remaining <= 0) return null;
   const total = workout.rest_total_s ?? remaining;

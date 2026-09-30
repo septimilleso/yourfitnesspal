@@ -23,7 +23,7 @@ import {
   unlinkFromGroup,
 } from "../../lib/gym";
 import { LiveErrorContext } from "../../lib/liveErrors";
-import { unlockAudio } from "../../lib/restTimer";
+import { installAudioResume, unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
 import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
 
@@ -62,6 +62,7 @@ function WorkoutSession() {
   const { data: workout, isLoading, isError } = useActiveWorkout();
   const now = useNow(1000);
   const viewportTop = useVisualViewportTop();
+  useEffect(() => installAudioResume(), []);
   const rename = useLiveMutation(gymApi.renameWorkout);
   const addExercise = useLiveMutation(gymApi.addExercise);
   const patchExercise = useLiveMutation(gymApi.patchExercise);
