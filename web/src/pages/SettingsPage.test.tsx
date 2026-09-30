@@ -10,8 +10,12 @@ vi.mock("../auth/AuthContext", async () => {
   return { ...actual, useMe: vi.fn(), useHasPermission: vi.fn(() => false) };
 });
 
-function renderAs(role: "user" | "admin") {
-  vi.mocked(useHasPermission).mockReturnValue(false);
+vi.mock("../components/RestAlertSetting", () => ({
+  default: () => <input type="checkbox" role="switch" aria-label="Avviso fine riposo" />,
+}));
+
+function renderAs(role: "user" | "admin", canUseWorkouts = false) {
+  vi.mocked(useHasPermission).mockReturnValue(canUseWorkouts);
   vi.mocked(useMe).mockReturnValue({
     data: { id: 1, username: "alice", display_name: "Alice", role, permissions: [], mcp_url: "" },
   } as unknown as ReturnType<typeof useMe>);
@@ -38,5 +42,15 @@ describe("SettingsPage", () => {
   it("does not show the settings gear on the settings page itself", () => {
     renderAs("user");
     expect(screen.queryByRole("link", { name: "Impostazioni" })).not.toBeInTheDocument();
+  });
+
+  it("shows the rest alert toggle when the user can use workouts", () => {
+    renderAs("user", true);
+    expect(screen.getByRole("switch", { name: "Avviso fine riposo" })).toBeInTheDocument();
+  });
+
+  it("hides the rest alert toggle when the user cannot use workouts", () => {
+    renderAs("user", false);
+    expect(screen.queryByRole("switch", { name: "Avviso fine riposo" })).not.toBeInTheDocument();
   });
 });

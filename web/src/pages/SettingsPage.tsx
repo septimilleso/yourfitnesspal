@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
 
-import { useMe } from "../auth/AuthContext";
+import { useHasPermission, useMe } from "../auth/AuthContext";
 import ModeSwitch from "../components/ModeSwitch";
+import RestAlertSetting from "../components/RestAlertSetting";
 
 /** Settings page, opened from the header gear: account and admin links. */
 function SettingsPage() {
   const { data: me } = useMe();
+  const canUseWorkouts = useHasPermission("workouts.use");
 
   return (
     <div className="settings-page">
@@ -21,6 +23,7 @@ function SettingsPage() {
           <Link className="row flex justify-between" to="/account"><span>Account</span><span className="text-slate-500">{me?.username} ›</span></Link>
           {me?.role === "admin" && <Link className="row flex justify-between" to="/admin/users"><span>Gestione utenti</span><span>›</span></Link>}
         </section>
+        {canUseWorkouts && <RestAlertSetting />}
       </div>
     </div>
   );
