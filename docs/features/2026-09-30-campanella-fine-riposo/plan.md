@@ -145,7 +145,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T13.
 
-### [~] T5. Claim dei riposi scaduti e iterazione dello scheduler
+### [x] T5. Claim dei riposi scaduti e iterazione dello scheduler
 
 - Copre: C3 (subscription 410 rimossa), C4, C5, C6, R6, R7
 - File: `api/app/services/rest_notifier.py` (nuovo), `api/tests/test_rest_notifier.py` (nuovo), `api/tests/test_rest_notifier_race.py` (nuovo)
@@ -179,7 +179,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T13.
 
-### [ ] T6. Invio con pywebpush, loop e avvio nel lifespan
+### [~] T6. Invio con pywebpush, loop e avvio nel lifespan
 
 - Copre: C4 (invio reale), requisiti di affidabilità e avvio, R6
 - File: `api/app/services/push.py` (modifica), `api/app/services/rest_notifier.py` (modifica), `api/app/main.py` (modifica), `api/tests/test_push_sender.py` (nuovo), `api/tests/test_rest_notifier_loop.py` (nuovo)
@@ -396,3 +396,4 @@ Commit di partenza: 5dd8c3f
 - T2 — DONE — review: 1 round — commit: 8781ef2 — note: pip install bloccato per l'agent, eseguito dall'utente; minor: push_enabled non fa strip()
 - T3 — DONE — review: 1 round — commit: a435702 — test DB non eseguiti in locale (T13); minor: UPDATE migrazione marca anche workout non in_progress (innocuo)
 - T4 — DONE — review: 2 round (BLOCKER bypass allowlist con backslash, MAJOR test /config senza utente: corretti) — commit: 4c1a19a — minor: endpoint non normalizzato (case host, :443), a..notify.windows.com accettato (innocuo)
+- T5 — DONE — review: 1 round + correzione minor sui test (race deterministico, pulizia utente, filtro per utente, log unico) — commit: 3f8100c — minor: fixture clock duplicata da test_workouts_live.py
