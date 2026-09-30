@@ -18,27 +18,82 @@ export function remainingSeconds(
 }
 
 type AudioContextCtor = typeof AudioContext;
+type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
 
 let audioContext: AudioContext | null = null;
+let bellBuffer: AudioBuffer | null = null;
+let bellLoadStarted = false;
+
+function loadBellSample(context: AudioContext): void {
+  if (bellLoadStarted) return;
+  bellLoadStarted = true;
+  void fetch("/sounds/rest-bell.wav")
+    .then((response) => response.arrayBuffer())
+    .then((data) => context.decodeAudioData(data))
+    .then((buffer) => {
+      bellBuffer = buffer;
+    })
+    .catch(() => {
+      // Fall back to the synthesized beeps if loading or decoding fails.
+    });
+}
 
 /** iOS only plays WebAudio after a user gesture: call this from a tap. */
 export function unlockAudio(): void {
   try {
+    const audioSession = (navigator as AudioSessionNavigator).audioSession;
+    if (audioSession) audioSession.type = "ambient";
+
     const Ctor: AudioContextCtor | undefined =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
     if (!Ctor) return;
     audioContext ??= new Ctor();
+    loadBellSample(audioContext);
     if (audioContext.state === "suspended") void audioContext.resume();
   } catch {
     // Audio is a nicety; the visual countdown still works.
   }
 }
 
-/** Two short beeps. Silent if audio was never unlocked. */
+export function resumeAudio(): void {
+  if (!audioContext || audioContext.state === "running") return;
+  try {
+    void audioContext.resume().catch(() => {});
+  } catch {
+    // Audio is a nicety; the visual countdown still works.
+  }
+}
+
+export function installAudioResume(): () => void {
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState === "visible") resumeAudio();
+  };
+  const onPageShow = (): void => resumeAudio();
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pageshow", onPageShow);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    window.removeEventListener("pageshow", onPageShow);
+  };
+}
+
+/** Play the decoded bell sample, falling back to two short beeps. Silent if audio was never unlocked. */
 export function beep(): void {
+  resumeAudio();
   if (!audioContext) return;
   try {
+    if (bellBuffer) {
+      const source = audioContext.createBufferSource();
+      const gain = audioContext.createGain();
+      source.buffer = bellBuffer;
+      gain.gain.value = 1;
+      source.connect(gain);
+      gain.connect(audioContext.destination);
+      source.start(audioContext.currentTime);
+      return;
+    }
+
     for (const offset of [0, 0.3]) {
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();

@@ -40,7 +40,7 @@ export default defineConfig({
       },
       workbox: {
         importScripts: ["push-sw.js"],
-        globPatterns: ["**/*.{js,css,html,png,webp,svg,ico}"],
+        globPatterns: ["**/*.{js,css,html,png,webp,svg,ico,wav}"],
         // App shell (HTML/JS/CSS/etc.) is precached and served cache-first
         // by the default globPatterns/navigateFallback behavior.
         // Top-level navigations to server routes must reach the network, not
