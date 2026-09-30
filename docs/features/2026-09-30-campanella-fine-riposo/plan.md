@@ -288,7 +288,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. In `SettingsPage.test.tsx` lasciare invariati i tre test esistenti e mockare `RestAlertSetting` con un segnaposto. Aggiungere due casi per C1: con `useHasPermission` vero il toggle c'è, con falso non c'è.
 - Verifica: `cd web && npx vitest run src/components/RestAlertSetting.test.tsx src/pages/SettingsPage.test.tsx`, verdi con i test esistenti invariati; `cd web && npm test`, suite verde.
 
-### [~] T10. Il logout disattiva l'avviso sul dispositivo
+### [x] T10. Il logout disattiva l'avviso sul dispositivo
 
 - Copre: C8, C19 (svuotamento cache invariato), R11
 - File: `web/src/auth/AuthContext.tsx` (modifica), `web/src/auth/AuthContext.test.tsx` (modifica)
@@ -301,7 +301,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      Il test di caratterizzazione di T1 resta verde. Si aggiorna solo il mock perché includa il nuovo modulo.
 - Verifica: `cd web && npx vitest run src/auth/AuthContext.test.tsx`, verde; `cd web && npm test`, suite verde.
 
-### [ ] T11. Campione di campanella e audio che si mixa con la musica
+### [~] T11. Campione di campanella e audio che si mixa con la musica
 
 - Copre: C7 (parte audio), C13 (preparazione), C15, R9, R10
 - File: `web/scripts/make-bell.mjs` (nuovo), `web/public/sounds/rest-bell.wav` (nuovo, generato e committato), `web/vite.config.ts` (modifica), `web/src/lib/restTimer.ts` (modifica), `web/src/lib/restTimer.test.ts` (modifica)
@@ -401,3 +401,4 @@ Commit di partenza: 5dd8c3f
 - T7 — DONE — review: 1 round — commit: 6562d21 — note: ripreso da test già scritto; aggiunto @types/node (typecheck del build include i test); minor: @types/node ^26 vs node:22 del Dockerfile, client.focus() fuori dal try, test getNotifications con due scenari in un solo it
 - T8 — DONE — review: 1 round — commit: a54b9cd — minor: unsubscribeDeviceOnLogout fa server e locale in parallelo (locale rimossa anche se server lento/fallisce, accettato: più sicuro per R11/C8); test timeout non distingue timeout assente
 - T9 — DONE — review: 1 round — commit: 44b0300 — minor: con avviso attivo e permesso poi "denied" il toggle è spento e disabilitato, la subscription server resta (la toglie il logout T10)
+- T10 — DONE — review: 1 round — commit: 5f484bb — minor: test di caratterizzazione T1 esteso con le asserzioni C8 invece di restare invariato (copertura completa, 2 test invece di 3); caso errore usa mockRejectedValue (più severo del contratto reale)
