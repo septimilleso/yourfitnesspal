@@ -9,7 +9,18 @@ from app.auth.deps import get_current_user, require_admin
 from app.auth.rate_limit import client_ip, consume
 from app.mcp.context import set_off_client
 from app.mcp.server import mcp_http_app, mcp_server
-from app.routers import admin, auth, diary, exercises, foods, oauth, stats, templates, workouts
+from app.routers import (
+    admin,
+    auth,
+    diary,
+    exercises,
+    foods,
+    oauth,
+    push,
+    stats,
+    templates,
+    workouts,
+)
 from app.services.errors import Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
 
@@ -59,6 +70,7 @@ app.include_router(diary.goals_router, dependencies=[Depends(get_current_user)])
 app.include_router(exercises.router, dependencies=[Depends(get_current_user)])
 app.include_router(templates.router, dependencies=[Depends(get_current_user)])
 app.include_router(workouts.router, dependencies=[Depends(get_current_user)])
+app.include_router(push.router, dependencies=[Depends(get_current_user)])
 app.include_router(stats.router, dependencies=[Depends(get_current_user)])
 app.include_router(admin.router, dependencies=[Depends(require_admin)])
 
