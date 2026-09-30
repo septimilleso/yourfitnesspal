@@ -2,17 +2,22 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from urllib.parse import urlsplit
 
 import sqlalchemy as sa
+from aiohttp import ClientSession
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
+from app.config import settings as app_settings
 from app.db import session_scope
 from app.models.push import PushSubscription
 from app.models.workout import Workout, WorkoutStatus
+from app.services import workouts
 from app.services.push import remove_endpoints
 
 logger = logging.getLogger(__name__)
@@ -103,3 +108,48 @@ async def notify_due_rests(sender: PushSender, now: datetime) -> int:
         await remove_endpoints(db, gone_endpoints)
         await db.commit()
         return len(targets)
+
+
+async def run_loop(sender: PushSender, interval: float = 1.0) -> None:
+    while True:
+        try:
+            await notify_due_rests(sender, workouts.now())
+        except Exception:
+            logger.exception("Rest notifier iteration failed")
+        await asyncio.sleep(interval)
+
+
+class RestNotifier:
+    def __init__(self, settings: Settings = app_settings) -> None:
+        self.settings = settings
+        self.http_session: ClientSession | None = None
+        self.task: asyncio.Task[None] | None = None
+
+    async def start(self) -> None:
+        if not self.settings.push_enabled:
+            logger.info("Rest notifier disabled: VAPID settings are incomplete")
+            return
+
+        http_session = ClientSession()
+        try:
+            from app.services.push import make_webpush_sender
+
+            sender = make_webpush_sender(self.settings, http_session)
+        except Exception:
+            await http_session.close()
+            logger.info("Rest notifier disabled: invalid VAPID private key", exc_info=True)
+            return
+
+        self.http_session = http_session
+        self.task = asyncio.create_task(run_loop(sender))
+        logger.info("Rest notifier started")
+
+    async def stop(self) -> None:
+        if self.task is not None:
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+            self.task = None
+        if self.http_session is not None:
+            await self.http_session.close()
+            self.http_session = None

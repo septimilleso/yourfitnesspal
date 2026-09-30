@@ -23,6 +23,7 @@ from app.routers import (
 )
 from app.services.errors import Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
+from app.services.rest_notifier import RestNotifier
 
 
 @asynccontextmanager
@@ -34,11 +35,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # inert in production.
     app.state.off_client = OffClient()
     set_off_client(app.state.off_client)
+    app.state.rest_notifier = RestNotifier()
     try:
+        await app.state.rest_notifier.start()
         # The MCP SDK's session manager owns the task group /mcp runs in.
         async with mcp_server.session_manager.run():
             yield
     finally:
+        await app.state.rest_notifier.stop()
         set_off_client(None)
         await app.state.off_client.aclose()
 
