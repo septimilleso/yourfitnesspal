@@ -268,7 +268,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `urlBase64ToUint8Array` su una chiave nota.
 - Verifica: `cd web && npx vitest run src/lib/push.test.ts`, verde; `cd web && npx tsc -b`, nessun errore di tipo.
 
-### [~] T9. Toggle "Avviso fine riposo" in Impostazioni
+### [x] T9. Toggle "Avviso fine riposo" in Impostazioni
 
 - Copre: C1, C2, C18, C20
 - File: `web/src/components/RestAlertSetting.tsx` (nuovo), `web/src/components/RestAlertSetting.test.tsx` (nuovo), `web/src/pages/SettingsPage.tsx` (modifica), `web/src/pages/SettingsPage.test.tsx` (modifica)
@@ -288,7 +288,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. In `SettingsPage.test.tsx` lasciare invariati i tre test esistenti e mockare `RestAlertSetting` con un segnaposto. Aggiungere due casi per C1: con `useHasPermission` vero il toggle c'è, con falso non c'è.
 - Verifica: `cd web && npx vitest run src/components/RestAlertSetting.test.tsx src/pages/SettingsPage.test.tsx`, verdi con i test esistenti invariati; `cd web && npm test`, suite verde.
 
-### [ ] T10. Il logout disattiva l'avviso sul dispositivo
+### [~] T10. Il logout disattiva l'avviso sul dispositivo
 
 - Copre: C8, C19 (svuotamento cache invariato), R11
 - File: `web/src/auth/AuthContext.tsx` (modifica), `web/src/auth/AuthContext.test.tsx` (modifica)
@@ -400,3 +400,4 @@ Commit di partenza: 5dd8c3f
 - T6 — DONE — review: 1 round — commit: 36b738c — minor: lifespan finally salta cleanup OffClient se stop() solleva; suppress(CancelledError) in stop(); logger.exception nel sender logga URL endpoint e duplica il warning; 3 righe vuote in services/push.py; nessun test start/stop con chiave
 - T7 — DONE — review: 1 round — commit: 6562d21 — note: ripreso da test già scritto; aggiunto @types/node (typecheck del build include i test); minor: @types/node ^26 vs node:22 del Dockerfile, client.focus() fuori dal try, test getNotifications con due scenari in un solo it
 - T8 — DONE — review: 1 round — commit: a54b9cd — minor: unsubscribeDeviceOnLogout fa server e locale in parallelo (locale rimossa anche se server lento/fallisce, accettato: più sicuro per R11/C8); test timeout non distingue timeout assente
+- T9 — DONE — review: 1 round — commit: 44b0300 — minor: con avviso attivo e permesso poi "denied" il toggle è spento e disabilitato, la subscription server resta (la toglie il logout T10)
