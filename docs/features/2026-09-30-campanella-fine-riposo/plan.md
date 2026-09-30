@@ -45,7 +45,7 @@ I test con DB girano sul deploy remoto in T13: push del branch, `git pull` sul s
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [~] T1. Branch e test di caratterizzazione sul web
+### [x] T1. Branch e test di caratterizzazione sul web
 
 - Copre: C7 (comportamento attuale), C8 (comportamento attuale), C15, C19 (svuotamento cache al logout), C21
 - File: `web/src/components/gym/RestTimerBar.test.tsx` (modifica), `web/src/auth/AuthContext.test.tsx` (nuovo)
@@ -58,7 +58,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Creare `AuthContext.test.tsx` per `useLogout`. Mockare `logout` di `../api/auth` e `useNavigate`. Usare un `QueryClient` reale con `vi.spyOn(queryClient, "clear")` e stubbare `window.caches` con `{ delete: vi.fn().mockResolvedValue(true) }`. Verificare l'ordine con `mock.invocationCallOrder`: `logout()`, poi `queryClient.clear()`, poi `caches.delete("api-foods-cache")`, poi `navigate("/login", { replace: true })`. Eseguire l'hook con `renderHook` dentro `QueryClientProvider` e `MemoryRouter`.
 - Verifica: `cd web && npx vitest run src/components/gym/RestTimerBar.test.tsx src/auth/AuthContext.test.tsx`, risultato atteso: tutti verdi sul codice attuale. Poi `cd web && npm test`: suite verde.
 
-### [ ] T2. Configurazione VAPID, dipendenza pywebpush e generazione chiavi
+### [~] T2. Configurazione VAPID, dipendenza pywebpush e generazione chiavi
 
 - Copre: C22 (parte config), R4 (lato server), requisito di avvio senza chiavi
 - File: `api/app/config.py` (modifica), `api/pyproject.toml` (modifica), `api/scripts/gen_vapid_keys.py` (nuovo), `api/tests/test_config.py` (modifica), `.env.example` (modifica), `README.md` (modifica)
@@ -392,4 +392,4 @@ Decisioni prese con l'utente (2026-09-30):
 ## Registro di esecuzione
 
 Commit di partenza: 5dd8c3f
-
+- T1 — DONE — review: 1 round — commit: 3c89f03 — minor: vi.clearAllMocks() aggiunto al beforeEach esistente; test rest_ends_at null debole (nessun avanzamento timer)
