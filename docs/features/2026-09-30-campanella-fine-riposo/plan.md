@@ -239,7 +239,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `grep -c "api-foods-cache" web/dist/sw.js`: almeno 1, la cache è preservata;
   - `cd web && npm test`: suite verde.
 
-### [~] T8. Client push: API e helper del browser
+### [x] T8. Client push: API e helper del browser
 
 - Copre: C2 (logica), R2, R3, R4, C18
 - File: `web/src/api/push.ts` (nuovo), `web/src/lib/push.ts` (nuovo), `web/src/lib/push.test.ts` (nuovo)
@@ -268,7 +268,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `urlBase64ToUint8Array` su una chiave nota.
 - Verifica: `cd web && npx vitest run src/lib/push.test.ts`, verde; `cd web && npx tsc -b`, nessun errore di tipo.
 
-### [ ] T9. Toggle "Avviso fine riposo" in Impostazioni
+### [~] T9. Toggle "Avviso fine riposo" in Impostazioni
 
 - Copre: C1, C2, C18, C20
 - File: `web/src/components/RestAlertSetting.tsx` (nuovo), `web/src/components/RestAlertSetting.test.tsx` (nuovo), `web/src/pages/SettingsPage.tsx` (modifica), `web/src/pages/SettingsPage.test.tsx` (modifica)
@@ -399,3 +399,4 @@ Commit di partenza: 5dd8c3f
 - T5 — DONE — review: 1 round + correzione minor sui test (race deterministico, pulizia utente, filtro per utente, log unico) — commit: 3f8100c — minor: fixture clock duplicata da test_workouts_live.py
 - T6 — DONE — review: 1 round — commit: 36b738c — minor: lifespan finally salta cleanup OffClient se stop() solleva; suppress(CancelledError) in stop(); logger.exception nel sender logga URL endpoint e duplica il warning; 3 righe vuote in services/push.py; nessun test start/stop con chiave
 - T7 — DONE — review: 1 round — commit: 6562d21 — note: ripreso da test già scritto; aggiunto @types/node (typecheck del build include i test); minor: @types/node ^26 vs node:22 del Dockerfile, client.focus() fuori dal try, test getNotifications con due scenari in un solo it
+- T8 — DONE — review: 1 round — commit: a54b9cd — minor: unsubscribeDeviceOnLogout fa server e locale in parallelo (locale rimossa anche se server lento/fallisce, accettato: più sicuro per R11/C8); test timeout non distingue timeout assente
