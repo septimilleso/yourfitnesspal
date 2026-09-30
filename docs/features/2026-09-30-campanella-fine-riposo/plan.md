@@ -328,7 +328,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `grep -c "sounds/rest-bell.wav" web/dist/sw.js`: almeno 1;
   - `cd web && npm test`: suite verde.
 
-### [~] T12. Regola dei 5 secondi in `RestTimerBar` e ripresa audio nella sessione live
+### [x] T12. Regola dei 5 secondi in `RestTimerBar` e ripresa audio nella sessione live
 
 - Copre: C7, C15, C16, C17, C21
 - File: `web/src/components/gym/RestTimerBar.tsx` (modifica), `web/src/components/gym/RestTimerBar.test.tsx` (modifica), `web/src/pages/gym/WorkoutPage.tsx` (modifica)
@@ -341,7 +341,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npm test`: suite verde (C21);
   - `cd web && npx tsc -b`: nessun errore.
 
-### [ ] T13. Deploy remoto: chiavi VAPID, migrazione e suite pytest completa
+### [~] T13. Deploy remoto: chiavi VAPID, migrazione e suite pytest completa
 
 - Copre: C3, C4, C5, C6, C22 (esecuzione reale sul DB)
 - File: Nessuno (a parte eventuali correzioni ai test o al codice API emerse dall'esecuzione, da riportare nel registro)
@@ -403,3 +403,4 @@ Commit di partenza: 5dd8c3f
 - T9 — DONE — review: 1 round — commit: 44b0300 — minor: con avviso attivo e permesso poi "denied" il toggle è spento e disabilitato, la subscription server resta (la toglie il logout T10)
 - T10 — DONE — review: 1 round — commit: 5f484bb — minor: test di caratterizzazione T1 esteso con le asserzioni C8 invece di restare invariato (copertura completa, 2 test invece di 3); caso errore usa mockRejectedValue (più severo del contratto reale)
 - T11 — DONE — review: 1 round — commit: 6242f15 — minor: bellLoadStarted resta true se fetch/decode falliscono, niente nuovo tentativo fino al reload (fallback 880 Hz)
+- T12 — DONE — review: 1 round — commit: 07d4880
