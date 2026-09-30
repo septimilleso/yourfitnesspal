@@ -110,7 +110,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   I test DB vengono eseguiti in T13.
 
-### [~] T4. Servizio e router delle subscription push
+### [x] T4. Servizio e router delle subscription push
 
 - Copre: C3 (deduplica, cancellazione solo delle proprie, CSRF), R5, R12, R4 (chiave pubblica assente)
 - File: `api/app/schemas/push.py` (nuovo), `api/app/services/push.py` (nuovo), `api/app/routers/push.py` (nuovo), `api/app/main.py` (modifica), `api/tests/test_push_router.py` (nuovo)
@@ -145,7 +145,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T13.
 
-### [ ] T5. Claim dei riposi scaduti e iterazione dello scheduler
+### [~] T5. Claim dei riposi scaduti e iterazione dello scheduler
 
 - Copre: C3 (subscription 410 rimossa), C4, C5, C6, R6, R7
 - File: `api/app/services/rest_notifier.py` (nuovo), `api/tests/test_rest_notifier.py` (nuovo), `api/tests/test_rest_notifier_race.py` (nuovo)
@@ -395,3 +395,4 @@ Commit di partenza: 5dd8c3f
 - T1 — DONE — review: 1 round — commit: 3c89f03 — minor: vi.clearAllMocks() aggiunto al beforeEach esistente; test rest_ends_at null debole (nessun avanzamento timer)
 - T2 — DONE — review: 1 round — commit: 8781ef2 — note: pip install bloccato per l'agent, eseguito dall'utente; minor: push_enabled non fa strip()
 - T3 — DONE — review: 1 round — commit: a435702 — test DB non eseguiti in locale (T13); minor: UPDATE migrazione marca anche workout non in_progress (innocuo)
+- T4 — DONE — review: 2 round (BLOCKER bypass allowlist con backslash, MAJOR test /config senza utente: corretti) — commit: 4c1a19a — minor: endpoint non normalizzato (case host, :443), a..notify.windows.com accettato (innocuo)
