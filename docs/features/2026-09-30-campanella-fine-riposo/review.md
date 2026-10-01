@@ -60,3 +60,4 @@
 - Nessuna rottura non dichiarata rispetto a "Impatto sull'esistente". File fuori piano: solo `@types/node` e lockfile (T7).
 - Durante il deploy un `VAPID_SUBJECT` malformato faceva partire il notifier e fallire ogni invio; corretto nel `.env` e reso visibile all'avvio dal fix 2c2fc6b.
 - Follow-up: eseguire la suite pytest completa sul server per chiudere C3-C6 e C22.
+- Corretti dopo la review (commit 7aee08a): log WARNING per VAPID non valido, test per la chiave privata non valida, comando chiavi in `.env.example` via docker. Lasciati come debito: sessione DB aperta durante gli invii, toggle con permesso poi negato.

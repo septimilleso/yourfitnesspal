@@ -1,7 +1,7 @@
 # Piano: Campanella a fine riposo
 
 - Data: 2026-09-30
-- Stato: approvato
+- Stato: completata
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/campanella-fine-riposo
@@ -408,3 +408,4 @@ Commit di partenza: 5dd8c3f
 - T14 — DONE — l'utente ha eseguito la checklist su iPhone e conferma che funziona tutto (2026-10-01); esiti puntuali per C10-C14 non registrati
 - Fix post-merge — commit: 2c2fc6b — VAPID_SUBJECT non valido disattiva il notifier all'avvio con log chiaro
 - Review finale — APPROVED sul codice, 6 minor (review.md); resta la suite pytest con DB sul server per chiudere T13
+- Correzione minor della review — commit: 7aee08a — log WARNING per VAPID non valido, test chiave privata non valida, comando chiavi in .env.example via docker. Feature completata (2026-10-01); da eseguire ancora la suite pytest con DB sul server (C3-C6, C22).
