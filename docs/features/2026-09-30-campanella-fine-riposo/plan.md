@@ -404,3 +404,4 @@ Commit di partenza: 5dd8c3f
 - T10 — DONE — review: 1 round — commit: 5f484bb — minor: test di caratterizzazione T1 esteso con le asserzioni C8 invece di restare invariato (copertura completa, 2 test invece di 3); caso errore usa mockRejectedValue (più severo del contratto reale)
 - T11 — DONE — review: 1 round — commit: 6242f15 — minor: bellLoadStarted resta true se fetch/decode falliscono, niente nuovo tentativo fino al reload (fallback 880 Hz)
 - T12 — DONE — review: 1 round — commit: 07d4880
+- T13 — deploy remoto fatto: chiavi VAPID in .env, migrazione applicata (claim e subscription funzionano), notifica ricevuta su iPhone. Problema emerso: VAPID_SUBJECT non valido per py_vapid (notifier partito ma ogni invio falliva con VapidException), corretto nel .env. Suite pytest completa sul server non eseguita. Feature mergiata su main su richiesta dell'utente; T14 (checklist iPhone) e review finale ancora da fare.
