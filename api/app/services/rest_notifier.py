@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import sqlalchemy as sa
 from aiohttp import ClientSession
+from py_vapid import VapidException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -135,6 +136,13 @@ class RestNotifier:
             from app.services.push import make_webpush_sender
 
             sender = make_webpush_sender(self.settings, http_session)
+        except VapidException:
+            await http_session.close()
+            logger.info(
+                "Rest notifier disabled: invalid VAPID_SUBJECT (expected mailto:address or https:// URL)",
+                exc_info=True,
+            )
+            return
         except Exception:
             await http_session.close()
             logger.info("Rest notifier disabled: invalid VAPID private key", exc_info=True)

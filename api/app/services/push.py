@@ -62,6 +62,7 @@ def make_webpush_sender(settings: Settings, http_session: aiohttp.ClientSession)
     from app.services.rest_notifier import PushResult
 
     vapid = Vapid.from_string(settings.vapid_private_key)
+    vapid.sign({"sub": settings.vapid_subject, "aud": "https://web.push.apple.com"})
 
     async def send(subscription_info: dict, payload: str) -> PushResult:
         try:
