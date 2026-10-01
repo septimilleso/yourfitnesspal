@@ -359,7 +359,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - pytest: tutti i test passano, vecchi e nuovi;
   - `GET /api/push/config` da browser loggato: restituisce la chiave pubblica.
 
-### [ ] T14. Verifica manuale su iPhone (checklist)
+### [x] T14. Verifica manuale su iPhone (checklist)
 
 - Copre: C10, C11, C12, C13, C14 (più conferme sul dispositivo per C16, C18, C19)
 - File: Nessuno
@@ -405,3 +405,6 @@ Commit di partenza: 5dd8c3f
 - T11 — DONE — review: 1 round — commit: 6242f15 — minor: bellLoadStarted resta true se fetch/decode falliscono, niente nuovo tentativo fino al reload (fallback 880 Hz)
 - T12 — DONE — review: 1 round — commit: 07d4880
 - T13 — deploy remoto fatto: chiavi VAPID in .env, migrazione applicata (claim e subscription funzionano), notifica ricevuta su iPhone. Problema emerso: VAPID_SUBJECT non valido per py_vapid (notifier partito ma ogni invio falliva con VapidException), corretto nel .env. Suite pytest completa sul server non eseguita. Feature mergiata su main su richiesta dell'utente; T14 (checklist iPhone) e review finale ancora da fare.
+- T14 — DONE — l'utente ha eseguito la checklist su iPhone e conferma che funziona tutto (2026-10-01); esiti puntuali per C10-C14 non registrati
+- Fix post-merge — commit: 2c2fc6b — VAPID_SUBJECT non valido disattiva il notifier all'avvio con log chiaro
+- Review finale — APPROVED sul codice, 6 minor (review.md); resta la suite pytest con DB sul server per chiudere T13
