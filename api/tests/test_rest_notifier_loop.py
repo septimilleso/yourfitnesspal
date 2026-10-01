@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import logging
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -69,7 +70,49 @@ async def test_start_with_invalid_subject_does_not_create_task_or_keep_session(
     assert notifier.task is None
     assert notifier.http_session is None
     assert len(sessions) == 1 and sessions[0].closed
-    assert "Rest notifier disabled: invalid VAPID_SUBJECT" in caplog.text
+    assert any(
+        record.levelno == logging.WARNING
+        and "Rest notifier disabled: invalid VAPID_SUBJECT" in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_start_with_invalid_private_key_does_not_create_task_or_keep_session(
+    monkeypatch, caplog
+) -> None:
+    sessions = []
+
+    class FakeSession:
+        closed = False
+
+        async def close(self):
+            self.closed = True
+
+    def make_session():
+        session = FakeSession()
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(rest_notifier, "ClientSession", make_session)
+    settings = Settings(
+        _env_file=None,
+        vapid_public_key="public",
+        vapid_private_key="garbage",
+        vapid_subject="mailto:a@example.com",
+    )
+    notifier = RestNotifier(settings)
+
+    await notifier.start()
+
+    assert notifier.task is None
+    assert notifier.http_session is None
+    assert len(sessions) == 1 and sessions[0].closed
+    assert any(
+        record.levelno == logging.WARNING
+        and "invalid VAPID private key" in record.message
+        for record in caplog.records
+    )
 
 
 @pytest.mark.asyncio

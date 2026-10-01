@@ -138,14 +138,14 @@ class RestNotifier:
             sender = make_webpush_sender(self.settings, http_session)
         except VapidException:
             await http_session.close()
-            logger.info(
+            logger.warning(
                 "Rest notifier disabled: invalid VAPID_SUBJECT (expected mailto:address or https:// URL)",
                 exc_info=True,
             )
             return
         except Exception:
             await http_session.close()
-            logger.info("Rest notifier disabled: invalid VAPID private key", exc_info=True)
+            logger.warning("Rest notifier disabled: invalid VAPID private key", exc_info=True)
             return
 
         self.http_session = http_session
