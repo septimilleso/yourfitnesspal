@@ -349,7 +349,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   1. Push di `feature/campanella-fine-riposo` su `origin` (Gitea).
   2. Sul server:
      - `git pull origin feature/campanella-fine-riposo`;
-     - generare le chiavi con `python api/scripts/gen_vapid_keys.py` e aggiungere `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT=mailto:...` al `.env`;
+     - generare le chiavi dentro il container con `docker compose exec -T api python - < api/scripts/gen_vapid_keys.py` (lo script non è nell'immagine) e aggiungere `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT=mailto:...` al `.env`;
      - `docker compose up -d --build`;
      - `docker compose exec api alembic upgrade head`, su un DB che ha allenamenti in corso e finiti.
   3. Sul server eseguire la suite pytest completa dell'API, con il comando e l'ambiente che l'utente usa di solito per i test con DB. Eseguire anche `pytest tests/test_push_models.py tests/test_push_router.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py -v`.

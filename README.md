@@ -227,10 +227,11 @@ docker compose up -d --build
 docker compose exec api alembic upgrade head   # only if a migration shipped
 ```
 
-For rest-finished push alerts, generate a VAPID key pair from the repository root:
+For rest-finished push alerts, generate a VAPID key pair from the repository root. The script is
+not part of the API image, so pipe it into the running `api` container's Python:
 
 ```sh
-python api/scripts/gen_vapid_keys.py
+docker compose exec -T api python - < api/scripts/gen_vapid_keys.py
 ```
 
 Copy the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` assignments into the deploy host's
