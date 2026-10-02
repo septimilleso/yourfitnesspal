@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
 import SettingsButton from "./SettingsButton";
+import WeightButton from "./WeightButton";
 import { type AppMode, currentMode, lastPath } from "../lib/appMode";
 import { artIcon } from "../lib/art";
 
@@ -10,7 +11,7 @@ const MODES: { mode: AppMode; label: string }[] = [
   { mode: "gym", label: "Palestra" },
 ];
 
-/** Top row of each section's page headers: the segmented "Dieta | Palestra" control (only with the gym permission) and the settings gear. */
+/** Top row of each section's page headers: the weight button, segmented "Dieta | Palestra" control (only with the gym permission), and settings gear. */
 function ModeSwitch() {
   const canGym = useHasPermission("workouts.use");
   const { pathname, search } = useLocation();
@@ -18,6 +19,7 @@ function ModeSwitch() {
   if (!canGym && pathname === "/settings") return null;
   return (
     <div className="relative mx-auto flex min-h-[48px] max-w-2xl items-center justify-center px-14 pt-2">
+      <WeightButton />
       {canGym && (
         <div role="group" aria-label="Sezione" className="inline-flex rounded-lg bg-slate-200/70 p-0.5">
           {MODES.map((item) => (
