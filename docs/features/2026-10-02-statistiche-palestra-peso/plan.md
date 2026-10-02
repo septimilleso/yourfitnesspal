@@ -202,7 +202,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. `weights.test.tsx`: `fetch` stubbato con `vi.stubGlobal`, `renderHook` dentro `QueryClientProvider`. Casi: `useSaveWeight().mutateAsync(78.4)` fa `PUT /api/weights/today` con body esattamente `{"weight_kg":78.4}` e header `X-Requested-With: yfp`; dopo il successo `invalidateQueries` è chiamata con `["weight"]` (spy sul `QueryClient`); `useTodayWeight` con risposta 204 restituisce `null`.
 - Verifica: `cd web && npx vitest run src/api/weights.test.tsx`, verde; `cd web && npx tsc -b`, nessun errore; `cd web && npm test`, suite verde.
 
-### [~] T9. Grafiche placeholder del peso nella pipeline
+### [x] T9. Grafiche placeholder del peso nella pipeline
 
 - Copre: C31 (placeholder e build), C30 (percorsi distinti), R21
 - File: `web/scripts/make-weight-placeholders.py` (nuovo), `web/art/dieta/weight-icon.png` (nuovo, generato), `web/art/palestra/weight-icon.png` (nuovo, generato), `web/art/dieta/weight.png` (nuovo, generato), `web/art/palestra/weight.png` (nuovo, generato), `web/scripts/build-art.py` (modifica), `web/public/art/diet/icons/weight.png`, `web/public/art/gym/icons/weight.png`, `web/public/art/diet/weight.webp`, `web/public/art/gym/weight.webp` (nuovi, generati), `web/src/lib/art.ts` (modifica), `web/src/lib/art.test.ts` (nuovo)
@@ -222,7 +222,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npx vitest run src/lib/art.test.ts`: verde;
   - `cd web && npm test`: suite verde.
 
-### [ ] T10. Tasto peso nell'header e overlay di inserimento
+### [~] T10. Tasto peso nell'header e overlay di inserimento
 
 - Copre: C1, C2, C20, C24, C30 (parte automatica), R1–R3
 - File: `web/src/components/WeightButton.tsx` (nuovo), `web/src/components/WeightOverlay.tsx` (nuovo), `web/src/components/WeightOverlay.test.tsx` (nuovo), `web/src/components/ModeSwitch.tsx` (modifica), `web/src/components/ModeSwitch.test.tsx` (modifica)
@@ -388,3 +388,4 @@ Risolte il 2026-10-02:
 - T6 — DONE — review: 1 round — commit: 1d6544a — MINOR: exercise_progress controlla il periodo prima del permesso (passato a T7); test mancanti 400/404/occorrenze multiple/parità; colonna latest_started inutilizzata
 - T7 — DONE — review: 2 round — commit: 7b78226 — round 1: list_tools().tools nel test; incluso fix permesso prima del periodo in exercise_progress; MINOR: tabella README non allineata
 - T8 — DONE — review: 1 round — commit: 00580ce — MINOR: onSuccess attende il refetch (mutateAsync più lento)
+- T9 — DONE — review: 1 round — commit: 41d236f — MINOR: get_flattened_data richiede Pillow recente; fondo sfondo placeholder crema
