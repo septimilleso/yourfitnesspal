@@ -264,7 +264,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `WorkoutCountCard.test.tsx` con `useGymCount` mockato: 23 → "23 allenamenti", "Badge 2 / 30", "Prossimo badge tra 7 allenamenti" e nessun testo "di fila"; 1 → "1 allenamento"; 0 → "Primo badge a 10 allenamenti"; 300 e 350 → "Collezione completa!"; errore → messaggio.
 - Verifica: `cd web && npx vitest run src/lib/badges.test.ts src/components/BadgeGrid.test.tsx src/components/StreakCard.test.tsx src/components/WorkoutCountCard.test.tsx`, tutti verdi con i casi esistenti invariati (C17); `cd web && npm test`, suite verde.
 
-### [~] T12. Statistiche Palestra: periodo, riepilogo e frequenza settimanale
+### [x] T12. Statistiche Palestra: periodo, riepilogo e frequenza settimanale
 
 - Copre: C8, C19, R9, R10, R13 (errore per blocco)
 - File: `web/src/lib/usePeriodParams.ts` (nuovo), `web/src/pages/DietStatsPage.tsx` (modifica), `web/src/components/stats/GymSummaryCard.tsx` (nuovo), `web/src/components/stats/WeeklyFrequencyChart.tsx` (nuovo), `web/src/components/stats/charts.test.tsx` (modifica), `web/src/pages/gym/GymStatsPage.tsx` (modifica), `web/src/pages/gym/GymStatsPage.test.tsx` (nuovo)
@@ -278,7 +278,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `GymStatsPage.test.tsx` (hook di `../../api/gym` mockati, `todayIso` fissato come in `DietStatsPage.test.tsx`, `ModeSwitch` e `WorkoutCountCard` sostituiti da segnaposto): default 7 giorni → `useGymStats` chiamato con `("2026-09-19", "2026-09-25", true)`; click su "30 giorni" → nuovo periodo e query string `range=30`; `?from=2026-09-01&to=2026-09-10` → richiesta con quelle date; intervallo invertito → messaggio di errore e `enabled` falso; dati finti → numero, volume, durata media e una barra per settimana; zero allenamenti → "Nessun allenamento nel periodo"; `isError` → messaggio nel blocco e `WorkoutCountCard` ancora presente.
 - Verifica: `cd web && npx vitest run src/pages/gym/GymStatsPage.test.tsx src/pages/DietStatsPage.test.tsx src/components/stats/charts.test.tsx src/lib/stats.test.ts src/components/GoalForm.test.tsx`, tutti verdi con i test Dieta invariati (C19); `cd web && npm test`, suite verde.
 
-### [ ] T13. Statistiche Palestra: progressione dell'esercizio e record
+### [~] T13. Statistiche Palestra: progressione dell'esercizio e record
 
 - Copre: C11, R11, R12, R13 (stati vuoti ed errori dei blocchi)
 - File: `web/src/components/stats/ExerciseProgressSection.tsx` (nuovo), `web/src/components/stats/ProgressChart.tsx` (nuovo), `web/src/components/stats/PersonalRecords.tsx` (nuovo), `web/src/components/stats/charts.test.tsx` (modifica), `web/src/pages/gym/GymStatsPage.tsx` (modifica), `web/src/pages/gym/GymStatsPage.test.tsx` (modifica)
@@ -391,3 +391,4 @@ Risolte il 2026-10-02:
 - T9 — DONE — review: 1 round — commit: 41d236f — MINOR: get_flattened_data richiede Pillow recente; fondo sfondo placeholder crema
 - T10 — DONE — review: 2 round — commit: 9524a6e — round 1: overlay in portal fuori dall'header (backdrop-filter), onClose stabile, focus di ritorno; MINOR: niente focus trap; tastiera iOS da verificare a vista
 - T11 — DONE — review: 1 round — commit: 89283e4
+- T12 — DONE — review: 1 round — commit: 1ed25a5 — MINOR: tipo PeriodChoice duplicato in usePeriodParams e PeriodPicker
