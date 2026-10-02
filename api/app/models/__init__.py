@@ -8,6 +8,7 @@ from app.models.meal_template import MealTemplate, MealTemplateItem
 from app.models.oauth import OAuthAuthCode, OAuthClient, OAuthTokenPair
 from app.models.push import PushSubscription
 from app.models.user import AuditEvent, RecoveryCode, Role, User, UserSession
+from app.models.weight import BodyWeight
 from app.models.workout import (
     TemplateExercise,
     TemplateFolder,
@@ -22,6 +23,7 @@ from app.models.workout import (
 __all__ = [
     "AuditEvent",
     "Base",
+    "BodyWeight",
     "DiaryEntry",
     "Exercise",
     "Food",
