@@ -13,7 +13,8 @@ export type DietIcon =
   | "water"
   | "chart"
   | "heart"
-  | "gear";
+  | "gear"
+  | "weight";
 
 export type GymIcon =
   | "cat"
@@ -27,7 +28,8 @@ export type GymIcon =
   | "bottle"
   | "chart"
   | "medal"
-  | "gear";
+  | "gear"
+  | "weight";
 
 export function artIcon(mode: AppMode, name: DietIcon | GymIcon): string {
   return `/art/${mode}/icons/${name}.png`;
@@ -53,6 +55,11 @@ export function scene(mode: AppMode): string {
 /** Cat illustration behind the settings page, per section. */
 export function settingsScene(mode: AppMode): string {
   return `/art/${mode}/settings.webp`;
+}
+
+/** Weight illustration behind the weight-entry overlay, per section. */
+export function weightScene(mode: AppMode): string {
+  return `/art/${mode}/weight.webp`;
 }
 
 export const MEAL_ICONS: Record<Meal, string> = {

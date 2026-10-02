@@ -206,6 +206,21 @@ def save_icon_sheet(mode: str) -> None:
         canvas.save(out_dir / f"{name}.png", optimize=True)
 
 
+def save_weight_icon(mode: str) -> None:
+    source = ART / mode / "weight-icon.png"
+    if not source.exists():
+        raise FileNotFoundError(f"Missing weight icon source for {mode}: {source}")
+    art = trimmed_cutout(Image.open(source))
+    side = max(art.size)
+    margin = max(1, round(side * 0.06))
+    canvas = Image.new("RGBA", (side + margin * 2, side + margin * 2), (0, 0, 0, 0))
+    canvas.alpha_composite(art, ((canvas.width - art.width) // 2, (canvas.height - art.height) // 2))
+    canvas.resize((96, 96), Image.Resampling.LANCZOS).save(
+        PUBLIC / "art" / ("diet" if mode == "dieta" else "gym") / "icons" / "weight.png",
+        optimize=True,
+    )
+
+
 def save_mascot(mode: str) -> None:
     mascot = trimmed_cutout(Image.open(ART / mode / "mascot.png"))
     width = round(mascot.width * 480 / mascot.height)
@@ -220,7 +235,7 @@ def save_mascot(mode: str) -> None:
 def save_backgrounds(mode: str) -> None:
     out_dir = PUBLIC / "art" / ("diet" if mode == "dieta" else "gym")
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("pattern", "scene", "settings"):
+    for name in ("pattern", "scene", "settings", "weight"):
         source = ART / mode / f"{name}.png"
         if not source.exists():
             continue
@@ -321,6 +336,7 @@ def report_outputs() -> None:
 def main() -> None:
     for mode in ("dieta", "palestra"):
         save_icon_sheet(mode)
+        save_weight_icon(mode)
         save_mascot(mode)
         save_backgrounds(mode)
         save_badges(mode)
