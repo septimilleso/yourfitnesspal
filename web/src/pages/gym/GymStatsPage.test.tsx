@@ -3,13 +3,25 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useGymStats, type GymStats } from "../../api/gym";
+import {
+  useExerciseProgress,
+  useGymStats,
+  usePerformedExercises,
+  type ExerciseProgress,
+  type GymStats,
+  type PerformedExercise,
+} from "../../api/gym";
 import { todayIso } from "../../lib/date";
 import GymStatsPage from "./GymStatsPage";
 
 vi.mock("../../api/gym", async () => {
   const actual = await vi.importActual<typeof import("../../api/gym")>("../../api/gym");
-  return { ...actual, useGymStats: vi.fn() };
+  return {
+    ...actual,
+    useGymStats: vi.fn(),
+    usePerformedExercises: vi.fn(),
+    useExerciseProgress: vi.fn(),
+  };
 });
 vi.mock("../../lib/date", async () => {
   const actual = await vi.importActual<typeof import("../../lib/date")>("../../lib/date");
@@ -35,6 +47,31 @@ const stats: GymStats = {
   ],
 };
 
+const exercises: PerformedExercise[] = [
+  { exercise_id: 2, name: "Panca", tracking: "weight_reps", custom: false, last_date: "2026-09-20" },
+  { exercise_id: 1, name: "Squat", tracking: "duration", custom: false, last_date: "2026-09-18" },
+];
+
+const progress: ExerciseProgress = {
+  exercise_id: 2,
+  name: "Panca",
+  tracking: "weight_reps",
+  start: "2026-09-19",
+  end: "2026-09-25",
+  sessions: [
+    {
+      date: "2026-09-20",
+      workout_id: 9,
+      metrics: { max_weight_kg: 100, max_1rm_kg: 116.7, volume_kg: 500 },
+      sets: ["100 kg × 5"],
+    },
+  ],
+  records: [
+    { kind: "max_weight_kg", value: 100, date: "2026-09-20" },
+    { kind: "max_1rm_kg", value: 116.7, date: "2026-09-20" },
+  ],
+};
+
 function renderAt(path = "/gym/stats") {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -52,10 +89,31 @@ function mockStats(data: GymStats | undefined, options: { isLoading?: boolean; i
   } as ReturnType<typeof useGymStats>);
 }
 
+function mockPerformedExercises(data: PerformedExercise[], options: { isLoading?: boolean; isError?: boolean } = {}) {
+  vi.mocked(usePerformedExercises).mockReturnValue({
+    data,
+    isLoading: options.isLoading ?? false,
+    isError: options.isError ?? false,
+  } as ReturnType<typeof usePerformedExercises>);
+}
+
+function mockExerciseProgress(
+  data: ExerciseProgress | undefined,
+  options: { isLoading?: boolean; isError?: boolean } = {},
+) {
+  vi.mocked(useExerciseProgress).mockReturnValue({
+    data,
+    isLoading: options.isLoading ?? false,
+    isError: options.isError ?? false,
+  } as ReturnType<typeof useExerciseProgress>);
+}
+
 describe("GymStatsPage", () => {
   beforeEach(() => {
     vi.mocked(todayIso).mockReturnValue("2026-09-25");
     mockStats(stats);
+    mockPerformedExercises(exercises);
+    mockExerciseProgress(progress);
   });
 
   it("loads the last 7 days by default", () => {
@@ -105,5 +163,55 @@ describe("GymStatsPage", () => {
     renderAt();
     expect(screen.getByText("Impossibile caricare le statistiche.")).toBeInTheDocument();
     expect(screen.getByTestId("workout-count")).toBeInTheDocument();
+  });
+
+  it("selects the most recent exercise and preserves the period in the query string", async () => {
+    const user = userEvent.setup();
+    renderAt("/gym/stats?range=30");
+    expect(screen.getByLabelText("Esercizio")).toHaveValue("2");
+    await user.selectOptions(screen.getByLabelText("Esercizio"), "1");
+    expect(new URLSearchParams(screen.getByTestId("location-search").textContent)).toEqual(
+      new URLSearchParams("range=30&exercise=1"),
+    );
+    expect(useExerciseProgress).toHaveBeenLastCalledWith(1, "2026-08-27", "2026-09-25", true);
+  });
+
+  it("shows weight progress, formatted session sets and personal records", () => {
+    renderAt();
+    expect(screen.getByRole("button", { name: "Carico max" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1RM stimato" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Volume" })).toBeInTheDocument();
+    expect(screen.getByText("100 kg × 5")).toBeInTheDocument();
+    expect(screen.getByText("Carico massimo")).toBeInTheDocument();
+    expect(screen.getByText("100 kg")).toBeInTheDocument();
+    expect(screen.getAllByText(/20 settembre/i).length).toBeGreaterThan(0);
+  });
+
+  it("shows duration metrics for duration exercises", () => {
+    mockExerciseProgress({
+      ...progress,
+      exercise_id: 1,
+      name: "Squat",
+      tracking: "duration",
+      sessions: [{ date: "2026-09-18", workout_id: 8, metrics: { max_duration_s: 60, total_duration_s: 120 }, sets: ["60 s"] }],
+      records: [{ kind: "max_duration_s", value: 60, date: "2026-09-18" }],
+    });
+    renderAt("/gym/stats?exercise=1");
+    expect(screen.getByRole("button", { name: "Durata max" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Durata totale" })).toBeInTheDocument();
+  });
+
+  it("shows an empty progress message when the user has no performed exercises", () => {
+    mockPerformedExercises([]);
+    renderAt();
+    expect(screen.getByText("Completa un allenamento per vedere i progressi")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Esercizio")).not.toBeInTheDocument();
+  });
+
+  it("shows a progress error without hiding the summary", () => {
+    mockExerciseProgress(undefined, { isError: true });
+    renderAt();
+    expect(screen.getByText("Impossibile caricare la progressione.")).toBeInTheDocument();
+    expect(screen.getByText("1.234,5 kg")).toBeInTheDocument();
   });
 });

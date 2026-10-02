@@ -6,6 +6,7 @@ import type { ChartPoint } from "../../lib/stats";
 import GymSummaryCard from "./GymSummaryCard";
 import KcalChart from "./KcalChart";
 import WeeklyFrequencyChart from "./WeeklyFrequencyChart";
+import ProgressChart from "./ProgressChart";
 import MacroChart from "./MacroChart";
 import MacroSplitBars from "./MacroSplitBars";
 import SummaryTable from "./SummaryTable";
@@ -15,6 +16,20 @@ function point(key: string, kcal: number, logged = kcal > 0): ChartPoint {
 }
 
 const points = [point("2026-09-01", 1800), point("2026-09-02", 0), point("2026-09-03", 2400)];
+
+describe("ProgressChart", () => {
+  it("draws one point per session", () => {
+    const { container } = render(
+      <ProgressChart
+        points={[
+          { date: "2026-09-01", value: 100 },
+          { date: "2026-09-08", value: 105 },
+        ]}
+      />,
+    );
+    expect(container.querySelectorAll('[data-testid="progress-point"]')).toHaveLength(2);
+  });
+});
 
 describe("WeeklyFrequencyChart", () => {
   it("draws one bar per week, including weeks with no workouts", () => {

@@ -1,4 +1,5 @@
 import { useGymStats } from "../../api/gym";
+import ExerciseProgressSection from "../../components/stats/ExerciseProgressSection";
 import GymSummaryCard from "../../components/stats/GymSummaryCard";
 import PeriodPicker from "../../components/stats/PeriodPicker";
 import WeeklyFrequencyChart from "../../components/stats/WeeklyFrequencyChart";
@@ -41,6 +42,7 @@ function GymStatsPage() {
             <WeeklyFrequencyChart weeks={stats.data.weeks} />
           </>
         )}
+        <ExerciseProgressSection period={period} enabled={error === null} />
       </div>
     </div>
   );
