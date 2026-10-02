@@ -19,6 +19,7 @@ from app.routers import (
     push,
     stats,
     templates,
+    weights,
     workouts,
 )
 from app.services.errors import Invalid, NotFound, PermissionMissing
@@ -75,6 +76,7 @@ app.include_router(exercises.router, dependencies=[Depends(get_current_user)])
 app.include_router(templates.router, dependencies=[Depends(get_current_user)])
 app.include_router(workouts.router, dependencies=[Depends(get_current_user)])
 app.include_router(push.router, dependencies=[Depends(get_current_user)])
+app.include_router(weights.router, dependencies=[Depends(get_current_user)])
 app.include_router(stats.router, dependencies=[Depends(get_current_user)])
 app.include_router(admin.router, dependencies=[Depends(require_admin)])
 
