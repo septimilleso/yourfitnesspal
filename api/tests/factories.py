@@ -1,5 +1,6 @@
 """Test data builders shared by the MCP/OAuth test modules."""
 
+from datetime import datetime, timedelta
 from typing import ClassVar
 
 from httpx import ASGITransport, AsyncClient
@@ -11,6 +12,7 @@ from app.main import app
 from app.models.exercise import Exercise, Tracking
 from app.models.food import Food
 from app.models.user import Role, User
+from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
 
 PASSWORD = "correct horse battery staple"
 
@@ -87,6 +89,45 @@ async def make_exercise(
     db.add(exercise)
     await db.flush()
     return exercise
+
+
+async def make_finished_workout(
+    db: AsyncSession,
+    user: User,
+    *,
+    started_at: datetime,
+    minutes: int,
+    items: list[tuple[Exercise, list[tuple[float | None, int | None, int | None]]]],
+    status: WorkoutStatus = WorkoutStatus.finished,
+) -> Workout:
+    finished_at = started_at + timedelta(minutes=minutes) if status is WorkoutStatus.finished else None
+    workout = Workout(
+        user_id=user.id,
+        name="Test workout",
+        status=status,
+        started_at=started_at,
+        finished_at=finished_at,
+        exercises=[
+            WorkoutExercise(
+                exercise=exercise,
+                position=position,
+                sets=[
+                    WorkoutSet(
+                        position=set_position,
+                        weight_kg=weight,
+                        reps=reps,
+                        duration_s=duration,
+                        completed_at=started_at,
+                    )
+                    for set_position, (weight, reps, duration) in enumerate(sets)
+                ],
+            )
+            for position, (exercise, sets) in enumerate(items)
+        ],
+    )
+    db.add(workout)
+    await db.flush()
+    return workout
 
 
 async def http_client(
