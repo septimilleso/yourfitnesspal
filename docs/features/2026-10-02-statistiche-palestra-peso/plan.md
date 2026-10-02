@@ -95,7 +95,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   I test DB vengono eseguiti in T17.
 
-### [~] T4. Servizio ed endpoint del peso
+### [x] T4. Servizio ed endpoint del peso
 
 - Copre: C3, C4, C5, C26 (peso), R6
 - File: `api/app/schemas/weight.py` (nuovo), `api/app/services/weights.py` (nuovo), `api/app/routers/weights.py` (nuovo), `api/app/main.py` (modifica), `api/tests/test_weights.py` (nuovo)
@@ -120,7 +120,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [ ] T5. Statistiche palestra del periodo e conteggio allenamenti
+### [~] T5. Statistiche palestra del periodo e conteggio allenamenti
 
 - Copre: C9, C26 (palestra), R7 (dato), R14 (parte), C18 (nessuna modifica a serie e attività)
 - File: `api/app/schemas/stats.py` (modifica), `api/app/services/gym_stats.py` (nuovo), `api/app/routers/stats.py` (modifica), `api/tests/factories.py` (modifica), `api/tests/test_gym_stats.py` (nuovo)
@@ -383,3 +383,4 @@ Risolte il 2026-10-02:
 - T1 — DONE — review: 1 round — commit: 4ddd7b9 — MINOR: test usa monthLabel di produzione; onSuccess invocato a mano dal mock
 - T2 — DONE — review: 1 round — commit: d302445 — MINOR aperti: peso 0 conta come zavorra/max in session_metrics e personal_records; test senza dataset C10 esatto, serie a durata a volume 0, parità per reps/durata
 - T3 — DONE — review: 1 round — commit: 4fa9e3e
+- T4 — DONE — review: 1 round — commit: beb2a53 — MINOR aperto: body senza weight_kg dà 422 invece di 400 (fix: weight_kg: Any = None)
