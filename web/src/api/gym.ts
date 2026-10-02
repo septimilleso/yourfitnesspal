@@ -144,6 +144,55 @@ export interface HistoryPage {
   next_before: string | null;
 }
 
+export interface GymCount {
+  finished: number;
+}
+
+export interface GymWeek {
+  week_start: string;
+  workouts: number;
+}
+
+export interface GymStats {
+  start: string;
+  end: string;
+  workouts: number;
+  volume_kg: number;
+  avg_duration_min: number | null;
+  weeks: GymWeek[];
+}
+
+export interface PerformedExercise {
+  exercise_id: number;
+  name: string;
+  tracking: Tracking;
+  custom: boolean;
+  last_date: string;
+}
+
+export interface ProgressSession {
+  date: string;
+  workout_id: number;
+  metrics: Record<string, number>;
+  sets: string[];
+}
+
+export interface PersonalRecord {
+  kind: string;
+  value: number;
+  date: string;
+}
+
+export interface ExerciseProgress {
+  exercise_id: number;
+  name: string;
+  tracking: Tracking;
+  start: string;
+  end: string;
+  sessions: ProgressSession[];
+  records: PersonalRecord[];
+}
+
 export interface LayoutItem {
   id: number;
   superset_group: number | null;
@@ -159,6 +208,11 @@ export const gymKeys = {
   active: ["gym", "workout", "active"] as const,
   workout: (id: number) => ["gym", "workout", id] as const,
   history: ["gym", "history"] as const,
+  statsCount: ["gym", "stats", "count"] as const,
+  stats: (start: string, end: string) => ["gym", "stats", "range", start, end] as const,
+  statsExercises: ["gym", "stats", "exercises"] as const,
+  progress: (id: number, start: string, end: string) =>
+    ["gym", "stats", "progress", id, start, end] as const,
 };
 
 function exercisesPath(filters: ExerciseFilters): string {
@@ -366,6 +420,7 @@ export function useFinishWorkout() {
       queryClient.setQueryData(gymKeys.active, null);
       queryClient.setQueryData(gymKeys.workout(workout.id), workout);
       void queryClient.invalidateQueries({ queryKey: gymKeys.history });
+      void queryClient.invalidateQueries({ queryKey: ["gym", "stats"] });
     },
   });
 }
@@ -388,6 +443,40 @@ export function useHistory() {
       ),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_before,
+  });
+}
+
+export function useGymCount() {
+  return useQuery({
+    queryKey: gymKeys.statsCount,
+    queryFn: () => client.get<GymCount>("/stats/gym/count"),
+  });
+}
+
+export function useGymStats(start: string, end: string, enabled = true) {
+  return useQuery({
+    queryKey: gymKeys.stats(start, end),
+    queryFn: () =>
+      client.get<GymStats>(`/stats/gym?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
+    enabled,
+  });
+}
+
+export function usePerformedExercises() {
+  return useQuery({
+    queryKey: gymKeys.statsExercises,
+    queryFn: () => client.get<PerformedExercise[]>("/stats/gym/exercises"),
+  });
+}
+
+export function useExerciseProgress(id: number, start: string, end: string, enabled = true) {
+  return useQuery({
+    queryKey: gymKeys.progress(id, start, end),
+    queryFn: () =>
+      client.get<ExerciseProgress>(
+        `/stats/gym/exercises/${id}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      ),
+    enabled,
   });
 }
 
@@ -420,6 +509,7 @@ export function useDeleteWorkout() {
     onSuccess: (_data, workoutId) => {
       queryClient.removeQueries({ queryKey: gymKeys.workout(workoutId) });
       void queryClient.invalidateQueries({ queryKey: gymKeys.history });
+      void queryClient.invalidateQueries({ queryKey: ["gym", "stats"] });
     },
   });
 }
