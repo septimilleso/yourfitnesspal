@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,7 @@ const finished: Workout = {
 
 const apply = vi.fn();
 const saveAs = vi.fn();
+const remove = vi.fn();
 
 function mockWorkout(workout: Workout) {
   vi.mocked(useWorkout).mockReturnValue({ data: workout, isLoading: false, isError: false } as unknown as ReturnType<typeof useWorkout>);
@@ -56,9 +57,10 @@ describe("WorkoutDetailPage", () => {
   beforeEach(() => {
     apply.mockReset();
     saveAs.mockReset();
+    remove.mockReset();
     vi.mocked(useApplyToTemplate).mockReturnValue({ mutate: apply, isPending: false, isSuccess: false } as unknown as ReturnType<typeof useApplyToTemplate>);
     vi.mocked(useSaveAsTemplate).mockReturnValue({ mutate: saveAs, isPending: false, isSuccess: false } as unknown as ReturnType<typeof useSaveAsTemplate>);
-    vi.mocked(useDeleteWorkout).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useDeleteWorkout>);
+    vi.mocked(useDeleteWorkout).mockReturnValue({ mutate: remove, isPending: false } as unknown as ReturnType<typeof useDeleteWorkout>);
   });
 
   it("offers to update the template in the summary", async () => {
@@ -96,5 +98,43 @@ describe("WorkoutDetailPage", () => {
     renderAt("/gym/history/9?summary=1");
     await user.click(screen.getByRole("button", { name: "Salva come modello" }));
     expect(saveAs).toHaveBeenCalledWith({ workoutId: 9, name: "Nuovo modello" });
+  });
+
+  it("deletes a workout after confirmation and returns to history on success", async () => {
+    mockWorkout(finished);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/gym/history/9"]}>
+        <Routes>
+          <Route path="/gym/history/:id" element={<WorkoutDetailPage />} />
+          <Route path="/gym/history" element={<p>Storico destinazione</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Azioni allenamento" }));
+    await user.click(screen.getByRole("menuitem", { name: "Elimina" }));
+
+    expect(confirm).toHaveBeenCalledWith("Eliminare questo allenamento dallo storico?");
+    expect(remove).toHaveBeenCalledWith(9, expect.objectContaining({ onSuccess: expect.any(Function) }));
+    const options = remove.mock.calls[0]?.[1];
+    await act(async () => options?.onSuccess?.(undefined, 9, undefined, undefined));
+    expect(screen.getByText("Storico destinazione")).toBeInTheDocument();
+    confirm.mockRestore();
+  });
+
+  it("does not delete a workout when confirmation is declined", async () => {
+    mockWorkout(finished);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    renderAt("/gym/history/9");
+
+    await user.click(screen.getByRole("button", { name: "Azioni allenamento" }));
+    await user.click(screen.getByRole("menuitem", { name: "Elimina" }));
+
+    expect(confirm).toHaveBeenCalledWith("Eliminare questo allenamento dallo storico?");
+    expect(remove).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });
