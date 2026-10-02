@@ -144,7 +144,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [~] T6. Esercizi eseguiti, progressione e record personali
+### [x] T6. Esercizi eseguiti, progressione e record personali
 
 - Copre: C10, C27, C26 (progressione), R11, R12, R14
 - File: `api/app/schemas/stats.py` (modifica), `api/app/services/gym_stats.py` (modifica), `api/app/routers/stats.py` (modifica), `api/tests/test_gym_stats.py` (modifica)
@@ -167,7 +167,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [ ] T7. Tool MCP di sola lettura e documentazione API
+### [~] T7. Tool MCP di sola lettura e documentazione API
 
 - Copre: C13, C14, C25, C26 (MCP), R17–R20
 - File: `api/app/mcp/tools/stats.py` (nuovo), `api/app/mcp/server.py` (modifica), `api/tests/test_mcp_tools_stats.py` (nuovo), `README.md` (modifica)
@@ -385,3 +385,4 @@ Risolte il 2026-10-02:
 - T3 — DONE — review: 1 round — commit: 4fa9e3e
 - T4 — DONE — review: 1 round — commit: beb2a53 — MINOR aperto: body senza weight_kg dà 422 invece di 400 (fix: weight_kg: Any = None)
 - T5 — DONE — review: 1 round — commit: 6bfe197 — MINOR: durata media con round() banker's rounding
+- T6 — DONE — review: 1 round — commit: 1d6544a — MINOR: exercise_progress controlla il periodo prima del permesso (passato a T7); test mancanti 400/404/occorrenze multiple/parità; colonna latest_started inutilizzata
