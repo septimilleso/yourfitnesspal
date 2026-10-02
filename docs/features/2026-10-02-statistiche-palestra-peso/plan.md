@@ -297,7 +297,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `GymStatsPage.test.tsx`: con due esercizi finti la `select` ha il più recente scelto; scegliendo il secondo il query string contiene `exercise=<id>` e `useExerciseProgress` è chiamato con quell'id; con un esercizio `weight_reps` compaiono i pulsanti "Carico max", "1RM stimato", "Volume", le serie della sessione ("100 kg × 5") e i record con la data; con un esercizio `duration` compaiono "Durata max" e "Durata totale"; senza esercizi eseguiti compare "Completa un allenamento per vedere i progressi"; errore della progressione → messaggio e il riepilogo resta.
 - Verifica: `cd web && npx vitest run src/pages/gym/GymStatsPage.test.tsx src/components/stats/charts.test.tsx`, verdi; `cd web && npx tsc -b` e `cd web && npm test`, nessun errore, suite verde.
 
-### [~] T14. Blocco Peso in Statistiche Dieta
+### [x] T14. Blocco Peso in Statistiche Dieta
 
 - Copre: C6, C19, R4, R5
 - File: `web/src/components/stats/WeightChart.tsx` (nuovo), `web/src/components/stats/WeightSection.tsx` (nuovo), `web/src/components/stats/charts.test.tsx` (modifica), `web/src/pages/DietStatsPage.tsx` (modifica), `web/src/pages/DietStatsPage.test.tsx` (modifica)
@@ -310,7 +310,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `DietStatsPage.test.tsx`: mockare `../api/weights` nel modulo; i casi esistenti restano invariati (con `useWeightHistory` che restituisce un periodo vuoto per default). Nuovi casi: con pesate finte compaiono grafico, linea della media e storico dalla più recente; "Elimina" con `confirm` vero → `mutate` con l'id di quella pesata; con `confirm` falso nessuna chiamata; senza pesate "Nessuna pesata nel periodo"; `useWeightHistory` chiamato con lo stesso periodo di `useDiaryRange`.
 - Verifica: `cd web && npx vitest run src/pages/DietStatsPage.test.tsx src/components/stats/charts.test.tsx src/components/GoalForm.test.tsx src/lib/stats.test.ts`, verdi (C19); `cd web && npm test`, suite verde.
 
-### [ ] T15. Swipe per eliminare nello Storico
+### [~] T15. Swipe per eliminare nello Storico
 
 - Copre: C12, C21, C22, R15, R16
 - File: `web/src/components/gym/SwipeableCard.tsx` (nuovo), `web/src/pages/gym/HistoryPage.tsx` (modifica), `web/src/pages/gym/HistoryPage.test.tsx` (modifica)
@@ -393,3 +393,4 @@ Risolte il 2026-10-02:
 - T11 — DONE — review: 1 round — commit: 89283e4
 - T12 — DONE — review: 1 round — commit: 1ed25a5 — MINOR: tipo PeriodChoice duplicato in usePeriodParams e PeriodPicker
 - T13 — DONE — review: 1 round — commit: f10e042 — MINOR: durata record in secondi invece di formatDuration; grafico vuoto se metrica assente; test mancanti per periodo senza sessioni/cambio metrica/reps
+- T14 — DONE — review: 1 round — commit: 1972fcd — MINOR: errore di eliminazione pesata non mostrato; ramo errore del blocco senza test; media con un solo punto non disegnata
