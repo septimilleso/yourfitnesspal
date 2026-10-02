@@ -79,7 +79,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `.venv/Scripts/python -m ruff check app tests`: nessun errore;
   - `.venv/Scripts/python -m pytest tests/test_stats_rules.py -q`: verde in locale.
 
-### [~] T3. Modello delle pesate e migrazione
+### [x] T3. Modello delle pesate e migrazione
 
 - Copre: C3 (una riga per giorno), C29 (migrazione e downgrade)
 - File: `api/app/models/weight.py` (nuovo), `api/app/models/__init__.py` (modifica), `api/alembic/versions/a6c1e4b8d203_body_weights.py` (nuovo), `api/tests/test_weight_models.py` (nuovo)
@@ -95,7 +95,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   I test DB vengono eseguiti in T17.
 
-### [ ] T4. Servizio ed endpoint del peso
+### [~] T4. Servizio ed endpoint del peso
 
 - Copre: C3, C4, C5, C26 (peso), R6
 - File: `api/app/schemas/weight.py` (nuovo), `api/app/services/weights.py` (nuovo), `api/app/routers/weights.py` (nuovo), `api/app/main.py` (modifica), `api/tests/test_weights.py` (nuovo)
@@ -382,3 +382,4 @@ Risolte il 2026-10-02:
 - Commit di partenza: 5690b5d
 - T1 — DONE — review: 1 round — commit: 4ddd7b9 — MINOR: test usa monthLabel di produzione; onSuccess invocato a mano dal mock
 - T2 — DONE — review: 1 round — commit: d302445 — MINOR aperti: peso 0 conta come zavorra/max in session_metrics e personal_records; test senza dataset C10 esatto, serie a durata a volume 0, parità per reps/durata
+- T3 — DONE — review: 1 round — commit: 4fa9e3e
