@@ -192,7 +192,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17 (insieme ai test MCP esistenti, C25).
 
-### [~] T8. Client web: hook del peso e delle statistiche palestra
+### [x] T8. Client web: hook del peso e delle statistiche palestra
 
 - Copre: C2 (richiesta senza data, invalidazione), base per C6–C8, C11, C12
 - File: `web/src/api/weights.ts` (nuovo), `web/src/api/weights.test.tsx` (nuovo), `web/src/api/gym.ts` (modifica)
@@ -202,7 +202,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. `weights.test.tsx`: `fetch` stubbato con `vi.stubGlobal`, `renderHook` dentro `QueryClientProvider`. Casi: `useSaveWeight().mutateAsync(78.4)` fa `PUT /api/weights/today` con body esattamente `{"weight_kg":78.4}` e header `X-Requested-With: yfp`; dopo il successo `invalidateQueries` è chiamata con `["weight"]` (spy sul `QueryClient`); `useTodayWeight` con risposta 204 restituisce `null`.
 - Verifica: `cd web && npx vitest run src/api/weights.test.tsx`, verde; `cd web && npx tsc -b`, nessun errore; `cd web && npm test`, suite verde.
 
-### [ ] T9. Grafiche placeholder del peso nella pipeline
+### [~] T9. Grafiche placeholder del peso nella pipeline
 
 - Copre: C31 (placeholder e build), C30 (percorsi distinti), R21
 - File: `web/scripts/make-weight-placeholders.py` (nuovo), `web/art/dieta/weight-icon.png` (nuovo, generato), `web/art/palestra/weight-icon.png` (nuovo, generato), `web/art/dieta/weight.png` (nuovo, generato), `web/art/palestra/weight.png` (nuovo, generato), `web/scripts/build-art.py` (modifica), `web/public/art/diet/icons/weight.png`, `web/public/art/gym/icons/weight.png`, `web/public/art/diet/weight.webp`, `web/public/art/gym/weight.webp` (nuovi, generati), `web/src/lib/art.ts` (modifica), `web/src/lib/art.test.ts` (nuovo)
@@ -387,3 +387,4 @@ Risolte il 2026-10-02:
 - T5 — DONE — review: 1 round — commit: 6bfe197 — MINOR: durata media con round() banker's rounding
 - T6 — DONE — review: 1 round — commit: 1d6544a — MINOR: exercise_progress controlla il periodo prima del permesso (passato a T7); test mancanti 400/404/occorrenze multiple/parità; colonna latest_started inutilizzata
 - T7 — DONE — review: 2 round — commit: 7b78226 — round 1: list_tools().tools nel test; incluso fix permesso prima del periodo in exercise_progress; MINOR: tabella README non allineata
+- T8 — DONE — review: 1 round — commit: 00580ce — MINOR: onSuccess attende il refetch (mutateAsync più lento)
