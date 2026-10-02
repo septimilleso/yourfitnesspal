@@ -120,7 +120,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [~] T5. Statistiche palestra del periodo e conteggio allenamenti
+### [x] T5. Statistiche palestra del periodo e conteggio allenamenti
 
 - Copre: C9, C26 (palestra), R7 (dato), R14 (parte), C18 (nessuna modifica a serie e attività)
 - File: `api/app/schemas/stats.py` (modifica), `api/app/services/gym_stats.py` (nuovo), `api/app/routers/stats.py` (modifica), `api/tests/factories.py` (modifica), `api/tests/test_gym_stats.py` (nuovo)
@@ -144,7 +144,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [ ] T6. Esercizi eseguiti, progressione e record personali
+### [~] T6. Esercizi eseguiti, progressione e record personali
 
 - Copre: C10, C27, C26 (progressione), R11, R12, R14
 - File: `api/app/schemas/stats.py` (modifica), `api/app/services/gym_stats.py` (modifica), `api/app/routers/stats.py` (modifica), `api/tests/test_gym_stats.py` (modifica)
@@ -384,3 +384,4 @@ Risolte il 2026-10-02:
 - T2 — DONE — review: 1 round — commit: d302445 — MINOR aperti: peso 0 conta come zavorra/max in session_metrics e personal_records; test senza dataset C10 esatto, serie a durata a volume 0, parità per reps/durata
 - T3 — DONE — review: 1 round — commit: 4fa9e3e
 - T4 — DONE — review: 1 round — commit: beb2a53 — MINOR aperto: body senza weight_kg dà 422 invece di 400 (fix: weight_kg: Any = None)
+- T5 — DONE — review: 1 round — commit: 6bfe197 — MINOR: durata media con round() banker's rounding
