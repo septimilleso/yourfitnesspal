@@ -249,7 +249,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npx vitest run src/lib/useVisualViewportTop.test.ts src/pages/gym/WorkoutPage.test.tsx`: verdi (C24, la sessione live non usa `ModeSwitch`);
   - `cd web && npx tsc -b` e `cd web && npm test`: nessun errore, suite verde.
 
-### [~] T11. Card "N allenamenti" e badge palestra ogni 10 allenamenti
+### [x] T11. Card "N allenamenti" e badge palestra ogni 10 allenamenti
 
 - Copre: C7, C17
 - File: `web/src/lib/badges.ts` (modifica), `web/src/lib/badges.test.ts` (modifica), `web/src/components/BadgeGrid.tsx` (modifica), `web/src/components/BadgeGrid.test.tsx` (modifica), `web/src/components/WorkoutCountCard.tsx` (nuovo), `web/src/components/WorkoutCountCard.test.tsx` (nuovo), `web/src/pages/gym/GymStatsPage.tsx` (modifica)
@@ -264,7 +264,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `WorkoutCountCard.test.tsx` con `useGymCount` mockato: 23 → "23 allenamenti", "Badge 2 / 30", "Prossimo badge tra 7 allenamenti" e nessun testo "di fila"; 1 → "1 allenamento"; 0 → "Primo badge a 10 allenamenti"; 300 e 350 → "Collezione completa!"; errore → messaggio.
 - Verifica: `cd web && npx vitest run src/lib/badges.test.ts src/components/BadgeGrid.test.tsx src/components/StreakCard.test.tsx src/components/WorkoutCountCard.test.tsx`, tutti verdi con i casi esistenti invariati (C17); `cd web && npm test`, suite verde.
 
-### [ ] T12. Statistiche Palestra: periodo, riepilogo e frequenza settimanale
+### [~] T12. Statistiche Palestra: periodo, riepilogo e frequenza settimanale
 
 - Copre: C8, C19, R9, R10, R13 (errore per blocco)
 - File: `web/src/lib/usePeriodParams.ts` (nuovo), `web/src/pages/DietStatsPage.tsx` (modifica), `web/src/components/stats/GymSummaryCard.tsx` (nuovo), `web/src/components/stats/WeeklyFrequencyChart.tsx` (nuovo), `web/src/components/stats/charts.test.tsx` (modifica), `web/src/pages/gym/GymStatsPage.tsx` (modifica), `web/src/pages/gym/GymStatsPage.test.tsx` (nuovo)
@@ -390,3 +390,4 @@ Risolte il 2026-10-02:
 - T8 — DONE — review: 1 round — commit: 00580ce — MINOR: onSuccess attende il refetch (mutateAsync più lento)
 - T9 — DONE — review: 1 round — commit: 41d236f — MINOR: get_flattened_data richiede Pillow recente; fondo sfondo placeholder crema
 - T10 — DONE — review: 2 round — commit: 9524a6e — round 1: overlay in portal fuori dall'header (backdrop-filter), onClose stabile, focus di ritorno; MINOR: niente focus trap; tastiera iOS da verificare a vista
+- T11 — DONE — review: 1 round — commit: 89283e4
