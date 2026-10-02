@@ -18,6 +18,7 @@ from app.mcp.prompts import register_prompts
 from app.mcp.tools.diary import register_diary_tools
 from app.mcp.tools.foods import register_food_tools
 from app.mcp.tools.goals import register_goal_tools
+from app.mcp.tools.stats import register_stats_tools
 from app.mcp.tools.workouts import register_workout_tools
 
 INSTRUCTIONS = """\
@@ -35,6 +36,9 @@ signed-in user's own data.
 - Gym: search_exercises finds exercises (English names); create_workout_template
   builds a template from exercise_ids and sets; list_workouts / get_workout read
   finished workouts. Weights are in kg. The live session is only in the app.
+- Stats: get_weight_history (daily weight, 7-day moving average, ISO-week averages),
+  get_gym_stats and get_exercise_progress (sessions, estimated 1RM, personal records)
+  return values already computed by the app.
 - Before writing several entries, copying days or changing the goal, confirm
   the plan with the user.
 """
@@ -69,6 +73,7 @@ def build_server() -> MCPServer:
     register_diary_tools(server)
     register_goal_tools(server)
     register_workout_tools(server)
+    register_stats_tools(server)
     register_prompts(server)
     return server
 

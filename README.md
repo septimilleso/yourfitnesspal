@@ -132,6 +132,10 @@ Gym tools: `search_exercises`, `list_workout_templates`, `get_workout_template`,
 `create_workout_template`, `list_workouts` and `get_workout`. The user also needs the
 `workouts.use` permission.
 
+Statistics tools: `get_weight_history`, `get_gym_stats` and `get_exercise_progress` return
+read-only statistics already calculated by the API. The gym statistics tools require the
+`workouts.use` permission.
+
 Housekeeping: `docker compose exec api python -m app.cli purge-oauth` removes expired codes and
 tokens (safe to run from cron).
 
@@ -155,6 +159,14 @@ All routes are under `/api` and require the session cookie unless noted.
 | `GET`    | `/api/diary/range?start=&end=` | Per-day totals for an inclusive range (max 366 days).            |
 | `POST`   | `/api/activity`                | Record that the web app was opened today (streak).               |
 | `GET`    | `/api/stats/streak`            | Current and best run of consecutive app-open days.               |
+| `GET`    | `/api/weights/today`            | Today's weight, if recorded.                                     |
+| `PUT`    | `/api/weights/today`            | Save or replace today's weight.                                  |
+| `GET`    | `/api/weights?start=&end=`       | Daily weights and ISO-week averages for an inclusive period.     |
+| `DELETE` | `/api/weights/{weight_id}`      | Delete one of the user's weights.                                |
+| `GET`    | `/api/stats/gym/count`          | Count of finished workouts.                                      |
+| `GET`    | `/api/stats/gym?start=&end=`    | Workout count, volume, duration and weekly frequency.            |
+| `GET`    | `/api/stats/gym/exercises`      | Exercises used in finished workouts.                             |
+| `GET`    | `/api/stats/gym/exercises/{exercise_id}?start=&end=` | Exercise progression and all-time personal records. |
 | `POST`   | `/api/diary/entries`           | Log `{ date, meal, food_id, grams }`.                            |
 | `PATCH`  | `/api/diary/entries/{id}`      | Change a logged entry's quantity and/or move it to another meal. |
 | `DELETE` | `/api/diary/entries/{id}`      | Remove a logged entry.                                           |
@@ -226,6 +238,9 @@ git pull origin <deployed-branch>
 docker compose up -d --build
 docker compose exec api alembic upgrade head   # only if a migration shipped
 ```
+
+The weight and gym statistics feature adds the `a6c1e4b8d203_body_weights` migration; apply it
+with `docker compose exec api alembic upgrade head` after deploying.
 
 For rest-finished push alerts, generate a VAPID key pair from the repository root. The script is
 not part of the API image, so pipe it into the running `api` container's Python:

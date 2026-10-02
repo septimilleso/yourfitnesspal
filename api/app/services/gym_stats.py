@@ -145,6 +145,7 @@ async def performed_exercises(
 async def exercise_progress(
     db: AsyncSession, user: User, exercise_id: int, start: date, end: date
 ) -> ExerciseProgressOut:
+    ensure_permission(user, Permission.workouts)
     check_period(start, end)
     exercise = (await exercise_service.get_visible_exercises(db, user, [exercise_id]))[
         exercise_id
