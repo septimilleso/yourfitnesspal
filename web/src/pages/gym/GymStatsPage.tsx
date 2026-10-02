@@ -1,7 +1,7 @@
 import ModeSwitch from "../../components/ModeSwitch";
-import StreakCard from "../../components/StreakCard";
+import WorkoutCountCard from "../../components/WorkoutCountCard";
 
-/** Gym stats: only the streak for now; gym charts come later. */
+/** Gym statistics and workout count. */
 function GymStatsPage() {
   return (
     <div>
@@ -12,10 +12,7 @@ function GymStatsPage() {
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        <StreakCard mode="gym" />
-        <section className="card px-4 py-6 text-center text-sm text-slate-500">
-          Statistiche palestra in arrivo.
-        </section>
+        <WorkoutCountCard />
       </div>
     </div>
   );

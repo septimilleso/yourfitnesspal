@@ -1,13 +1,30 @@
 import { useState } from "react";
 
 import type { AppMode } from "../lib/appMode";
-import { badgeProgress, BADGE_COUNT, DAYS_PER_BADGE } from "../lib/badges";
+import { badgeProgress, BADGE_COUNT, DAYS_PER_BADGE, WORKOUTS_PER_BADGE } from "../lib/badges";
 import { badgeIcon } from "../lib/art";
 
-/** One badge is earned every five days of the current streak. */
-function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
-  const { earned, nextIn } = badgeProgress(current);
+/** One badge is earned every five streak days or ten finished workouts. */
+function BadgeGrid({
+  mode,
+  current,
+  unit = "streak",
+}: {
+  mode: AppMode;
+  current: number;
+  unit?: "streak" | "workouts";
+}) {
+  const perBadge = unit === "workouts" ? WORKOUTS_PER_BADGE : DAYS_PER_BADGE;
+  const { earned, nextIn } = badgeProgress(current, perBadge);
   const [expanded, setExpanded] = useState(false);
+
+  const nextLabel = unit === "workouts" ? "allenamento" : "giorno";
+  const firstBadgeLabel = unit === "workouts"
+    ? `Primo badge a ${WORKOUTS_PER_BADGE} allenamenti`
+    : `Primo badge a ${DAYS_PER_BADGE} giorni di fila`;
+  const lockedBadgeLabel = (n: number) => unit === "workouts"
+    ? `${n * WORKOUTS_PER_BADGE} all.`
+    : `${n * DAYS_PER_BADGE} gg`;
 
   return (
     <div className="space-y-2 border-t border-slate-100 pt-3">
@@ -16,7 +33,7 @@ function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
         <p className="text-xs text-slate-500">
           {nextIn === null
             ? "Collezione completa!"
-            : `Prossimo badge tra ${nextIn} ${nextIn === 1 ? "giorno" : "giorni"}`}
+            : `Prossimo badge tra ${nextIn} ${nextIn === 1 ? nextLabel : unit === "workouts" ? "allenamenti" : "giorni"}`}
         </p>
       </div>
       {!expanded && (
@@ -28,7 +45,7 @@ function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
             className={`h-16 w-16 rounded-xl ${earned >= 1 ? "" : "grayscale opacity-30"}`}
           />
           <span className="text-sm text-slate-600">
-            {earned >= 1 ? "Ultimo badge sbloccato" : "Primo badge a 5 giorni di fila"}
+            {earned >= 1 ? "Ultimo badge sbloccato" : firstBadgeLabel}
           </span>
         </div>
       )}
@@ -44,7 +61,7 @@ function BadgeGrid({ mode, current }: { mode: AppMode; current: number }) {
                 loading="lazy"
                 className={`aspect-square w-full max-w-[64px] rounded-xl ${unlocked ? "" : "grayscale opacity-30"} ${n === earned ? "ring-2 ring-brand-500 ring-offset-1" : ""}`}
               />
-              {!unlocked && <span className="text-[10px] tabular-nums text-slate-400">{n * DAYS_PER_BADGE} gg</span>}
+              {!unlocked && <span className="text-[10px] tabular-nums text-slate-400">{lockedBadgeLabel(n)}</span>}
             </li>
           );
         })}

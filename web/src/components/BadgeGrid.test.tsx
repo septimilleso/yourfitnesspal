@@ -21,6 +21,16 @@ describe("BadgeGrid", () => {
     expect(screen.getByText("Primo badge a 5 giorni di fila")).toBeInTheDocument();
   });
 
+  it("uses workout thresholds when requested", () => {
+    render(<BadgeGrid mode="gym" current={3} unit="workouts" />);
+
+    expect(screen.getByText("Primo badge a 10 allenamenti")).toBeInTheDocument();
+    expect(screen.getByText("Prossimo badge tra 7 allenamenti")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mostra tutti i badge" }));
+    expect(screen.getByText("10 all.")).toBeInTheDocument();
+    expect(screen.getByText("20 all.")).toBeInTheDocument();
+  });
+
   it("toggles the full badge collection", () => {
     render(<BadgeGrid mode="diet" current={12} />);
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { badgeProgress } from "./badges";
+import { badgeProgress, gymBadgeProgress } from "./badges";
 
 describe("badgeProgress", () => {
   it.each([
@@ -13,5 +13,18 @@ describe("badgeProgress", () => {
     [200, { earned: 30, nextIn: null }],
   ])("calculates badge progress for %i days", (current, expected) => {
     expect(badgeProgress(current)).toEqual(expected);
+  });
+});
+
+describe("gymBadgeProgress", () => {
+  it.each([
+    [0, { earned: 0, nextIn: 10 }],
+    [9, { earned: 0, nextIn: 1 }],
+    [10, { earned: 1, nextIn: 10 }],
+    [299, { earned: 29, nextIn: 1 }],
+    [300, { earned: 30, nextIn: null }],
+    [350, { earned: 30, nextIn: null }],
+  ])("calculates badge progress for %i workouts", (workouts, expected) => {
+    expect(gymBadgeProgress(workouts)).toEqual(expected);
   });
 });
