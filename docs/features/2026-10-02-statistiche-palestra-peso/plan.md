@@ -167,7 +167,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17.
 
-### [~] T7. Tool MCP di sola lettura e documentazione API
+### [x] T7. Tool MCP di sola lettura e documentazione API
 
 - Copre: C13, C14, C25, C26 (MCP), R17–R20
 - File: `api/app/mcp/tools/stats.py` (nuovo), `api/app/mcp/server.py` (modifica), `api/tests/test_mcp_tools_stats.py` (nuovo), `README.md` (modifica)
@@ -192,7 +192,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Esecuzione reale in T17 (insieme ai test MCP esistenti, C25).
 
-### [ ] T8. Client web: hook del peso e delle statistiche palestra
+### [~] T8. Client web: hook del peso e delle statistiche palestra
 
 - Copre: C2 (richiesta senza data, invalidazione), base per C6–C8, C11, C12
 - File: `web/src/api/weights.ts` (nuovo), `web/src/api/weights.test.tsx` (nuovo), `web/src/api/gym.ts` (modifica)
@@ -386,3 +386,4 @@ Risolte il 2026-10-02:
 - T4 — DONE — review: 1 round — commit: beb2a53 — MINOR aperto: body senza weight_kg dà 422 invece di 400 (fix: weight_kg: Any = None)
 - T5 — DONE — review: 1 round — commit: 6bfe197 — MINOR: durata media con round() banker's rounding
 - T6 — DONE — review: 1 round — commit: 1d6544a — MINOR: exercise_progress controlla il periodo prima del permesso (passato a T7); test mancanti 400/404/occorrenze multiple/parità; colonna latest_started inutilizzata
+- T7 — DONE — review: 2 round — commit: 7b78226 — round 1: list_tools().tools nel test; incluso fix permesso prima del periodo in exercise_progress; MINOR: tabella README non allineata
