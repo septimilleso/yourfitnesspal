@@ -332,7 +332,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - un trascinamento che parte a `clientX` 10 non apre la card.
 - Verifica: `cd web && npx vitest run src/pages/gym/HistoryPage.test.tsx src/pages/gym/WorkoutDetailPage.test.tsx`, verdi (C21, C22); `cd web && npx tsc -b` e `cd web && npm test`, nessun errore, suite verde.
 
-### [~] T16. Prompt delle grafiche definitive
+### [x] T16. Prompt delle grafiche definitive
 
 - Copre: C31 (documento), R22
 - File: `docs/features/2026-10-02-statistiche-palestra-peso/art-prompts.md` (nuovo)
@@ -344,7 +344,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Sezione "Integrazione": copiare i file ricevuti nello zip con quei nomi in `web/art/{dieta,palestra}/`, eseguire `python web/scripts/build-art.py`, controllare con `git status` che cambino solo `web/public/art/{diet,gym}/weight.webp` e `web/public/art/{diet,gym}/icons/weight.png`, poi `cd web && npm test` e commit. Nessuna modifica al codice.
 - Verifica: `grep -c "^### " docs/features/2026-10-02-statistiche-palestra-peso/art-prompts.md` restituisce almeno 4 sezioni di prompt e `grep -c "weight-icon.png\|weight.png" docs/features/2026-10-02-statistiche-palestra-peso/art-prompts.md` trova i quattro nomi file; `cd web && npm test`, suite verde.
 
-### [ ] T17. Deploy remoto: migrazione e suite pytest completa
+### [~] T17. Deploy remoto: migrazione e suite pytest completa
 
 - Copre: C3, C4, C5, C9, C10, C13, C14, C18, C23, C25, C26, C29 (esecuzione reale sul DB)
 - File: Nessuno (a parte eventuali correzioni a test o codice API emerse dall'esecuzione, da riportare nel registro)
@@ -395,3 +395,4 @@ Risolte il 2026-10-02:
 - T13 — DONE — review: 1 round — commit: f10e042 — MINOR: durata record in secondi invece di formatDuration; grafico vuoto se metrica assente; test mancanti per periodo senza sessioni/cambio metrica/reps
 - T14 — DONE — review: 1 round — commit: 1972fcd — MINOR: errore di eliminazione pesata non mostrato; ramo errore del blocco senza test; media con un solo punto non disegnata
 - T15 — DONE — review: 2 round — commit: 25d2aa5 — round 1: pulsante Elimina sporgeva dagli angoli e ombra tagliata, touchcancel, doppio tap, reset errore; MINOR: messaggio errore in cima alla pagina; esecuzione interrotta e ripresa
+- T16 — DONE — review: 0 round — commit: 7b286ce — review fatta dall'orchestratore leggendo il documento (4 prompt, nomi file, integrazione ok); nessun reviewer separato
