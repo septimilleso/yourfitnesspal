@@ -1,5 +1,3 @@
-import { useSearchParams } from "react-router-dom";
-
 import { useDiaryRange, useGoal } from "../api/queries";
 import GoalForm from "../components/GoalForm";
 import ModeSwitch from "../components/ModeSwitch";
@@ -7,38 +5,14 @@ import StreakCard from "../components/StreakCard";
 import KcalChart from "../components/stats/KcalChart";
 import MacroChart from "../components/stats/MacroChart";
 import MacroSplitBars from "../components/stats/MacroSplitBars";
-import PeriodPicker, { type PeriodChoice } from "../components/stats/PeriodPicker";
+import PeriodPicker from "../components/stats/PeriodPicker";
 import SummaryTable from "../components/stats/SummaryTable";
-import { todayIso } from "../lib/date";
-import {
-  chartPoints,
-  macroSplit,
-  type Period,
-  type Preset,
-  PRESETS,
-  presetPeriod,
-  summarize,
-  validateCustomPeriod,
-} from "../lib/stats";
-
-function readChoice(params: URLSearchParams): PeriodChoice {
-  const from = params.get("from");
-  const to = params.get("to");
-  if (from !== null || to !== null) return { kind: "custom", from: from ?? "", to: to ?? "" };
-  const days = Number(params.get("range"));
-  return { kind: "preset", days: (PRESETS as number[]).includes(days) ? (days as Preset) : 7 };
-}
+import { usePeriodParams } from "../lib/usePeriodParams";
+import { chartPoints, macroSplit, summarize } from "../lib/stats";
 
 /** Diet stats: streak, goals, period picker, charts and averages. */
 function DietStatsPage() {
-  const [params, setParams] = useSearchParams();
-  const today = todayIso();
-  const choice = readChoice(params);
-  const error = choice.kind === "custom" ? validateCustomPeriod(choice.from, choice.to, today) : null;
-  const period: Period =
-    choice.kind === "preset"
-      ? presetPeriod(choice.days, today)
-      : { start: choice.from, end: choice.to };
+  const { choice, today, error, period, setPreset, openCustom, setDates } = usePeriodParams();
 
   const range = useDiaryRange(period.start, period.end, error === null);
   const { data: goal } = useGoal();
@@ -47,16 +21,6 @@ function DietStatsPage() {
   const days = error === null ? (range.data?.days ?? []) : [];
   const points = chartPoints(days);
   const summary = summarize(days, activeGoal);
-
-  function setPreset(daysCount: Preset) {
-    setParams({ range: String(daysCount) }, { replace: true });
-  }
-  function openCustom() {
-    setParams({ from: period.start, to: period.end }, { replace: true });
-  }
-  function setDates(from: string, to: string) {
-    setParams({ from, to }, { replace: true });
-  }
 
   return (
     <div>

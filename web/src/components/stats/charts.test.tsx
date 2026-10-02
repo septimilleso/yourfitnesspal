@@ -1,8 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { GymStats } from "../../api/gym";
 import type { ChartPoint } from "../../lib/stats";
+import GymSummaryCard from "./GymSummaryCard";
 import KcalChart from "./KcalChart";
+import WeeklyFrequencyChart from "./WeeklyFrequencyChart";
 import MacroChart from "./MacroChart";
 import MacroSplitBars from "./MacroSplitBars";
 import SummaryTable from "./SummaryTable";
@@ -12,6 +15,46 @@ function point(key: string, kcal: number, logged = kcal > 0): ChartPoint {
 }
 
 const points = [point("2026-09-01", 1800), point("2026-09-02", 0), point("2026-09-03", 2400)];
+
+describe("WeeklyFrequencyChart", () => {
+  it("draws one bar per week, including weeks with no workouts", () => {
+    const { container } = render(
+      <WeeklyFrequencyChart
+        weeks={[
+          { week_start: "2026-09-14", workouts: 2 },
+          { week_start: "2026-09-21", workouts: 0 },
+        ]}
+      />,
+    );
+    expect(container.querySelectorAll('[data-testid="frequency-bar"]')).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Frequenza settimanale" })).toBeInTheDocument();
+  });
+});
+
+describe("GymSummaryCard", () => {
+  const stats: GymStats = {
+    start: "2026-09-19",
+    end: "2026-09-25",
+    workouts: 2,
+    volume_kg: 1234.5,
+    avg_duration_min: 45,
+    weeks: [],
+  };
+
+  it("renders period totals", () => {
+    render(<GymSummaryCard stats={stats} />);
+    expect(screen.getByText("2", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("1.234,5 kg")).toBeInTheDocument();
+    expect(screen.getByText("45 min")).toBeInTheDocument();
+  });
+
+  it("shows zero values and an empty-period message", () => {
+    render(<GymSummaryCard stats={{ ...stats, workouts: 0, volume_kg: 0, avg_duration_min: null }} />);
+    expect(screen.getByText("Nessun allenamento nel periodo")).toBeInTheDocument();
+    expect(screen.getByText("0 kg")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+});
 
 describe("KcalChart", () => {
   it("draws one bar per logged point, colored against the goal, and the goal line", () => {
