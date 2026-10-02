@@ -222,7 +222,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npx vitest run src/lib/art.test.ts`: verde;
   - `cd web && npm test`: suite verde.
 
-### [~] T10. Tasto peso nell'header e overlay di inserimento
+### [x] T10. Tasto peso nell'header e overlay di inserimento
 
 - Copre: C1, C2, C20, C24, C30 (parte automatica), R1–R3
 - File: `web/src/components/WeightButton.tsx` (nuovo), `web/src/components/WeightOverlay.tsx` (nuovo), `web/src/components/WeightOverlay.test.tsx` (nuovo), `web/src/components/ModeSwitch.tsx` (modifica), `web/src/components/ModeSwitch.test.tsx` (modifica)
@@ -249,7 +249,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npx vitest run src/lib/useVisualViewportTop.test.ts src/pages/gym/WorkoutPage.test.tsx`: verdi (C24, la sessione live non usa `ModeSwitch`);
   - `cd web && npx tsc -b` e `cd web && npm test`: nessun errore, suite verde.
 
-### [ ] T11. Card "N allenamenti" e badge palestra ogni 10 allenamenti
+### [~] T11. Card "N allenamenti" e badge palestra ogni 10 allenamenti
 
 - Copre: C7, C17
 - File: `web/src/lib/badges.ts` (modifica), `web/src/lib/badges.test.ts` (modifica), `web/src/components/BadgeGrid.tsx` (modifica), `web/src/components/BadgeGrid.test.tsx` (modifica), `web/src/components/WorkoutCountCard.tsx` (nuovo), `web/src/components/WorkoutCountCard.test.tsx` (nuovo), `web/src/pages/gym/GymStatsPage.tsx` (modifica)
@@ -389,3 +389,4 @@ Risolte il 2026-10-02:
 - T7 — DONE — review: 2 round — commit: 7b78226 — round 1: list_tools().tools nel test; incluso fix permesso prima del periodo in exercise_progress; MINOR: tabella README non allineata
 - T8 — DONE — review: 1 round — commit: 00580ce — MINOR: onSuccess attende il refetch (mutateAsync più lento)
 - T9 — DONE — review: 1 round — commit: 41d236f — MINOR: get_flattened_data richiede Pillow recente; fondo sfondo placeholder crema
+- T10 — DONE — review: 2 round — commit: 9524a6e — round 1: overlay in portal fuori dall'header (backdrop-filter), onClose stabile, focus di ritorno; MINOR: niente focus trap; tastiera iOS da verificare a vista
