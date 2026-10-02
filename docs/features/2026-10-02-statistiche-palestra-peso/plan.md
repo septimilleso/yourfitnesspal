@@ -38,7 +38,7 @@ Il piano segue l'approccio A della spec e l'[ADR 0002](../../decisions/0002-stat
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [~] T1. Test di caratterizzazione: Storico ed eliminazione dal dettaglio
+### [x] T1. Test di caratterizzazione: Storico ed eliminazione dal dettaglio
 
 - Copre: C21, C22 (comportamento attuale), C28
 - File: `web/src/pages/gym/HistoryPage.test.tsx` (nuovo), `web/src/pages/gym/WorkoutDetailPage.test.tsx` (modifica)
@@ -52,7 +52,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. In `WorkoutDetailPage.test.tsx`, senza toccare i casi esistenti, aggiungere il flusso "Elimina": aprire `ActionMenu`, scegliere "Elimina" con `vi.spyOn(window, "confirm")` che restituisce `true` → `mutate` di `useDeleteWorkout` chiamato con l'id e, al successo, navigazione a `/gym/history`; con `false` nessuna chiamata. Prima leggere `WorkoutDetailPage.tsx` per replicare esattamente come chiama la mutation (callback `onSuccess` o `mutateAsync`).
 - Verifica: `cd web && npx vitest run src/pages/gym/HistoryPage.test.tsx src/pages/gym/WorkoutDetailPage.test.tsx`, risultato atteso: tutti verdi sul codice attuale. Poi `cd web && npm test`: suite verde.
 
-### [ ] T2. Regole pure delle statistiche nell'API
+### [~] T2. Regole pure delle statistiche nell'API
 
 - Copre: C3 (arrotondamento e intervallo del peso), C4, C9, C10 (parte senza DB), definizioni delle metriche
 - File: `api/app/services/stats_rules.py` (nuovo), `api/tests/test_stats_rules.py` (nuovo)
@@ -380,3 +380,4 @@ Risolte il 2026-10-02:
 ## Registro di esecuzione
 
 - Commit di partenza: 5690b5d
+- T1 — DONE — review: 1 round — commit: 4ddd7b9 — MINOR: test usa monthLabel di produzione; onSuccess invocato a mano dal mock
