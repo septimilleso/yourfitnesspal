@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { GymStats } from "../../api/gym";
+import type { WeightDay } from "../../api/weights";
 import type { ChartPoint } from "../../lib/stats";
 import GymSummaryCard from "./GymSummaryCard";
 import KcalChart from "./KcalChart";
@@ -10,12 +11,31 @@ import ProgressChart from "./ProgressChart";
 import MacroChart from "./MacroChart";
 import MacroSplitBars from "./MacroSplitBars";
 import SummaryTable from "./SummaryTable";
+import WeightChart from "./WeightChart";
 
 function point(key: string, kcal: number, logged = kcal > 0): ChartPoint {
   return { key, label: key.slice(5), kcal, protein_g: 100, carbs_g: 200, fat_g: 50, logged };
 }
 
 const points = [point("2026-09-01", 1800), point("2026-09-02", 0), point("2026-09-03", 2400)];
+
+function weightDay(date: string, weight_kg: number | null, avg_7d_kg: number | null): WeightDay {
+  return { date, id: weight_kg === null ? null : Number(date.slice(-2)), weight_kg, avg_7d_kg };
+}
+
+describe("WeightChart", () => {
+  it("draws one point per weigh-in and a line for the moving average", () => {
+    const days = [
+      weightDay("2026-09-01", 70, 70),
+      weightDay("2026-09-02", null, 71),
+      weightDay("2026-09-03", 72, 71.5),
+      weightDay("2026-09-04", 73, null),
+    ];
+    const { container } = render(<WeightChart days={days} />);
+    expect(container.querySelectorAll('[data-testid="weight-point"]')).toHaveLength(3);
+    expect(container.querySelector('[data-testid="weight-avg-line"]')).toHaveAttribute("points", expect.any(String));
+  });
+});
 
 describe("ProgressChart", () => {
   it("draws one point per session", () => {

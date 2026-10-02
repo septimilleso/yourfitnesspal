@@ -7,6 +7,7 @@ import MacroChart from "../components/stats/MacroChart";
 import MacroSplitBars from "../components/stats/MacroSplitBars";
 import PeriodPicker from "../components/stats/PeriodPicker";
 import SummaryTable from "../components/stats/SummaryTable";
+import WeightSection from "../components/stats/WeightSection";
 import { usePeriodParams } from "../lib/usePeriodParams";
 import { chartPoints, macroSplit, summarize } from "../lib/stats";
 
@@ -59,6 +60,7 @@ function DietStatsPage() {
             <SummaryTable summary={summary} />
           </>
         )}
+        <WeightSection period={period} enabled={error === null} />
       </div>
     </div>
   );
