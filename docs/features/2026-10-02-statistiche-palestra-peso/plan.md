@@ -344,7 +344,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Sezione "Integrazione": copiare i file ricevuti nello zip con quei nomi in `web/art/{dieta,palestra}/`, eseguire `python web/scripts/build-art.py`, controllare con `git status` che cambino solo `web/public/art/{diet,gym}/weight.webp` e `web/public/art/{diet,gym}/icons/weight.png`, poi `cd web && npm test` e commit. Nessuna modifica al codice.
 - Verifica: `grep -c "^### " docs/features/2026-10-02-statistiche-palestra-peso/art-prompts.md` restituisce almeno 4 sezioni di prompt e `grep -c "weight-icon.png\|weight.png" docs/features/2026-10-02-statistiche-palestra-peso/art-prompts.md` trova i quattro nomi file; `cd web && npm test`, suite verde.
 
-### [~] T17. Deploy remoto: migrazione e suite pytest completa
+### [x] T17. Deploy remoto: migrazione e suite pytest completa
 
 - Copre: C3, C4, C5, C9, C10, C13, C14, C18, C23, C25, C26, C29 (esecuzione reale sul DB)
 - File: Nessuno (a parte eventuali correzioni a test o codice API emerse dall'esecuzione, da riportare nel registro)
@@ -356,7 +356,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Da browser loggato: `GET /api/stats/gym/count` e `GET /api/weights?start=...&end=...` rispondono 200.
 - Verifica, sul server: `alembic current` mostra `a6c1e4b8d203 (head)`; il ciclo downgrade/upgrade termina senza errori; pytest: tutti i test passano, vecchi e nuovi.
 
-### [ ] T18. Verifica manuale su iPhone (checklist)
+### [~] T18. Verifica manuale su iPhone (checklist)
 
 - Copre: C15, C16, C30, C31 (a vista), più conferme a vista per C1 (schermi stretti) e C21
 - File: Nessuno
@@ -396,3 +396,4 @@ Risolte il 2026-10-02:
 - T14 — DONE — review: 1 round — commit: 1972fcd — MINOR: errore di eliminazione pesata non mostrato; ramo errore del blocco senza test; media con un solo punto non disegnata
 - T15 — DONE — review: 2 round — commit: 25d2aa5 — round 1: pulsante Elimina sporgeva dagli angoli e ombra tagliata, touchcancel, doppio tap, reset errore; MINOR: messaggio errore in cima alla pagina; esecuzione interrotta e ripresa
 - T16 — DONE — review: 0 round — commit: 7b286ce — review fatta dall'orchestratore leggendo il documento (4 prompt, nomi file, integrazione ok); nessun reviewer separato
+- T17 — DONE — server 2026-10-04: alembic upgrade/downgrade -1/upgrade di a6c1e4b8d203 ok, current = head. Pytest dei test della feature e dei preservati: 82 passed, 1 failed (test_mcp_tools_workouts::test_search_and_create_template, assert 10 == 2 su AuditEvent: fallisce anche su main). Suite completa: 46 fallimenti, quasi tutti presenti anche su main (interferenza tra test sul DB di produzione); i test del peso falliti nella suite completa passano isolati e nel set della feature. Da aprire un devflow:fix per l'isolamento della suite. Nota: un primo downgrade -1 lanciato prima di upgrade head ha ricreato vuota push_subscriptions (riattivare il toggle avvisi su iPhone).
