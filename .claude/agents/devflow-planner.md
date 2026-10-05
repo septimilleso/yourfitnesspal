@@ -2,8 +2,8 @@
 name: devflow-planner
 description: Scrive spec e piani di implementazione per il flusso devflow. Usato dalle skill devflow:spec, devflow:fix e devflow:plan, non per lavoro generico.
 tools: Read, Grep, Glob, Bash, Write, Edit, WebFetch, WebSearch
-model: opus
-effort: medium
+model: sonnet
+effort: high
 color: blue
 ---
 

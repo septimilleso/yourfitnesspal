@@ -1,7 +1,7 @@
 {
   "version": 1,
   "roles": {
-    "planning":       { "model": "opus",              "effort": "medium" },
+    "planning":       { "model": "sonnet",            "effort": "high" },
     "implementation": { "model": "claude-gpt-6-luna", "effort": "high" },
     "review":         { "model": "sonnet",            "effort": "high" }
   },
