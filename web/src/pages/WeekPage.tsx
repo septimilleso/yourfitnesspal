@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import type { Goal, WeekDayTotal } from "../api/queries";
 import { useGoal, useWeekDiary } from "../api/queries";
+import { useHasPermission } from "../auth/AuthContext";
 import CopyDaysDialog from "../components/CopyDaysDialog";
 import ModeSwitch from "../components/ModeSwitch";
+import SaveWeekDialog from "../components/SaveWeekDialog";
 import { formatIsoDateShort, shiftIsoDate, startOfWeek, todayIso } from "../lib/date";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -131,9 +133,12 @@ function WeekPage() {
 
   const { data, isLoading, isError } = useWeekDiary(start);
   const { data: goal } = useGoal();
+  const canCopy = useHasPermission("diary.copy");
+  const isMonday = startOfWeek(start) === start;
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [copySourceDates, setCopySourceDates] = useState<string[] | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   function goToWeek(nextStart: string) {
     setSearchParams((prev) => {
@@ -201,6 +206,25 @@ function WeekPage() {
 
         {data && (
           <>
+            {canCopy && (
+              <div className="flex min-h-[44px] items-center justify-between gap-3">
+                <Link
+                  to="/week/saved"
+                  className="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium text-brand-700 active:bg-brand-50"
+                >
+                  Settimane salvate
+                </Link>
+                {isMonday && (
+                  <button
+                    type="button"
+                    onClick={() => setSaveDialogOpen(true)}
+                    className="btn-secondary min-h-[44px]"
+                  >
+                    Salva settimana
+                  </button>
+                )}
+              </div>
+            )}
             <p className="section-label">Seleziona i giorni da copiare</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {data.days.map((day, index) => (
@@ -238,6 +262,9 @@ function WeekPage() {
 
       {copySourceDates && (
         <CopyDaysDialog sourceDates={copySourceDates} onClose={handleCloseDialog} />
+      )}
+      {saveDialogOpen && (
+        <SaveWeekDialog start={start} onClose={() => setSaveDialogOpen(false)} />
       )}
     </div>
   );
