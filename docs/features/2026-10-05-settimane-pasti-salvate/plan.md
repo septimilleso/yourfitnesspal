@@ -106,7 +106,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test DB: C6 (apply di tutta la settimana con `days: null` in `append` su 7 giorni vuoti: ogni giorno contiene le entry salvate del giorno corrispondente; `entries_created` e `days` di lunghezza 7); C7 (giorni `[1, 3]`, `target_start=2026-10-12`: martedì → 12, giovedì → 13, nessun altro giorno toccato, anche il giorno 14 resta vuoto); C8 (colazione già presente nel giorno di destinazione: resta, le nuove vanno dopo con `position` successive); C9 (`replace` con `meals=["lunch"]`: pranzi sostituiti, colazione/cena/spuntino restano); `replace` con giorno salvato vuoto svuota comunque i pasti selezionati nel giorno di destinazione; C11 (cambiare `Food.nutriments` dopo il salvataggio: le nuove entry hanno i nutrienti correnti nel `nutriments_snapshot`); `days: []` → 400; giorno 7 → 400; settimana altrui → 404 senza scrivere; 403 senza permesso; equivalenza con la copia: salvare una settimana e copiarne gli stessi giorni con `POST /api/diary/copy` (stessa destinazione in un altro utente/periodo) danno gli stessi `entries_created` per giorno.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main" && .venv/Scripts/python -m pytest tests/test_saved_week_rules.py -q`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py tests/test_diary_copy.py -v`, verdi.
 
-### [~] T8. Hook web per le settimane salvate
+### [x] T8. Hook web per le settimane salvate
 
 - Copre: C10 (invalidazioni cache), base di C3, C4, C12, C14
 - File: `web/src/api/savedWeeks.ts` (nuovo), `web/src/api/savedWeeks.test.tsx` (nuovo)
@@ -118,7 +118,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: ogni mutazione manda il metodo, l'URL e il body attesi; salvataggio/rinomina/eliminazione invalidano `["saved-weeks"]`; apply invalida `["diary","week"]` e `["diary","day"]`.
 - Verifica: `cd web && npx vitest run src/api/savedWeeks.test.tsx` (verde) e `cd web && npx tsc -b` (nessun errore).
 
-### [ ] T9. Estrarre `CopyOptionsFields` da `CopyDaysDialog` (nessun cambio visibile)
+### [~] T9. Estrarre `CopyOptionsFields` da `CopyDaysDialog` (nessun cambio visibile)
 
 - Copre: C15 (preservare), base di C6/C10
 - File: `web/src/components/CopyOptionsFields.tsx` (nuovo), `web/src/components/CopyOptionsFields.test.tsx` (nuovo), `web/src/components/CopyDaysDialog.tsx` (modifica)
@@ -241,3 +241,4 @@ Commit di partenza: 7a42eed
 - T5 — DONE — review: 2 round (BLOCKER total dettaglio risolto; MAJOR avg_kcal test corretto, verificato dall'orchestratore) — commit: f6b86d4 (test DB da eseguire sul remoto)
 - T6 — DONE — review: 1 round — commit: f835cb8 (MINOR: 2 asserzioni opzionali nei test)
 - T7 — DONE — review: 1 round — commit: 5db4223 (MINOR: test equivalenza usa stesso utente)
+- T8 — DONE — review: 1 round — commit: bc86cb2 (MINOR: test apply con days/meals null mancante)
