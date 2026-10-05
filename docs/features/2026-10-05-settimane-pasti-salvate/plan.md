@@ -142,7 +142,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Test: submit con tutti i pasti → `meals: null`; sottoinsieme pasti → array; modalità replace; "Applica" disabilitato senza data e con zero pasti (C10); riepilogo "Applicati 5 pasti in 2 giorni"; Annulla chiama `onClose`.
 - Verifica: `cd web && npx vitest run src/components/ApplySavedWeekDialog.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [~] T11. Pagina elenco `/week/saved` e rotta
+### [x] T11. Pagina elenco `/week/saved` e rotta
 
 - Copre: C3, C13 (web), C18
 - File: `web/src/pages/SavedWeeksPage.tsx` (nuovo), `web/src/pages/SavedWeeksPage.test.tsx` (nuovo), `web/src/App.tsx` (modifica), `web/src/components/AppShell.test.tsx` (modifica: un test in più)
@@ -154,7 +154,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test della pagina (mock di `../api/savedWeeks` e di `../components/ModeSwitch`, `MemoryRouter`): due settimane in ordine con nome e "N pasti"; stato vuoto con link a `/week`; con `PermissionGuard` e `useHasPermission` mockato a `false` (mock di `../auth/AuthContext` come in `AppShell.test.tsx`) la rotta reindirizza alla pagina "Giorno" (C13).
 - Verifica: `cd web && npx vitest run src/pages/SavedWeeksPage.test.tsx src/components/AppShell.test.tsx` (verdi) e `cd web && npx tsc -b`.
 
-### [ ] T12. Pagina dettaglio `/week/saved/:id` (sola lettura)
+### [~] T12. Pagina dettaglio `/week/saved/:id` (sola lettura)
 
 - Copre: C4 (UI), C5 (UI), C13 (web)
 - File: `web/src/pages/SavedWeekDetailPage.tsx` (nuovo), `web/src/pages/SavedWeekDetailPage.test.tsx` (nuovo), `web/src/App.tsx` (modifica)
@@ -244,3 +244,4 @@ Commit di partenza: 7a42eed
 - T8 — DONE — review: 1 round — commit: bc86cb2 (MINOR: test apply con days/meals null mancante)
 - T9 — DONE — review: 1 round — commit: c3d67ab
 - T10 — DONE — review: 1 round — commit: b170175 (MINOR: test titoli/isPending/singolari mancanti)
+- T11 — DONE — review: 1 round — commit: 7e99dbb (MINOR: manca test loading/error; '1 pasti' al singolare)
