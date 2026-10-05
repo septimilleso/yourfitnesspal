@@ -200,7 +200,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: invio con nome valido chiama `mutate` con nome senza spazi e `start`; "Salva" disabilitato con nome vuoto/spazi; errore mostrato; Annulla chiama `onClose`.
 - Verifica: `cd web && npx vitest run src/components/SaveWeekDialog.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [~] T16. `WeekPage`: comandi "Salva settimana" e "Settimane salvate"
+### [x] T16. `WeekPage`: comandi "Salva settimana" e "Settimane salvate"
 
 - Copre: C1 (UI), C3 (accesso), C13 (web), C15
 - File: `web/src/pages/WeekPage.tsx` (modifica), `web/src/pages/WeekPage.test.tsx` (modifica: solo test aggiunti)
@@ -212,7 +212,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test aggiunti: con permesso e lunedì i due comandi ci sono e "Salva settimana" apre il dialog; senza permesso nessuno dei due; con permesso ma `?start=2026-08-25` (martedì) "Salva settimana" non c'è e "Settimane salvate" sì.
 - Verifica: `cd web && npx vitest run src/pages/WeekPage.test.tsx src/components/SaveWeekDialog.test.tsx` (verdi, i test preesistenti di `WeekPage` senza modifiche) e `cd web && npx tsc -b`.
 
-### [ ] T17. Documentazione e verifica finale
+### [~] T17. Documentazione e verifica finale
 
 - Copre: C19, C20 (e riepilogo C1–C18)
 - File: `README.md` (modifica)
@@ -249,3 +249,4 @@ Commit di partenza: 7a42eed
 - T13 — DONE — review: 1 round — commit: 107cb1b (MINOR: regex \d vacuo nel test barra assente; mancano test reset selezione e singolare)
 - T14 — DONE — review: 1 round — commit: cad6b2a (include pulizia test T13; MINOR: mancano test rinomina prompt vuoto/uguale)
 - T15 — DONE — review: 1 round — commit: a836714 (MINOR: test isPending mancante; in T16 onSaved non deve smontare il dialog)
+- T16 — DONE — review: 1 round — commit: 6e01d62 (test nuovi in WeekPage.savedWeeks.test.tsx, WeekPage.test.tsx intatto)
