@@ -1,14 +1,21 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useApplySavedWeek, useSavedWeek } from "../api/savedWeeks";
+import {
+  useApplySavedWeek,
+  useDeleteSavedWeek,
+  useRenameSavedWeek,
+  useSavedWeek,
+} from "../api/savedWeeks";
 import SavedWeekDetailPage from "./SavedWeekDetailPage";
 
 vi.mock("../api/savedWeeks", () => ({
   useSavedWeek: vi.fn(),
   useApplySavedWeek: vi.fn(),
+  useRenameSavedWeek: vi.fn(),
+  useDeleteSavedWeek: vi.fn(),
 }));
 vi.mock("../components/ModeSwitch", () => ({ default: () => <div data-testid="mode-switch" /> }));
 
@@ -53,20 +60,32 @@ const week = {
 };
 
 const mutate = vi.fn();
+const renameMutate = vi.fn();
+const deleteMutate = vi.fn((id: number, options?: { onSuccess?: () => void }) => {
+  void id;
+  options?.onSuccess?.();
+});
 
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/week/saved/8"]}>
       <Routes>
         <Route path="/week/saved/:id" element={<SavedWeekDetailPage />} />
+        <Route path="/week/saved" element={<h1>Settimane salvate</h1>} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe("SavedWeekDetailPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     mutate.mockClear();
+    renameMutate.mockClear();
+    deleteMutate.mockClear();
     vi.mocked(useSavedWeek).mockReturnValue({ data: week, isLoading: false, isError: false } as unknown as ReturnType<typeof useSavedWeek>);
     vi.mocked(useApplySavedWeek).mockReturnValue({
       mutate,
@@ -76,6 +95,8 @@ describe("SavedWeekDetailPage", () => {
       data: undefined,
       reset: vi.fn(),
     } as unknown as ReturnType<typeof useApplySavedWeek>);
+    vi.mocked(useRenameSavedWeek).mockReturnValue({ mutate: renameMutate } as unknown as ReturnType<typeof useRenameSavedWeek>);
+    vi.mocked(useDeleteSavedWeek).mockReturnValue({ mutate: deleteMutate } as unknown as ReturnType<typeof useDeleteSavedWeek>);
   });
 
   it("shows all seven days, totals, and foods grouped by meal", () => {
@@ -119,7 +140,7 @@ describe("SavedWeekDetailPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.queryByText(/Applica \\d+ giorni/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Applica \d+ giorni/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: "Seleziona Mar" }));
     await user.click(screen.getByRole("checkbox", { name: "Seleziona Gio" }));
 
@@ -140,5 +161,73 @@ describe("SavedWeekDetailPage", () => {
       meals: null,
       mode: "append",
     });
+  });
+
+  it("shows a singular action when one day is selected", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("checkbox", { name: "Seleziona Mar" }));
+
+    expect(screen.getByRole("button", { name: "Applica 1 giorno…" })).toBeInTheDocument();
+  });
+
+  it("clears the selected days when the apply dialog closes", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("checkbox", { name: "Seleziona Mar" }));
+    await user.click(screen.getByRole("button", { name: "Applica 1 giorno…" }));
+    await user.click(screen.getByRole("button", { name: "Annulla" }));
+
+    expect(screen.queryByRole("button", { name: /Applica \d+ giorn[oi]/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Seleziona Mar" })).not.toBeChecked();
+  });
+
+  it("renames the saved week using the prompted name", async () => {
+    const user = userEvent.setup();
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("  Dieta B  ");
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Azioni settimana" }));
+    await user.click(screen.getByRole("menuitem", { name: "Rinomina" }));
+
+    expect(prompt).toHaveBeenCalledWith("Nome della settimana", "Dieta A");
+    expect(renameMutate).toHaveBeenCalledWith({ id: 8, name: "Dieta B" });
+  });
+
+  it("does not rename when the prompt is cancelled", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Azioni settimana" }));
+    await user.click(screen.getByRole("menuitem", { name: "Rinomina" }));
+
+    expect(renameMutate).not.toHaveBeenCalled();
+  });
+
+  it("deletes the week after confirmation and navigates to the saved weeks", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Azioni settimana" }));
+    await user.click(screen.getByRole("menuitem", { name: "Elimina" }));
+
+    expect(confirm).toHaveBeenCalledWith("Eliminare questa settimana salvata?");
+    expect(deleteMutate).toHaveBeenCalledWith(8, expect.objectContaining({ onSuccess: expect.any(Function) }));
+    expect(screen.getByRole("heading", { name: "Settimane salvate" })).toBeInTheDocument();
+  });
+
+  it("does not delete when confirmation is denied", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Azioni settimana" }));
+    await user.click(screen.getByRole("menuitem", { name: "Elimina" }));
+
+    expect(deleteMutate).not.toHaveBeenCalled();
   });
 });

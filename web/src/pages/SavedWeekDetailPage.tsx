@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { useSavedWeek } from "../api/savedWeeks";
+import {
+  useDeleteSavedWeek,
+  useRenameSavedWeek,
+  useSavedWeek,
+} from "../api/savedWeeks";
 import type { Meal } from "../api/queries";
 import { MEALS } from "../api/queries";
 import ApplySavedWeekDialog from "../components/ApplySavedWeekDialog";
+import ActionMenu from "../components/gym/ActionMenu";
 import ModeSwitch from "../components/ModeSwitch";
 import { MEAL_LABELS } from "../lib/meals";
 
@@ -13,7 +18,10 @@ const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 function SavedWeekDetailPage() {
   const { id } = useParams();
   const savedWeekId = Number(id);
+  const navigate = useNavigate();
   const week = useSavedWeek(savedWeekId);
+  const rename = useRenameSavedWeek();
+  const remove = useDeleteSavedWeek();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [dialogDays, setDialogDays] = useState<number[] | null | undefined>(undefined);
 
@@ -34,20 +42,40 @@ function SavedWeekDetailPage() {
     setSelected(new Set());
   }
 
+  function renameSavedWeek() {
+    if (!week.data) return;
+    const name = window.prompt("Nome della settimana", week.data.name)?.trim();
+    if (name && name !== week.data.name) rename.mutate({ id: savedWeekId, name });
+  }
+
+  function deleteSavedWeek() {
+    if (!week.data || !window.confirm("Eliminare questa settimana salvata?")) return;
+    remove.mutate(savedWeekId, { onSuccess: () => navigate("/week/saved", { replace: true }) });
+  }
+
   return (
     <div>
       <header className="app-header">
         <ModeSwitch />
-        <div className="mx-auto max-w-2xl px-4 py-3">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 py-3">
           <Link
             to="/week/saved"
-            className="mb-1 inline-flex min-h-[44px] items-center text-sm font-medium text-brand-700"
+            className="inline-flex min-h-[44px] items-center text-sm font-medium text-brand-700"
           >
             &lsaquo; Salvate
           </Link>
-          <h1 className="truncate text-center text-[17px] font-semibold text-slate-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-semibold text-slate-900">
             {week.data?.name ?? "Settimana salvata"}
           </h1>
+          {week.data && (
+            <ActionMenu
+              label="Azioni settimana"
+              actions={[
+                { label: "Rinomina", onSelect: renameSavedWeek },
+                { label: "Elimina", onSelect: deleteSavedWeek, destructive: true },
+              ]}
+            />
+          )}
         </div>
       </header>
 
