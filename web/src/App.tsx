@@ -21,6 +21,7 @@ import LoginPage from "./pages/LoginPage";
 import ConnectPage from "./pages/ConnectPage";
 import DietStatsPage from "./pages/DietStatsPage";
 import SearchPage from "./pages/SearchPage";
+import SavedWeeksPage from "./pages/SavedWeeksPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
 
@@ -61,6 +62,9 @@ function App() {
             <Route element={<AppShell />}>
               <Route path="/" element={<DayPage />} />
               <Route path="/week" element={<WeekPage />} />
+              <Route element={<PermissionGuard permission="diary.copy" />}>
+                <Route path="/week/saved" element={<SavedWeeksPage />} />
+              </Route>
               <Route path="/search" element={<SearchPage />} />
               <Route path="/stats" element={<DietStatsPage />} />
               <Route path="/settings" element={<SettingsPage />} />

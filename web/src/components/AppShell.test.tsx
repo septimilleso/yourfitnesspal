@@ -27,6 +27,7 @@ function renderShell(initialPath = "/") {
           <Route path="/" element={<div>Giorno Page</div>} />
           <Route path="/search" element={<div>Search Page</div>} />
           <Route path="/week" element={<div>Week Page</div>} />
+          <Route path="/week/saved" element={<div>Saved Weeks Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/stats" element={<div>Stats Page</div>} />
           <Route path="/gym" element={<div>Gym Page</div>} />
@@ -121,6 +122,13 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("link", { name: "Settimana" })).toHaveClass("text-brand-600");
     expect(screen.getByRole("link", { name: "Giorno" })).toHaveClass("text-slate-400");
+  });
+
+  it("marks the week tab active on saved weeks and keeps all four diet tabs", () => {
+    renderShell("/week/saved");
+
+    expect(screen.getByRole("link", { name: "Settimana" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByRole("link", { name: /^(Giorno|Cerca|Settimana|Statistiche)$/ })).toHaveLength(4);
   });
 
   it("shows the gym tabs on gym pages", () => {
