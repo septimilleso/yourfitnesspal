@@ -3,6 +3,7 @@ import { formatIsoDateShort, shiftIsoDate, startOfWeek } from "./date";
 import { normalizeMacroPercentages } from "./goalMath";
 
 export type Preset = 7 | 30 | 90;
+export type PeriodChoice = { kind: "preset"; days: Preset } | { kind: "custom"; from: string; to: string };
 export const PRESETS: Preset[] = [7, 30, 90];
 export const MAX_RANGE_DAYS = 366;
 /** Beyond this many days the charts show one bar per week. */

@@ -32,6 +32,14 @@ async def test_put_today_upserts_and_validates_weight(db, monkeypatch) -> None:
     assert rows[0].weight_kg == Decimal("78.5")
 
 
+async def test_put_today_requires_weight_value_with_bad_request(db, monkeypatch) -> None:
+    monkeypatch.setattr(weights.activity, "local_today", lambda: date(2026, 10, 2))
+    user = await make_user(db)
+    async with await http_client(db, user) as client:
+        response = await client.put("/api/weights/today", json={})
+    assert response.status_code == 400
+
+
 async def test_put_today_accepts_weight_boundaries_and_comma_decimal(db, monkeypatch) -> None:
     monkeypatch.setattr(weights.activity, "local_today", lambda: date(2026, 10, 2))
     user = await make_user(db)

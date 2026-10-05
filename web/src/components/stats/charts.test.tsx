@@ -83,6 +83,19 @@ describe("ProgressChart", () => {
     ]);
   });
 
+  it("keeps two decimals on compact labels for narrow large-weight ranges", () => {
+    render(
+      <ProgressChart
+        metric="volume_kg"
+        points={[
+          { date: "2026-09-01", value: 10250 },
+          { date: "2026-09-08", value: 10750 },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toContain("10,25k kg");
+  });
+
   it("formats integer reps and long durations in minutes", () => {
     const { rerender } = render(
       <ProgressChart

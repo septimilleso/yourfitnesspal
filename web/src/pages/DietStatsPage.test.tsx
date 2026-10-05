@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -109,12 +109,30 @@ describe("DietStatsPage", () => {
     confirm.mockReturnValue(true);
     await user.click(screen.getByRole("button", { name: "Elimina pesata del giovedì 24 settembre" }));
     expect(confirm).toHaveBeenCalledWith("Eliminare questa pesata?");
-    expect(mutateWeight).toHaveBeenCalledWith(42);
+    expect(mutateWeight).toHaveBeenCalledWith(42, expect.objectContaining({ onError: expect.any(Function) }));
 
     mutateWeight.mockClear();
     confirm.mockReturnValue(false);
     await user.click(screen.getByRole("button", { name: "Elimina pesata del giovedì 24 settembre" }));
     expect(mutateWeight).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it("shows an error when deleting a weigh-in fails", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(useWeightHistory).mockReturnValue({
+      data: weights([{ date: "2026-09-24", id: 42, weight_kg: 70.2, avg_7d_kg: 70.2 }]),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useWeightHistory>);
+    const user = userEvent.setup();
+    renderAt();
+
+    await user.click(screen.getByRole("button", { name: "Elimina pesata del giovedì 24 settembre" }));
+    const callbacks = mutateWeight.mock.calls[0][1] as { onError?: () => void };
+    act(() => callbacks.onError?.());
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Impossibile eliminare la pesata.");
     confirm.mockRestore();
   });
 

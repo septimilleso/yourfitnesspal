@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class WeightIn(BaseModel):
-    weight_kg: Any
+    weight_kg: Any = None
 
 
 class WeightOut(BaseModel):

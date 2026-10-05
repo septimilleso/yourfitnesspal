@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +88,11 @@ async def period_stats(
         duration_seconds = sum(
             (row.finished_at - row.started_at).total_seconds() for row in workout_rows
         )
-        avg_duration = round(duration_seconds / workout_count / 60)
+        avg_duration = int(
+            Decimal(str(duration_seconds / workout_count / 60)).quantize(
+                Decimal(1), rounding=ROUND_HALF_UP
+            )
+        )
 
     return GymStatsOut(
         start=start,
@@ -116,7 +121,6 @@ async def performed_exercises(
                 Exercise.name,
                 Exercise.tracking,
                 Exercise.source,
-                sa.func.max(Workout.started_at).label("latest_started"),
                 sa.func.max(day_column).label("last_date"),
             )
             .join(WorkoutExercise, WorkoutExercise.exercise_id == Exercise.id)

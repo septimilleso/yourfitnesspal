@@ -1,7 +1,13 @@
 import { useState } from "react";
 
 import type { AppMode } from "../lib/appMode";
-import { badgeProgress, BADGE_COUNT, DAYS_PER_BADGE, WORKOUTS_PER_BADGE } from "../lib/badges";
+import {
+  badgeProgress,
+  BADGE_COUNT,
+  DAYS_PER_BADGE,
+  gymBadgeProgress,
+  WORKOUTS_PER_BADGE,
+} from "../lib/badges";
 import { badgeIcon } from "../lib/art";
 
 /** One badge is earned every five streak days or ten finished workouts. */
@@ -14,8 +20,7 @@ function BadgeGrid({
   current: number;
   unit?: "streak" | "workouts";
 }) {
-  const perBadge = unit === "workouts" ? WORKOUTS_PER_BADGE : DAYS_PER_BADGE;
-  const { earned, nextIn } = badgeProgress(current, perBadge);
+  const { earned, nextIn } = unit === "workouts" ? gymBadgeProgress(current) : badgeProgress(current);
   const [expanded, setExpanded] = useState(false);
 
   const nextLabel = unit === "workouts" ? "allenamento" : "giorno";

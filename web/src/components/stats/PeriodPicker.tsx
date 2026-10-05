@@ -1,6 +1,4 @@
-import { PRESETS, type Preset } from "../../lib/stats";
-
-export type PeriodChoice = { kind: "preset"; days: Preset } | { kind: "custom"; from: string; to: string };
+import { PRESETS, type PeriodChoice, type Preset } from "../../lib/stats";
 
 interface Props {
   choice: PeriodChoice;

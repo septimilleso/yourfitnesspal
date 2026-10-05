@@ -218,7 +218,9 @@ describe("HistoryPage", () => {
     const callbacks = deleteWorkout.mock.calls[0][1] as { onError?: () => void };
     act(() => callbacks.onError?.());
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Impossibile eliminare l'allenamento.");
+    const error = screen.getByRole("alert");
+    expect(error).toHaveTextContent("Impossibile eliminare l'allenamento.");
+    expect(error.closest("[data-swipeable-id]")).toHaveAttribute("data-swipeable-id", "9");
     expect(screen.getByRole("link", { name: /Giorno 1/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Elimina" })).toBeInTheDocument();
 

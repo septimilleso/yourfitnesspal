@@ -193,12 +193,26 @@ describe("GymStatsPage", () => {
       exercise_id: 1,
       name: "Squat",
       tracking: "duration",
-      sessions: [{ date: "2026-09-18", workout_id: 8, metrics: { max_duration_s: 60, total_duration_s: 120 }, sets: ["60 s"] }],
-      records: [{ kind: "max_duration_s", value: 60, date: "2026-09-18" }],
+      sessions: [{ date: "2026-09-18", workout_id: 8, metrics: { max_duration_s: 90, total_duration_s: 120 }, sets: ["1:30"] }],
+      records: [{ kind: "max_duration_s", value: 90, date: "2026-09-18" }],
     });
     renderAt("/gym/stats?exercise=1");
     expect(screen.getByRole("button", { name: "Durata max" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Durata totale" })).toBeInTheDocument();
+    expect(screen.getAllByText("1:30")).toHaveLength(2);
+  });
+
+  it("shows an empty metric message when a session has no value for the selected metric", async () => {
+    const user = userEvent.setup();
+    mockExerciseProgress({
+      ...progress,
+      sessions: [{ ...progress.sessions[0], metrics: { max_weight_kg: 100 } }],
+    });
+    renderAt();
+
+    await user.click(screen.getByRole("button", { name: "Volume" }));
+
+    expect(screen.getByText("Nessun dato per questa metrica")).toBeInTheDocument();
   });
 
   it("shows an empty progress message when the user has no performed exercises", () => {

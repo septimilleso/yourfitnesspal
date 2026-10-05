@@ -120,6 +120,8 @@ function ExerciseProgressSection({ period, enabled }: { period: Period; enabled:
             )}
             {progress.data.sessions.length === 0 ? (
               <p className="py-5 text-center text-sm text-slate-500">Nessuna sessione nel periodo</p>
+            ) : points.length === 0 ? (
+              <p className="py-5 text-center text-sm text-slate-500">Nessun dato per questa metrica</p>
             ) : (
               <ProgressChart points={points} metric={selectedMetric} />
             )}

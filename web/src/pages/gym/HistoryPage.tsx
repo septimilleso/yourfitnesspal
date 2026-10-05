@@ -71,11 +71,6 @@ function HistoryPage() {
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-5 p-4">
-        {deleteError && (
-          <p role="alert" className="card px-4 py-3 text-center text-sm text-red-600">
-            Impossibile eliminare l'allenamento.
-          </p>
-        )}
         {history.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
         {history.isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">Errore nel caricamento dello storico.</p>
@@ -126,6 +121,11 @@ function HistoryPage() {
                     </ul>
                   </Link>
                 </SwipeableCard>
+                {deleteError && openId === item.id && (
+                  <p role="alert" className="card mt-2 px-4 py-3 text-center text-sm text-red-600">
+                    Impossibile eliminare l'allenamento.
+                  </p>
+                )}
               </div>
             ))}
           </section>

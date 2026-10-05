@@ -28,16 +28,18 @@ function ProgressChart({
   const dataMax = Math.max(...values);
   const duration = metric.includes("duration");
   const durationInMinutes = duration && dataMax >= 60;
-  const divisor = durationInMinutes ? 60 : 1;
-  const displayValues = values.map((value) => value / divisor);
   const isReps = metric.includes("reps");
   const unit = duration ? (durationInMinutes ? "min" : "s") : metric.endsWith("_kg") ? "kg" : "";
+  const compactKg = unit === "kg" && Math.min(...values) >= 10_000;
+  const preciseCompact = compactKg && dataMax - Math.min(...values) < 1_000;
+  const divisor = durationInMinutes ? 60 : compactKg ? 1000 : 1;
+  const scaleValues = values.map((value) => value / divisor);
   const ticks = niceTicks(
-    Math.min(...displayValues),
-    Math.max(...displayValues),
-    4,
+    Math.min(...scaleValues),
+    Math.max(...scaleValues),
+    preciseCompact ? 2 : 4,
     isReps || (duration && !durationInMinutes),
-    durationInMinutes ? 2 : unit === "kg" ? 1 : undefined,
+    compactKg ? (preciseCompact ? 2 : 1) : durationInMinutes ? 2 : unit === "kg" ? 1 : undefined,
   );
   const minTick = ticks[0];
   const maxTick = ticks[ticks.length - 1];
@@ -67,8 +69,8 @@ function ProgressChart({
             fontSize={13}
             fill="#64748b"
           >
-            {unit === "kg" && Math.abs(tick) >= 10_000
-              ? `${formatChartTick(tick / 1000, "", 1)}k kg`
+            {compactKg
+              ? `${formatChartTick(tick, "", preciseCompact ? 2 : 1)}k kg`
               : formatChartTick(tick, unit, durationInMinutes ? 2 : isReps ? 0 : 1)}
           </text>
         </g>

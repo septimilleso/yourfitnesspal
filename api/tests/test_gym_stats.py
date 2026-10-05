@@ -97,6 +97,27 @@ async def test_period_stats_uses_local_started_day(db, monkeypatch) -> None:
     }
 
 
+async def test_period_stats_rounds_half_minutes_up(db) -> None:
+    user = await make_user(db, permissions=GYM)
+    exercise = await make_exercise(db, name="Half-minute rounding")
+    for day, minutes in ((2, 74), (3, 75)):
+        await make_finished_workout(
+            db,
+            user,
+            started_at=datetime(2026, 10, day, 10, tzinfo=UTC),
+            minutes=minutes,
+            items=[(exercise, [(50.0, 5, None)])],
+        )
+
+    async with await http_client(db, user) as client:
+        response = await client.get(
+            "/api/stats/gym", params={"start": "2026-10-01", "end": "2026-10-05"}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["avg_duration_min"] == 75
+
+
 async def test_gym_stats_rejects_invalid_period(db) -> None:
     user = await make_user(db, permissions=GYM)
     async with await http_client(db, user) as client:
@@ -266,6 +287,16 @@ async def test_performed_exercises_include_archived_custom_and_exclude_other_wor
     assert progress.status_code == 200
     assert progress.json()["sessions"][0]["sets"] == ["40 kg × 5"]
     assert other_custom.status_code == 404
+
+
+async def test_exercise_progress_rejects_invalid_period(db) -> None:
+    user = await make_user(db, permissions=GYM)
+    async with await http_client(db, user) as client:
+        response = await client.get(
+            "/api/stats/gym/exercises/1",
+            params={"start": "2026-10-02", "end": "2026-10-01"},
+        )
+    assert response.status_code == 400
 
 
 async def test_exercise_stats_require_workout_permission_and_login(db) -> None:

@@ -1,6 +1,6 @@
 import type { PersonalRecord } from "../../api/gym";
 import { formatIsoDateLong } from "../../lib/date";
-import { formatKg } from "../../lib/gym";
+import { formatDuration, formatKg } from "../../lib/gym";
 
 const labels: Record<string, string> = {
   max_weight_kg: "Carico massimo",
@@ -11,7 +11,7 @@ const labels: Record<string, string> = {
 
 function formatValue(record: PersonalRecord): string {
   if (record.kind.endsWith("_kg")) return `${formatKg(record.value)} kg`;
-  if (record.kind.endsWith("_s")) return `${record.value} s`;
+  if (record.kind.endsWith("_s")) return formatDuration(record.value);
   return `${record.value} reps`;
 }
 

@@ -142,3 +142,19 @@ def test_personal_records_across_tracking_and_ties_use_first_date() -> None:
     assert [(r.kind, r.value, r.date) for r in personal_records(
         Tracking.duration, [(date(2026, 10, 2), [_set(duration=60), _set(duration=90)])]
     )] == [("max_duration_s", 90, date(2026, 10, 2))]
+
+
+def test_nonpositive_weight_is_not_a_load_or_resistance() -> None:
+    zero_and_negative = [_set(0, 8), _set(-5, 10)]
+    weighted_metrics = session_metrics(Tracking.weight_reps, zero_and_negative)
+    assert "max_weight_kg" not in weighted_metrics
+    assert "max_1rm_kg" not in weighted_metrics
+    assert session_metrics(Tracking.reps, zero_and_negative) == {
+        "max_reps": 10, "total_reps": 18,
+    }
+    assert [(record.kind, record.value) for record in personal_records(
+        Tracking.weight_reps, [(date(2026, 10, 2), zero_and_negative)]
+    )] == [("max_reps", 10)]
+    assert [(record.kind, record.value) for record in personal_records(
+        Tracking.reps, [(date(2026, 10, 2), zero_and_negative)]
+    )] == [("max_reps", 10)]

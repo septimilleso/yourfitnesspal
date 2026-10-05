@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { WeightDay } from "../../api/weights";
 import { useDeleteWeight, useWeightHistory } from "../../api/weights";
 import { formatIsoDateLong } from "../../lib/date";
@@ -9,6 +11,7 @@ import WeightChart from "./WeightChart";
 function WeightSection({ period, enabled }: { period: Period; enabled: boolean }) {
   const history = useWeightHistory(period.start, period.end, enabled);
   const deleteWeight = useDeleteWeight();
+  const [deleteError, setDeleteError] = useState(false);
   const weighIns = (history.data?.days ?? [])
     .filter((day): day is WeightDay & { id: number; weight_kg: number } => day.id !== null && day.weight_kg !== null)
     .sort((left, right) => right.date.localeCompare(left.date));
@@ -18,6 +21,9 @@ function WeightSection({ period, enabled }: { period: Period; enabled: boolean }
   return (
     <section className="card space-y-2 px-4 py-3">
       <h2 className="section-label">Peso</h2>
+      {deleteError && (
+        <p role="alert" className="text-sm text-red-600">Impossibile eliminare la pesata.</p>
+      )}
       {history.isError ? (
         <p role="alert" className="text-sm text-red-600">Impossibile caricare il peso.</p>
       ) : history.isLoading ? (
@@ -39,7 +45,12 @@ function WeightSection({ period, enabled }: { period: Period; enabled: boolean }
                     className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                     aria-label={`Elimina pesata del ${date}`}
                     onClick={() => {
-                      if (window.confirm("Eliminare questa pesata?")) deleteWeight.mutate(day.id);
+                      if (!window.confirm("Eliminare questa pesata?")) return;
+                      setDeleteError(false);
+                      deleteWeight.mutate(day.id, {
+                        onSuccess: () => setDeleteError(false),
+                        onError: () => setDeleteError(true),
+                      });
                     }}
                   >
                     Elimina

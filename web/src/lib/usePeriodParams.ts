@@ -3,13 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { todayIso } from "./date";
 import {
   type Period,
+  type PeriodChoice,
   type Preset,
   PRESETS,
   presetPeriod,
   validateCustomPeriod,
 } from "./stats";
-
-export type PeriodChoice = { kind: "preset"; days: Preset } | { kind: "custom"; from: string; to: string };
 
 function readChoice(params: URLSearchParams): PeriodChoice {
   const from = params.get("from");

@@ -144,10 +144,14 @@ def _maximum(values: Sequence[float | Decimal | int | None]) -> float | int | No
     return max(present) if present else None
 
 
+def _is_weighted(item: SessionSet) -> bool:
+    return item.weight_kg is not None and item.weight_kg > 0
+
+
 def session_metrics(tracking: Tracking, sets: Sequence[SessionSet]) -> dict[str, float | int]:
     metrics: dict[str, float | int] = {}
     if tracking is Tracking.weight_reps:
-        max_weight = _maximum([item.weight_kg for item in sets])
+        max_weight = _maximum([item.weight_kg if _is_weighted(item) else None for item in sets])
         max_1rm = _maximum([epley_1rm(item.weight_kg, item.reps) for item in sets])
         if max_weight is not None:
             metrics["max_weight_kg"] = float(max_weight)
@@ -160,8 +164,8 @@ def session_metrics(tracking: Tracking, sets: Sequence[SessionSet]) -> dict[str,
         if max_reps is not None:
             metrics["max_reps"] = int(max_reps)
         metrics["total_reps"] = total_reps
-        if any(item.weight_kg is not None for item in sets):
-            max_weight = _maximum([item.weight_kg for item in sets])
+        if any(_is_weighted(item) for item in sets):
+            max_weight = _maximum([item.weight_kg if _is_weighted(item) else None for item in sets])
             metrics["max_weight_kg"] = float(max_weight) if max_weight is not None else 0.0
             metrics["volume_kg"] = _volume(sets)
     elif tracking is Tracking.duration:
