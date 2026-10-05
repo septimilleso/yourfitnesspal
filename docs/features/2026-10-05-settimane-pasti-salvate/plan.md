@@ -234,4 +234,4 @@ Nessuna bloccante. Scelte del piano da confermare in review: nome non valido com
 
 Commit di partenza: 7a42eed
 
-- T1 — DONE — review: 1 round — commit: pending (MINOR: date().isoformat inutile, entries_created non asserito)
+- T1 — DONE — review: 1 round — commit: c744368 (MINOR: date().isoformat inutile, entries_created non asserito)
