@@ -15,6 +15,7 @@ from app.schemas.saved_week import (
     SavedWeekDayOut,
     SavedWeekDetail,
     SavedWeekItemOut,
+    SavedWeekRename,
     SavedWeekSummary,
 )
 from app.services.diary import zero_totals
@@ -116,6 +117,23 @@ async def list_saved_weeks(db: AsyncSession, user: User) -> list[SavedWeekSummar
         )
     ).all()
     return [_summary(week) for week in weeks]
+
+
+async def rename_saved_week(
+    db: AsyncSession, user: User, saved_week_id: int, payload: SavedWeekRename
+) -> SavedWeekSummary:
+    ensure_permission(user, Permission.diary_copy)
+    week = await own_saved_week(db, user, saved_week_id)
+    week.name = clean_name(payload.name)
+    await db.commit()
+    return _summary(week)
+
+
+async def delete_saved_week(db: AsyncSession, user: User, saved_week_id: int) -> None:
+    ensure_permission(user, Permission.diary_copy)
+    week = await own_saved_week(db, user, saved_week_id)
+    await db.delete(week)
+    await db.commit()
 
 
 async def get_saved_week(db: AsyncSession, user: User, saved_week_id: int) -> SavedWeekDetail:

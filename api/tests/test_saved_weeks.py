@@ -199,6 +199,72 @@ async def test_get_saved_week_hides_another_users_week(db) -> None:
     assert response.status_code == 404
 
 
+async def test_rename_saved_week_updates_name_and_rejects_blank_name(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    food = await make_food(db)
+    await _add_entry(db, user, food.id, for_date=date(2026, 7, 6), meal=Meal.lunch)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Dieta A", "start": "2026-07-06"}
+        )
+        week_id = created.json()["id"]
+        renamed = await client.patch(f"/api/saved-weeks/{week_id}", json={"name": "Dieta B"})
+        listing = await client.get("/api/saved-weeks")
+        blank = await client.patch(f"/api/saved-weeks/{week_id}", json={"name": "   "})
+
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Dieta B"
+    assert [week["name"] for week in listing.json()] == ["Dieta B"]
+    assert blank.status_code == 400
+    assert blank.json()["detail"] == "name must be between 1 and 100 characters"
+
+
+async def test_rename_and_delete_saved_week_hide_another_users_week(db) -> None:
+    owner = await make_user(db, username="owner", permissions=COPY)
+    other = await make_user(db, username="other", permissions=COPY)
+    food = await make_food(db)
+    await _add_entry(db, owner, food.id, for_date=date(2026, 7, 6), meal=Meal.lunch)
+    async with await http_client(db, owner) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Private", "start": "2026-07-06"}
+        )
+    week_id = created.json()["id"]
+
+    async with await http_client(db, other) as client:
+        renamed = await client.patch(f"/api/saved-weeks/{week_id}", json={"name": "Stolen"})
+        deleted = await client.delete(f"/api/saved-weeks/{week_id}")
+
+    assert renamed.status_code == 404
+    assert deleted.status_code == 404
+
+
+async def test_delete_saved_week_removes_items_but_preserves_diary_entries(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    food = await make_food(db)
+    async with await http_client(db, user) as client:
+        entry = await client.post(
+            "/api/diary/entries",
+            json={"date": "2026-07-06", "meal": "lunch", "food_id": food.id, "grams": 100},
+        )
+        assert entry.status_code == 201
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "To delete", "start": "2026-07-06"}
+        )
+        week_id = created.json()["id"]
+        deleted = await client.delete(f"/api/saved-weeks/{week_id}")
+        listing = await client.get("/api/saved-weeks")
+        diary = await client.get("/api/diary/day/2026-07-06")
+
+    assert deleted.status_code == 204
+    assert await db.scalar(sa.select(sa.func.count()).select_from(SavedWeek)) == 0
+    assert await db.scalar(sa.select(sa.func.count()).select_from(SavedWeekItem)) == 0
+    assert await db.scalar(sa.select(sa.func.count()).select_from(DiaryEntry)) == 1
+    assert listing.json() == []
+    assert diary.status_code == 200
+    assert diary.json()["entries"]["lunch"][0]["id"] == entry.json()["id"]
+
+
 async def test_saved_week_endpoints_require_diary_copy_permission(db) -> None:
     user = await make_user(db, permissions=[])
     async with await http_client(db, user) as client:
@@ -207,8 +273,19 @@ async def test_saved_week_endpoints_require_diary_copy_permission(db) -> None:
         )
         listing = await client.get("/api/saved-weeks")
         detail = await client.get("/api/saved-weeks/1")
+        renamed = await client.patch("/api/saved-weeks/1", json={"name": "Denied"})
+        deleted = await client.delete("/api/saved-weeks/1")
 
     assert created.status_code == 403
     assert listing.status_code == 403
     assert detail.status_code == 403
-    assert created.json() == listing.json() == detail.json() == {"detail": "forbidden"}
+    assert renamed.status_code == 403
+    assert deleted.status_code == 403
+    assert (
+        created.json()
+        == listing.json()
+        == detail.json()
+        == renamed.json()
+        == deleted.json()
+        == {"detail": "forbidden"}
+    )
