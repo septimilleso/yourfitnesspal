@@ -7,7 +7,9 @@ from app.auth.deps import require_permission
 from app.db import get_session
 from app.models.user import User
 from app.permissions import Permission
+from app.schemas.diary import DiaryCopyResponse
 from app.schemas.saved_week import (
+    SavedWeekApply,
     SavedWeekCreate,
     SavedWeekDetail,
     SavedWeekRename,
@@ -52,6 +54,16 @@ async def delete(
     user: User = Depends(require_permission(Permission.diary_copy)),
 ) -> None:
     await saved_weeks.delete_saved_week(session, user, saved_week_id)
+
+
+@router.post("/{saved_week_id}/apply", response_model=DiaryCopyResponse)
+async def apply(
+    saved_week_id: int,
+    payload: SavedWeekApply,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_permission(Permission.diary_copy)),
+) -> DiaryCopyResponse:
+    return await saved_weeks.apply_saved_week(session, user, saved_week_id, payload)
 
 
 @router.get("/{saved_week_id}", response_model=SavedWeekDetail)

@@ -275,17 +275,254 @@ async def test_saved_week_endpoints_require_diary_copy_permission(db) -> None:
         detail = await client.get("/api/saved-weeks/1")
         renamed = await client.patch("/api/saved-weeks/1", json={"name": "Denied"})
         deleted = await client.delete("/api/saved-weeks/1")
+        applied = await client.post(
+            "/api/saved-weeks/1/apply", json={"days": None, "target_start": "2026-07-13"}
+        )
 
     assert created.status_code == 403
     assert listing.status_code == 403
     assert detail.status_code == 403
     assert renamed.status_code == 403
     assert deleted.status_code == 403
+    assert applied.status_code == 403
     assert (
         created.json()
         == listing.json()
         == detail.json()
         == renamed.json()
         == deleted.json()
+        == applied.json()
         == {"detail": "forbidden"}
+    )
+
+
+async def test_apply_saved_week_copies_all_seven_days(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    lunch = await make_food(db, name="Monday lunch")
+    dinner = await make_food(db, name="Thursday dinner")
+    await _add_entry(db, user, lunch.id, for_date=date(2026, 7, 6), meal=Meal.lunch, grams=150)
+    await _add_entry(db, user, dinner.id, for_date=date(2026, 7, 9), meal=Meal.dinner, grams=75)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Apply all", "start": "2026-07-06"}
+        )
+        response = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={"days": None, "target_start": "2026-07-13"},
+        )
+        target_days = [
+            await client.get(f"/api/diary/day/2026-07-{day:02d}") for day in range(13, 20)
+        ]
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["entries_created"] == 2
+    assert body["days"] == [
+        {"date": f"2026-07-{day:02d}", "entries_created": count}
+        for day, count in zip(range(13, 20), [1, 0, 0, 1, 0, 0, 0], strict=True)
+    ]
+    assert [day.status_code for day in target_days] == [200] * 7
+    assert target_days[0].json()["entries"]["lunch"][0]["food_id"] == lunch.id
+    assert target_days[0].json()["entries"]["lunch"][0]["grams"] == 150.0
+    assert target_days[3].json()["entries"]["dinner"][0]["food_id"] == dinner.id
+    assert target_days[3].json()["entries"]["dinner"][0]["grams"] == 75.0
+    assert all(
+        not any(day.json()["entries"].values())
+        for index, day in enumerate(target_days)
+        if index not in (0, 3)
+    )
+
+
+async def test_apply_saved_week_selected_days_map_positionally(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    tuesday_food = await make_food(db, name="Tuesday food")
+    thursday_food = await make_food(db, name="Thursday food")
+    await _add_entry(db, user, tuesday_food.id, for_date=date(2026, 7, 7), meal=Meal.breakfast)
+    await _add_entry(db, user, thursday_food.id, for_date=date(2026, 7, 9), meal=Meal.dinner)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Selected", "start": "2026-07-06"}
+        )
+        response = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={"days": [1, 3], "target_start": "2026-10-12"},
+        )
+        first_target = await client.get("/api/diary/day/2026-10-12")
+        second_target = await client.get("/api/diary/day/2026-10-13")
+        untouched_target = await client.get("/api/diary/day/2026-10-14")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["entries_created"] == 2
+    assert body["days"] == [
+        {"date": "2026-10-12", "entries_created": 1},
+        {"date": "2026-10-13", "entries_created": 1},
+    ]
+    assert first_target.json()["entries"]["breakfast"][0]["food_id"] == tuesday_food.id
+    assert second_target.json()["entries"]["dinner"][0]["food_id"] == thursday_food.id
+    assert all(not items for items in untouched_target.json()["entries"].values())
+
+
+async def test_apply_saved_week_append_preserves_existing_positions(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    source_food = await make_food(db, name="Saved breakfast")
+    existing_food = await make_food(db, name="Existing breakfast")
+    await _add_entry(db, user, source_food.id, for_date=date(2026, 7, 6), meal=Meal.breakfast)
+    await _add_entry(db, user, existing_food.id, for_date=date(2026, 7, 13), meal=Meal.breakfast)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Append", "start": "2026-07-06"}
+        )
+        response = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={"days": [0], "target_start": "2026-07-13", "mode": "append"},
+        )
+        day = await client.get("/api/diary/day/2026-07-13")
+
+    assert response.status_code == 200
+    assert response.json()["entries_created"] == 1
+    assert [
+        (entry["food_id"], entry["position"]) for entry in day.json()["entries"]["breakfast"]
+    ] == [(existing_food.id, 0), (source_food.id, 1)]
+
+
+async def test_apply_saved_week_replace_filters_meals_and_clears_empty_source_day(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    saved_lunch = await make_food(db, name="Saved lunch")
+    old_lunch = await make_food(db, name="Old lunch")
+    breakfast = await make_food(db, name="Breakfast")
+    dinner = await make_food(db, name="Dinner")
+    snack = await make_food(db, name="Snack")
+    await _add_entry(db, user, saved_lunch.id, for_date=date(2026, 7, 7), meal=Meal.lunch)
+    await _add_entry(db, user, old_lunch.id, for_date=date(2026, 7, 13), meal=Meal.lunch)
+    await _add_entry(db, user, breakfast.id, for_date=date(2026, 7, 13), meal=Meal.breakfast)
+    await _add_entry(db, user, dinner.id, for_date=date(2026, 7, 13), meal=Meal.dinner)
+    await _add_entry(db, user, snack.id, for_date=date(2026, 7, 13), meal=Meal.snack)
+    await _add_entry(db, user, old_lunch.id, for_date=date(2026, 7, 14), meal=Meal.lunch)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Replace", "start": "2026-07-06"}
+        )
+        replaced = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={
+                "days": [1],
+                "target_start": "2026-07-13",
+                "meals": ["lunch"],
+                "mode": "replace",
+            },
+        )
+        replaced_day = await client.get("/api/diary/day/2026-07-13")
+        cleared = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={
+                "days": [0],
+                "target_start": "2026-07-14",
+                "meals": ["lunch"],
+                "mode": "replace",
+            },
+        )
+        cleared_day = await client.get("/api/diary/day/2026-07-14")
+
+    assert replaced.status_code == 200
+    assert replaced.json()["entries_created"] == 1
+    assert replaced_day.json()["entries"]["lunch"][0]["food_id"] == saved_lunch.id
+    assert replaced_day.json()["entries"]["breakfast"][0]["food_id"] == breakfast.id
+    assert replaced_day.json()["entries"]["dinner"][0]["food_id"] == dinner.id
+    assert replaced_day.json()["entries"]["snack"][0]["food_id"] == snack.id
+    assert cleared.status_code == 200
+    assert cleared.json()["entries_created"] == 0
+    assert cleared.json()["days"] == [{"date": "2026-07-14", "entries_created": 0}]
+    assert not cleared_day.json()["entries"]["lunch"]
+
+
+async def test_apply_saved_week_uses_current_food_nutrients(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    food = await make_food(db)
+    await _add_entry(db, user, food.id, for_date=date(2026, 7, 6), meal=Meal.lunch)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Current food", "start": "2026-07-06"}
+        )
+        food.nutriments = {**food.nutriments, "kcal": 350.0}
+        await db.commit()
+        applied = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={"days": [0], "target_start": "2026-07-13"},
+        )
+        day = await client.get("/api/diary/day/2026-07-13")
+
+    assert applied.status_code == 200
+    entry = day.json()["entries"]["lunch"][0]
+    assert entry["nutriments_snapshot"]["kcal"] == 350.0
+    assert day.json()["totals"]["total"]["kcal"] == 350.0
+
+
+async def test_apply_saved_week_validates_days_and_hides_other_users_week(db) -> None:
+    owner = await make_user(db, username="owner", permissions=COPY)
+    other = await make_user(db, username="other", permissions=COPY)
+    food = await make_food(db)
+    await _add_entry(db, owner, food.id, for_date=date(2026, 7, 6), meal=Meal.lunch)
+    async with await http_client(db, owner) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Private", "start": "2026-07-06"}
+        )
+    week_id = created.json()["id"]
+
+    async with await http_client(db, owner) as client:
+        empty_days = await client.post(
+            f"/api/saved-weeks/{week_id}/apply",
+            json={"days": [], "target_start": "2026-07-13"},
+        )
+        invalid_day = await client.post(
+            f"/api/saved-weeks/{week_id}/apply",
+            json={"days": [7], "target_start": "2026-07-13"},
+        )
+    async with await http_client(db, other) as client:
+        hidden = await client.post(
+            f"/api/saved-weeks/{week_id}/apply",
+            json={"days": None, "target_start": "2026-07-13"},
+        )
+        untouched = await client.get("/api/diary/day/2026-07-13")
+
+    assert empty_days.status_code == 400
+    assert invalid_day.status_code == 400
+    assert hidden.status_code == 404
+    assert all(not items for items in untouched.json()["entries"].values())
+
+
+async def test_apply_saved_week_matches_diary_copy_plan_counts(db) -> None:
+    user = await make_user(db, permissions=COPY)
+    monday_food = await make_food(db, name="Monday food")
+    thursday_food = await make_food(db, name="Thursday food")
+    await _add_entry(db, user, monday_food.id, for_date=date(2026, 7, 6), meal=Meal.lunch)
+    await _add_entry(db, user, thursday_food.id, for_date=date(2026, 7, 9), meal=Meal.dinner)
+
+    async with await http_client(db, user) as client:
+        created = await client.post(
+            "/api/saved-weeks", json={"name": "Equivalent", "start": "2026-07-06"}
+        )
+        applied = await client.post(
+            f"/api/saved-weeks/{created.json()['id']}/apply",
+            json={"days": [0, 3], "target_start": "2026-07-13"},
+        )
+        copied = await client.post(
+            "/api/diary/copy",
+            json={
+                "source_dates": ["2026-07-06", "2026-07-09"],
+                "target_start": "2026-07-20",
+            },
+        )
+
+    assert applied.status_code == copied.status_code == 200
+    assert applied.json()["entries_created"] == copied.json()["entries_created"] == 2
+    assert (
+        [day["entries_created"] for day in applied.json()["days"]]
+        == [day["entries_created"] for day in copied.json()["days"]]
+        == [1, 1]
     )

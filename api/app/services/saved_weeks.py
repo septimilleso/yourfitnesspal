@@ -10,7 +10,9 @@ from app.models.diary import DiaryEntry, Meal
 from app.models.saved_week import SavedWeek, SavedWeekItem
 from app.models.user import User
 from app.permissions import Permission, ensure_permission
+from app.schemas.diary import DiaryCopyResponse
 from app.schemas.saved_week import (
+    SavedWeekApply,
     SavedWeekCreate,
     SavedWeekDayOut,
     SavedWeekDetail,
@@ -18,12 +20,15 @@ from app.schemas.saved_week import (
     SavedWeekRename,
     SavedWeekSummary,
 )
+from app.services import diary_ops
 from app.services.diary import zero_totals
 from app.services.errors import Invalid, NotFound
 from app.services.saved_week_rules import (
     clean_name,
     ensure_monday,
     item_day_totals,
+    normalize_days,
+    plan_apply,
     week_stats,
 )
 
@@ -134,6 +139,19 @@ async def delete_saved_week(db: AsyncSession, user: User, saved_week_id: int) ->
     week = await own_saved_week(db, user, saved_week_id)
     await db.delete(week)
     await db.commit()
+
+
+async def apply_saved_week(
+    db: AsyncSession,
+    user: User,
+    saved_week_id: int,
+    payload: SavedWeekApply,
+) -> DiaryCopyResponse:
+    ensure_permission(user, Permission.diary_copy)
+    week = await own_saved_week(db, user, saved_week_id)
+    days = normalize_days(payload.days)
+    plan = plan_apply(week.items, days, payload.target_start, payload.meals, payload.mode)
+    return await diary_ops.apply_copy_plan(db, user, plan)
 
 
 async def get_saved_week(db: AsyncSession, user: User, saved_week_id: int) -> SavedWeekDetail:
