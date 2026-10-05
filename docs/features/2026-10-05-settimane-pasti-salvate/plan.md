@@ -47,7 +47,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Non cambiare firme pubbliche né import dei chiamanti (`api/app/routers/diary.py`, `api/app/mcp/tools/diary.py`).
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app/services/diary_ops.py && .venv/Scripts/python -c "import app.main"` (nessun errore) e `.venv/Scripts/python -m pytest tests/test_diary_copy_service.py -q` (verde, senza DB). Remoto: `docker compose exec api pytest tests/test_diary_copy.py tests/test_diary_copy_service.py tests/test_diary_copy_permission.py tests/test_mcp_tools_diary.py -v`, tutti verdi senza modificare nessun test.
 
-### [~] T3. Modelli `SavedWeek` e `SavedWeekItem` e migrazione
+### [x] T3. Modelli `SavedWeek` e `SavedWeekItem` e migrazione
 
 - Copre: fondamenta di C1, C12 (cascata alla cancellazione)
 - File: `api/app/models/saved_week.py` (nuovo), `api/app/models/__init__.py` (modifica: import ed export), `api/alembic/versions/c4d7a2f81b56_saved_weeks.py` (nuovo), `api/tests/test_saved_week_models.py` (nuovo)
@@ -60,7 +60,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test DB (stile `api/tests/test_weight_models.py`): cancellare l'utente elimina le sue settimane e le righe; cancellare la settimana elimina le righe; cancellare un `Food` referenziato da una riga solleva `IntegrityError`; `day_index=7` solleva `IntegrityError`.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app/models alembic/versions/c4d7a2f81b56_saved_weeks.py tests/test_saved_week_models.py && .venv/Scripts/python -c "import app.models"`, poi `.venv/Scripts/python -m alembic upgrade a6c1e4b8d203:c4d7a2f81b56 --sql` (SQL offline con `CREATE TABLE saved_weeks` e `saved_week_items`, senza `CREATE TYPE meal`) e `.venv/Scripts/python -m alembic heads` (un solo head). Remoto: `docker compose exec api alembic upgrade head` poi `docker compose exec api pytest tests/test_saved_week_models.py -v`, 4 test verdi.
 
-### [ ] T4. Schemi Pydantic e regole pure (`saved_week_rules`)
+### [~] T4. Schemi Pydantic e regole pure (`saved_week_rules`)
 
 - Copre: C2 (nome e lunedì), C4 (totali), C7 (mappatura giorni su `plan_copy`), C11 (nutrienti correnti)
 - File: `api/app/schemas/saved_week.py` (nuovo), `api/app/services/saved_week_rules.py` (nuovo), `api/tests/test_saved_week_rules.py` (nuovo)
@@ -236,3 +236,4 @@ Commit di partenza: 7a42eed
 
 - T1 — DONE — review: 1 round — commit: c744368 (MINOR: date().isoformat inutile, entries_created non asserito)
 - T2 — DONE — review: 1 round — commit: a6ab0b1 (MINOR: firma su 3 righe)
+- T3 — DONE — review: 1 round — commit: 699d45b (MINOR: ruff format su CheckConstraint migrazione; test DB da eseguire sul remoto)
