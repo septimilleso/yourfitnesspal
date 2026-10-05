@@ -121,7 +121,7 @@ function ExerciseProgressSection({ period, enabled }: { period: Period; enabled:
             {progress.data.sessions.length === 0 ? (
               <p className="py-5 text-center text-sm text-slate-500">Nessuna sessione nel periodo</p>
             ) : (
-              <ProgressChart points={points} />
+              <ProgressChart points={points} metric={selectedMetric} />
             )}
           </>
         )}

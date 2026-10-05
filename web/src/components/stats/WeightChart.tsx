@@ -1,11 +1,12 @@
 import type { WeightDay } from "../../api/weights";
 import { formatIsoDateShort } from "../../lib/date";
+import { formatChartTick, niceTicks } from "../../lib/chartTicks";
 import { labelStep } from "./KcalChart";
 
 const WIDTH = 320;
 const HEIGHT = 160;
-const LEFT = 16;
-const RIGHT = 16;
+const LEFT = 58;
+const RIGHT = 12;
 const TOP = 16;
 const BOTTOM = 24;
 
@@ -14,14 +15,11 @@ function WeightChart({ days }: { days: WeightDay[] }) {
   const plotWidth = WIDTH - LEFT - RIGHT;
   const plotHeight = HEIGHT - TOP - BOTTOM;
   const values = days.flatMap((day) => [day.weight_kg, day.avg_7d_kg].filter((value): value is number => value !== null));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const spread = max - min;
-  const margin = Math.max(spread * 0.1, 0.5);
-  const scaleMin = min - margin;
-  const scaleMax = max + margin;
+  const ticks = niceTicks(Math.min(...values), Math.max(...values), 4, false, 1);
+  const minTick = ticks[0];
+  const maxTick = ticks[ticks.length - 1];
   const x = (index: number) => LEFT + (days.length <= 1 ? plotWidth / 2 : (index / (days.length - 1)) * plotWidth);
-  const y = (value: number) => TOP + plotHeight - ((value - scaleMin) / (scaleMax - scaleMin)) * plotHeight;
+  const y = (value: number) => TOP + plotHeight - ((value - minTick) / (maxTick - minTick)) * plotHeight;
   const step = labelStep(days.length);
   const averagePoints = days
     .flatMap((day, index) => (day.avg_7d_kg === null ? [] : [`${x(index)},${y(day.avg_7d_kg)}`]))
@@ -29,6 +27,29 @@ function WeightChart({ days }: { days: WeightDay[] }) {
 
   return (
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-44 w-full" role="img" aria-label="Peso nel periodo">
+      {ticks.map((tick) => (
+        <g key={tick}>
+          <line
+            data-testid="chart-gridline"
+            x1={LEFT}
+            x2={WIDTH - RIGHT}
+            y1={y(tick)}
+            y2={y(tick)}
+            stroke="#f1f5f9"
+            strokeWidth={1}
+          />
+          <text
+            data-testid="y-axis-label"
+            x={LEFT - 5}
+            y={y(tick) + 4}
+            textAnchor="end"
+            fontSize={13}
+            fill="#64748b"
+          >
+            {formatChartTick(tick, "kg", 1)}
+          </text>
+        </g>
+      ))}
       {averagePoints && (
         <polyline
           data-testid="weight-avg-line"

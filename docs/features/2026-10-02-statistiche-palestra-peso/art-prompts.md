@@ -35,6 +35,28 @@ Create a portrait 2D pixel-art scene for the weight-tracking overlay of a friend
 Create a portrait 2D pixel-art scene for the weight-tracking overlay of a friendly fitness app, matching the existing Palestra settings illustration: soft detailed pixel art with visible pixel clusters, warm flat lighting, clean very-dark-brown outlines, and a cheerful storybook feel. Use a warm cream background (#FCF2DE), coral accents (#FD604B), very dark brown outlines (#230904), and warm orange tabby fur (#EB943C), with muted sage-green details. Feature the familiar chubby orange tabby cat with green eyes, cream muzzle, and friendly expression, dressed as the Palestra mascot: red-coral headband, sage-green tank top, and coral shorts. The cat stands on a simple, clearly recognizable bathroom weighing scale in a calm home-gym setting; add only a few restrained gym details such as a rolled mat, a small dumbbell, or a leafy plant, echoing the existing Palestra setting without making the scene busy. Compose for a tall phone background: broad uncluttered cream negative space in the upper portion, with the cat and scale as the main focal point in the central safe area and concentrated in the lower third. Show the entire cat and scale; keep all important parts comfortably away from the left and right edges because the app uses background-size cover and may crop the sides. The app anchors the image at the bottom in portrait. Generate at the maximum supported vertical size, 1024 x 1536 pixels (2:3); do not attempt 941 x 1672, which is outside the generator's vertical limit. The asset pipeline preserves this generated aspect ratio and does not crop or reposition the artwork. No text, labels, logos, readable numbers on the scale dial, UI, borders, or watermark. Deliver as an RGB PNG, intended source filename: web/art/palestra/weight.png.
 ```
 
+## Sfondi con riferimenti allegati (versione consigliata)
+
+Allegare al generatore due immagini per ogni sfondo: la mascotte della sezione (`web/art/{dieta,palestra}/mascot.png`) come immagine 1 e lo sfondo impostazioni della stessa sezione (`settings.png`) come immagine 2. Questi prompt sostituiscono la descrizione del gatto dei prompt 3 e 4.
+
+### 3b. Sfondo peso — Dieta (`web/art/dieta/weight.png`)
+
+```text
+Use the attached images as references. Image 1 is the mascot: reproduce this exact cat character (same proportions, colors, face, outfit and pixel-art rendering). Image 2 is an existing app background: match its art style, palette, outline weight, lighting and composition.
+Create a new portrait pixel-art background for the weight-tracking screen of the nutrition section. The mascot stands on a simple, clearly recognizable bathroom weighing scale, looking pleased, in a cozy kitchen corner with only a few details (small shelf, leafy plant, sage-green accents). Keep the palette of the references: warm cream background, sage green, dark-brown outlines, warm orange fur.
+Composition for a tall phone screen: wide empty cream space in the upper half (UI will sit there), cat and scale in the lower third, fully visible and centered, nothing important near the left or right edges (sides may be cropped).
+Size 1024 x 1536 (2:3), RGB PNG. No text, logos, readable numbers on the scale, UI elements, borders or watermark.
+```
+
+### 4b. Sfondo peso — Palestra (`web/art/palestra/weight.png`)
+
+```text
+Use the attached images as references. Image 1 is the mascot: reproduce this exact cat character (same proportions, colors, face, gym outfit and pixel-art rendering). Image 2 is an existing app background: match its art style, palette, outline weight, lighting and composition.
+Create a new portrait pixel-art background for the weight-tracking screen of the gym section. The mascot stands on a simple, clearly recognizable bathroom weighing scale, proud and energetic, in a calm home-gym corner with only a few details (rolled mat, small dumbbell, leafy plant). Keep the palette of the references: warm cream background, coral accents, very dark brown outlines, warm orange fur, muted sage green.
+Composition for a tall phone screen: wide empty cream space in the upper half (UI will sit there), cat and scale in the lower third, fully visible and centered, nothing important near the left or right edges (sides may be cropped).
+Size 1024 x 1536 (2:3), RGB PNG. No text, logos, readable numbers on the scale, UI elements, borders or watermark.
+```
+
 ## Come integrare i file ricevuti
 
 1. Estrai i quattro PNG dallo zip e copiali nelle cartelle sorgente con i nomi esatti indicati: `web/art/dieta/weight-icon.png`, `web/art/palestra/weight-icon.png`, `web/art/dieta/weight.png` e `web/art/palestra/weight.png`. Le icone devono avere canale alpha trasparente; gli sfondi devono essere immagini RGB, verticali.

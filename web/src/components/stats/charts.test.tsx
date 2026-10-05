@@ -34,6 +34,14 @@ describe("WeightChart", () => {
     const { container } = render(<WeightChart days={days} />);
     expect(container.querySelectorAll('[data-testid="weight-point"]')).toHaveLength(3);
     expect(container.querySelector('[data-testid="weight-avg-line"]')).toHaveAttribute("points", expect.any(String));
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "70 kg",
+      "71 kg",
+      "72 kg",
+      "73 kg",
+    ]);
+    expect(screen.getAllByTestId("y-axis-label")[0]).toHaveAttribute("font-size", "13");
+    expect(container.querySelectorAll('[data-testid="chart-gridline"]')).toHaveLength(4);
   });
 });
 
@@ -48,6 +56,67 @@ describe("ProgressChart", () => {
       />,
     );
     expect(container.querySelectorAll('[data-testid="progress-point"]')).toHaveLength(2);
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "100 kg",
+      "102 kg",
+      "104 kg",
+      "106 kg",
+    ]);
+  });
+
+  it("uses compact labels for large load and volume values", () => {
+    render(
+      <ProgressChart
+        metric="volume_kg"
+        points={[
+          { date: "2026-09-01", value: 10000 },
+          { date: "2026-09-08", value: 20000 },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "10k kg",
+      "12,5k kg",
+      "15k kg",
+      "17,5k kg",
+      "20k kg",
+    ]);
+  });
+
+  it("formats integer reps and long durations in minutes", () => {
+    const { rerender } = render(
+      <ProgressChart
+        metric="max_reps"
+        points={[
+          { date: "2026-09-01", value: 8 },
+          { date: "2026-09-08", value: 12 },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+    ]);
+
+    rerender(
+      <ProgressChart
+        metric="max_duration_s"
+        points={[
+          { date: "2026-09-01", value: 120 },
+          { date: "2026-09-08", value: 180 },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "2 min",
+      "2,25 min",
+      "2,5 min",
+      "2,75 min",
+      "3 min",
+    ]);
   });
 });
 
@@ -63,6 +132,7 @@ describe("WeeklyFrequencyChart", () => {
     );
     expect(container.querySelectorAll('[data-testid="frequency-bar"]')).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "Frequenza settimanale" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual(["0", "1", "2"]);
   });
 });
 
@@ -100,6 +170,12 @@ describe("KcalChart", () => {
     expect(bars[1]).toHaveAttribute("fill", "#dc2626");
     expect(container.querySelector('[data-testid="goal-line"]')).not.toBeNull();
     expect(screen.getByText("Obiettivo 2000 kcal")).toBeInTheDocument();
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "0 kcal",
+      "1.000 kcal",
+      "2.000 kcal",
+      "3.000 kcal",
+    ]);
   });
 
   it("omits the goal line without a goal", () => {
@@ -120,6 +196,13 @@ describe("MacroChart", () => {
     expect(screen.getByText("Proteine")).toBeInTheDocument();
     expect(screen.getByText("Carboidrati")).toBeInTheDocument();
     expect(screen.getByText("Grassi")).toBeInTheDocument();
+    expect(screen.getAllByTestId("y-axis-label").map((label) => label.textContent)).toEqual([
+      "0 g",
+      "100 g",
+      "200 g",
+      "300 g",
+      "400 g",
+    ]);
   });
 });
 

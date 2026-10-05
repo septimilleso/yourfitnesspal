@@ -183,7 +183,7 @@ describe("GymStatsPage", () => {
     expect(screen.getByRole("button", { name: "Volume" })).toBeInTheDocument();
     expect(screen.getByText("100 kg × 5")).toBeInTheDocument();
     expect(screen.getByText("Carico massimo")).toBeInTheDocument();
-    expect(screen.getByText("100 kg")).toBeInTheDocument();
+    expect(screen.getByText("100 kg", { selector: "span" })).toBeInTheDocument();
     expect(screen.getAllByText(/20 settembre/i).length).toBeGreaterThan(0);
   });
 

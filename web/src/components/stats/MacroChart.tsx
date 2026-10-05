@@ -1,20 +1,27 @@
 import { type ChartPoint, MACRO_SERIES } from "../../lib/stats";
+import { formatChartTick, niceTicks } from "../../lib/chartTicks";
 import { labelStep } from "./KcalChart";
 
 const WIDTH = 320;
 const HEIGHT = 160;
+const LEFT = 54;
+const RIGHT = 6;
 const TOP = 12;
 const BOTTOM = 20;
 const PLOT_HEIGHT = HEIGHT - TOP - BOTTOM;
+const PLOT_WIDTH = WIDTH - LEFT - RIGHT;
 
 /** Stacked protein/carbs/fat grams per day (or week). */
 function MacroChart({ points }: { points: ChartPoint[] }) {
   const hasData = points.some((point) => point.logged);
-  const max =
-    Math.max(1, ...points.map((point) => point.protein_g + point.carbs_g + point.fat_g)) * 1.1;
-  const slot = WIDTH / Math.max(points.length, 1);
+  const max = Math.max(1, ...points.map((point) => point.protein_g + point.carbs_g + point.fat_g));
+  const ticks = niceTicks(0, max, 4, true);
+  const minTick = ticks[0];
+  const maxTick = ticks[ticks.length - 1];
+  const slot = PLOT_WIDTH / Math.max(points.length, 1);
   const barWidth = Math.max(slot * 0.7, 1);
-  const scale = (grams: number) => (grams / max) * PLOT_HEIGHT;
+  const scale = (grams: number) => (grams / (maxTick - minTick)) * PLOT_HEIGHT;
+  const y = (value: number) => TOP + PLOT_HEIGHT - ((value - minTick) / (maxTick - minTick)) * PLOT_HEIGHT;
   const step = labelStep(points.length);
 
   return (
@@ -25,6 +32,29 @@ function MacroChart({ points }: { points: ChartPoint[] }) {
       ) : (
         <>
           <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-44 w-full" role="img" aria-label="Macro per periodo">
+            {ticks.map((tick) => (
+              <g key={tick}>
+                <line
+                  data-testid="chart-gridline"
+                  x1={LEFT}
+                  x2={WIDTH - RIGHT}
+                  y1={y(tick)}
+                  y2={y(tick)}
+                  stroke="#f1f5f9"
+                  strokeWidth={1}
+                />
+                <text
+                  data-testid="y-axis-label"
+                  x={LEFT - 5}
+                  y={y(tick) + 4}
+                  textAnchor="end"
+                  fontSize={13}
+                  fill="#64748b"
+                >
+                  {formatChartTick(tick, "g", 0)}
+                </text>
+              </g>
+            ))}
             {points.map((point, index) => {
               if (!point.logged) return null;
               let base = TOP + PLOT_HEIGHT;
@@ -37,7 +67,7 @@ function MacroChart({ points }: { points: ChartPoint[] }) {
                       <rect
                         key={series.key}
                         data-testid="macro-segment"
-                        x={index * slot + (slot - barWidth) / 2}
+                        x={LEFT + index * slot + (slot - barWidth) / 2}
                         y={base}
                         width={barWidth}
                         height={height}
@@ -54,7 +84,7 @@ function MacroChart({ points }: { points: ChartPoint[] }) {
               index % step === 0 ? (
                 <text
                   key={point.key}
-                  x={index * slot + slot / 2}
+                  x={LEFT + index * slot + slot / 2}
                   y={HEIGHT - 4}
                   textAnchor="middle"
                   fontSize={9}

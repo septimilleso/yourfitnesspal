@@ -1,10 +1,14 @@
 import type { ChartPoint } from "../../lib/stats";
+import { formatChartTick, niceTicks } from "../../lib/chartTicks";
 
 const WIDTH = 320;
 const HEIGHT = 160;
+const LEFT = 72;
+const RIGHT = 6;
 const TOP = 12;
 const BOTTOM = 20;
 const PLOT_HEIGHT = HEIGHT - TOP - BOTTOM;
+const PLOT_WIDTH = WIDTH - LEFT - RIGHT;
 const UNDER_GOAL = "#16a34a";
 const OVER_GOAL = "#dc2626";
 const NO_GOAL = "#94a3b8";
@@ -17,10 +21,13 @@ export function labelStep(count: number): number {
 /** Daily (or weekly) kcal bars with a dashed goal line. */
 function KcalChart({ points, goalKcal }: { points: ChartPoint[]; goalKcal: number | null }) {
   const hasData = points.some((point) => point.logged);
-  const max = Math.max(goalKcal ?? 0, ...points.map((point) => point.kcal), 1) * 1.1;
-  const slot = WIDTH / Math.max(points.length, 1);
+  const max = Math.max(goalKcal ?? 0, ...points.map((point) => point.kcal), 1);
+  const ticks = niceTicks(0, max, 4, true);
+  const minTick = ticks[0];
+  const maxTick = ticks[ticks.length - 1];
+  const slot = PLOT_WIDTH / Math.max(points.length, 1);
   const barWidth = Math.max(slot * 0.7, 1);
-  const y = (value: number) => TOP + PLOT_HEIGHT - (value / max) * PLOT_HEIGHT;
+  const y = (value: number) => TOP + PLOT_HEIGHT - ((value - minTick) / (maxTick - minTick)) * PLOT_HEIGHT;
   const step = labelStep(points.length);
 
   return (
@@ -33,15 +40,38 @@ function KcalChart({ points, goalKcal }: { points: ChartPoint[]; goalKcal: numbe
         <p className="py-8 text-center text-sm text-slate-500">Nessun dato nel periodo</p>
       ) : (
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-44 w-full" role="img" aria-label="Calorie per periodo">
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line
+                data-testid="chart-gridline"
+                x1={LEFT}
+                x2={WIDTH - RIGHT}
+                y1={y(tick)}
+                y2={y(tick)}
+                stroke="#f1f5f9"
+                strokeWidth={1}
+              />
+              <text
+                data-testid="y-axis-label"
+                x={LEFT - 5}
+                y={y(tick) + 4}
+                textAnchor="end"
+                fontSize={13}
+                fill="#64748b"
+              >
+                {formatChartTick(tick, "kcal", 0)}
+              </text>
+            </g>
+          ))}
           {points.map((point, index) =>
             point.logged ? (
               <rect
                 key={point.key}
                 data-testid="kcal-bar"
-                x={index * slot + (slot - barWidth) / 2}
+                x={LEFT + index * slot + (slot - barWidth) / 2}
                 y={y(point.kcal)}
                 width={barWidth}
-                height={TOP + PLOT_HEIGHT - y(point.kcal)}
+                height={y(0) - y(point.kcal)}
                 rx={Math.min(3, barWidth / 2)}
                 fill={goalKcal === null ? NO_GOAL : point.kcal > goalKcal ? OVER_GOAL : UNDER_GOAL}
               >
@@ -52,8 +82,8 @@ function KcalChart({ points, goalKcal }: { points: ChartPoint[]; goalKcal: numbe
           {goalKcal !== null && (
             <line
               data-testid="goal-line"
-              x1={0}
-              x2={WIDTH}
+              x1={LEFT}
+              x2={WIDTH - RIGHT}
               y1={y(goalKcal)}
               y2={y(goalKcal)}
               stroke="#475569"
@@ -65,7 +95,7 @@ function KcalChart({ points, goalKcal }: { points: ChartPoint[]; goalKcal: numbe
             index % step === 0 ? (
               <text
                 key={point.key}
-                x={index * slot + slot / 2}
+                x={LEFT + index * slot + slot / 2}
                 y={HEIGHT - 4}
                 textAnchor="middle"
                 fontSize={9}
