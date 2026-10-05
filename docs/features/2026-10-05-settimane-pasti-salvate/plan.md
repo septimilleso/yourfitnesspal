@@ -71,7 +71,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test senza DB (`SimpleNamespace`/dataclass finti, stile `api/tests/test_diary_copy_service.py`): nome (strip, vuoto, 100 ok, 101 errore); `ensure_monday` (lunedì ok, martedì errore); `normalize_days` (None, vuota, 7, duplicati, ordinamento); `week_stats`; `plan_apply` con giorni `[1, 3]` e `target_start=2026-10-12` → inserts il 12 e il 13 (C7), filtro pasti, `replace` con giorno salvato vuoto produce comunque la delete (come `plan_copy`), `nutriments_snapshot` uguale ai nutrienti correnti del cibo e non a uno snapshot vecchio (C11); confronto di equivalenza: `plan_apply` e `plan_copy` diretta con le stesse righe danno lo stesso `days`/`deletes`.
 - Verifica: locale `cd api && .venv/Scripts/python -m pytest tests/test_saved_week_rules.py -q` (verde, senza DB) e `.venv/Scripts/python -m ruff check app/schemas/saved_week.py app/services/saved_week_rules.py tests/test_saved_week_rules.py`.
 
-### [~] T5. Servizio e router: salva, elenca, dettaglio
+### [x] T5. Servizio e router: salva, elenca, dettaglio
 
 - Copre: C1, C2, C3, C4, C5, C13 (parte API)
 - File: `api/app/services/saved_weeks.py` (nuovo), `api/app/routers/saved_weeks.py` (nuovo), `api/app/main.py` (modifica: import e `include_router`), `api/tests/test_saved_weeks.py` (nuovo)
@@ -84,7 +84,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Test DB (fixture `db`, `make_user`, `make_food`, `http_client` da `api/tests/factories.py`): C1 (pranzo lunedì + cena giovedì → righe a `day_index` 0 e 3 con stessi cibi, grammi e `portion_label`); C2 (settimana vuota → 400 e nessuna riga; `start` non lunedì → 400; nome vuoto o solo spazi → 400); nome con spazi ai bordi salvato senza spazi; due settimane con lo stesso nome ok; C3 (due settimane, ordine più recente prima, `entries_count`); C4 (totali per giorno coerenti con grammi × nutrienti, giorni vuoti con `total.kcal == 0` e `meals` vuoti); C5 (id di un altro utente → 404 su GET); C13 (utente con `permissions=[]` → 403 su POST, GET lista, GET dettaglio).
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main" && .venv/Scripts/python -m pytest tests/test_saved_weeks.py --collect-only -q`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py -v`, tutti verdi.
 
-### [ ] T6. Servizio e router: rinomina ed elimina
+### [~] T6. Servizio e router: rinomina ed elimina
 
 - Copre: C12 (lato API), C5, C13
 - File: `api/app/services/saved_weeks.py` (modifica), `api/app/routers/saved_weeks.py` (modifica), `api/tests/test_saved_weeks.py` (modifica)
@@ -238,3 +238,4 @@ Commit di partenza: 7a42eed
 - T2 — DONE — review: 1 round — commit: a6ab0b1 (MINOR: firma su 3 righe)
 - T3 — DONE — review: 1 round — commit: 699d45b (MINOR: ruff format su CheckConstraint migrazione; test DB da eseguire sul remoto)
 - T4 — DONE — review: 1 round — commit: bb4994e (MINOR: ciclo morto in plan_apply righe 80-81; equivalenza test non confronta inserts)
+- T5 — DONE — review: 2 round (BLOCKER total dettaglio risolto; MAJOR avg_kcal test corretto, verificato dall'orchestratore) — commit: f6b86d4 (test DB da eseguire sul remoto)
