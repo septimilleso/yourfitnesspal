@@ -197,30 +197,9 @@ async def delete_entry(db: AsyncSession, user: User, entry_id: int) -> None:
     await db.commit()
 
 
-async def copy_days(db: AsyncSession, user: User, payload: DiaryCopyRequest) -> DiaryCopyResponse:
-    ensure_permission(user, Permission.diary_copy)
-    if not payload.source_dates:
-        raise Invalid("source_dates must be non-empty")
-
-    # Read ALL source entries into memory *before* any deletes -- required
-    # so that `mode == "replace"` on a target date that's also a source
-    # date (overlap) works correctly. See `plan_copy`'s docstring.
-    distinct_source_dates = set(payload.source_dates)
-    stmt = (
-        sa.select(DiaryEntry)
-        .where(DiaryEntry.user_id == user.id, DiaryEntry.date.in_(distinct_source_dates))
-        .order_by(DiaryEntry.date, DiaryEntry.meal, DiaryEntry.position)
-    )
-    source_entries = (await db.execute(stmt)).scalars().all()
-    entries_by_source_date: dict[date, list[DiaryEntry]] = {d: [] for d in distinct_source_dates}
-    for entry in source_entries:
-        entries_by_source_date[entry.date].append(entry)
-
-    plan = plan_copy(
-        source_dates=payload.source_dates, target_start=payload.target_start,
-        meals=payload.meals, mode=payload.mode, entries_by_source_date=entries_by_source_date,
-    )
-
+async def apply_copy_plan(
+    db: AsyncSession, user: User, plan: dict
+) -> DiaryCopyResponse:
     # Deletes first (only relevant in "replace" mode), all inserts after --
     # never interleaved per-day, which is what makes overlapping
     # source/target ranges correct.
@@ -251,3 +230,29 @@ async def copy_days(db: AsyncSession, user: User, payload: DiaryCopyRequest) -> 
         entries_created=len(plan["inserts"]),
         days=[DiaryCopyDayResult(**day) for day in plan["days"]],
     )
+
+
+async def copy_days(db: AsyncSession, user: User, payload: DiaryCopyRequest) -> DiaryCopyResponse:
+    ensure_permission(user, Permission.diary_copy)
+    if not payload.source_dates:
+        raise Invalid("source_dates must be non-empty")
+
+    # Read ALL source entries into memory *before* any deletes -- required
+    # so that `mode == "replace"` on a target date that's also a source
+    # date (overlap) works correctly. See `plan_copy`'s docstring.
+    distinct_source_dates = set(payload.source_dates)
+    stmt = (
+        sa.select(DiaryEntry)
+        .where(DiaryEntry.user_id == user.id, DiaryEntry.date.in_(distinct_source_dates))
+        .order_by(DiaryEntry.date, DiaryEntry.meal, DiaryEntry.position)
+    )
+    source_entries = (await db.execute(stmt)).scalars().all()
+    entries_by_source_date: dict[date, list[DiaryEntry]] = {d: [] for d in distinct_source_dates}
+    for entry in source_entries:
+        entries_by_source_date[entry.date].append(entry)
+
+    plan = plan_copy(
+        source_dates=payload.source_dates, target_start=payload.target_start,
+        meals=payload.meals, mode=payload.mode, entries_by_source_date=entries_by_source_date,
+    )
+    return await apply_copy_plan(db, user, plan)
