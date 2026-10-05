@@ -154,7 +154,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test della pagina (mock di `../api/savedWeeks` e di `../components/ModeSwitch`, `MemoryRouter`): due settimane in ordine con nome e "N pasti"; stato vuoto con link a `/week`; con `PermissionGuard` e `useHasPermission` mockato a `false` (mock di `../auth/AuthContext` come in `AppShell.test.tsx`) la rotta reindirizza alla pagina "Giorno" (C13).
 - Verifica: `cd web && npx vitest run src/pages/SavedWeeksPage.test.tsx src/components/AppShell.test.tsx` (verdi) e `cd web && npx tsc -b`.
 
-### [~] T12. Pagina dettaglio `/week/saved/:id` (sola lettura)
+### [x] T12. Pagina dettaglio `/week/saved/:id` (sola lettura)
 
 - Copre: C4 (UI), C5 (UI), C13 (web)
 - File: `web/src/pages/SavedWeekDetailPage.tsx` (nuovo), `web/src/pages/SavedWeekDetailPage.test.tsx` (nuovo), `web/src/App.tsx` (modifica)
@@ -165,7 +165,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test (mock di `../api/savedWeeks`, `ModeSwitch`): 7 giorni Lun…Dom, kcal e macro del giorno, cibi per pasto con i grammi, giorno vuoto con "Nessun pasto"; `isError: true` → "Settimana non trovata.".
 - Verifica: `cd web && npx vitest run src/pages/SavedWeekDetailPage.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [ ] T13. Dettaglio: selezione giorni, "Applica settimana…" e barra "Applica N giorni…"
+### [~] T13. Dettaglio: selezione giorni, "Applica settimana…" e barra "Applica N giorni…"
 
 - Copre: C6, C7, C10 (nel flusso), C14
 - File: `web/src/pages/SavedWeekDetailPage.tsx` (modifica), `web/src/pages/SavedWeekDetailPage.test.tsx` (modifica)
@@ -245,3 +245,4 @@ Commit di partenza: 7a42eed
 - T9 — DONE — review: 1 round — commit: c3d67ab
 - T10 — DONE — review: 1 round — commit: b170175 (MINOR: test titoli/isPending/singolari mancanti)
 - T11 — DONE — review: 1 round — commit: 7e99dbb (MINOR: manca test loading/error; '1 pasti' al singolare)
+- T12 — DONE — review: 1 round — commit: d9bea81 (MINOR: cast nei test)
