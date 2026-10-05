@@ -188,7 +188,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test (spie su `window.prompt` e `window.confirm`): rinomina chiama `mutate` con il nuovo nome; prompt annullato → nessuna chiamata; elimina con conferma → `mutate` chiamato e navigazione a `/week/saved`; elimina con conferma negata → nessuna chiamata.
 - Verifica: `cd web && npx vitest run src/pages/SavedWeekDetailPage.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [~] T15. `SaveWeekDialog` (salvataggio con nome)
+### [x] T15. `SaveWeekDialog` (salvataggio con nome)
 
 - Copre: C1 (UI), C2 (UI)
 - File: `web/src/components/SaveWeekDialog.tsx` (nuovo), `web/src/components/SaveWeekDialog.test.tsx` (nuovo)
@@ -200,7 +200,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: invio con nome valido chiama `mutate` con nome senza spazi e `start`; "Salva" disabilitato con nome vuoto/spazi; errore mostrato; Annulla chiama `onClose`.
 - Verifica: `cd web && npx vitest run src/components/SaveWeekDialog.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [ ] T16. `WeekPage`: comandi "Salva settimana" e "Settimane salvate"
+### [~] T16. `WeekPage`: comandi "Salva settimana" e "Settimane salvate"
 
 - Copre: C1 (UI), C3 (accesso), C13 (web), C15
 - File: `web/src/pages/WeekPage.tsx` (modifica), `web/src/pages/WeekPage.test.tsx` (modifica: solo test aggiunti)
@@ -248,3 +248,4 @@ Commit di partenza: 7a42eed
 - T12 — DONE — review: 1 round — commit: d9bea81 (MINOR: cast nei test)
 - T13 — DONE — review: 1 round — commit: 107cb1b (MINOR: regex \d vacuo nel test barra assente; mancano test reset selezione e singolare)
 - T14 — DONE — review: 1 round — commit: cad6b2a (include pulizia test T13; MINOR: mancano test rinomina prompt vuoto/uguale)
+- T15 — DONE — review: 1 round — commit: a836714 (MINOR: test isPending mancante; in T16 onSaved non deve smontare il dialog)
