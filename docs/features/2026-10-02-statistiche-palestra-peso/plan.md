@@ -1,7 +1,7 @@
 # Piano: Statistiche palestra e peso giornaliero
 
 - Data: 2026-10-02
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/statistiche-palestra-peso
@@ -434,3 +434,4 @@ Risolte il 2026-10-02:
 - T19 — DONE — review: 2 round — commit: 3e70eeb — round 1: passi non multipli della precisione (77,25 mostrato 77,3) e 6 tick; MINOR: formato compatto k kg con passi 0.25 per volumi >= 10 t con escursione < 1 t
 - T18 — DONE — checklist iPhone confermata dall'utente (punti 1-6 ok) il 2026-10-05; unica segnalazione: valori assi mancanti, risolta in T19. Timer di riposo percepito veloce: da misurare col cronometro, eventuale devflow:fix separato.
 - T20 — DONE — review: 1 round — commit: 9814b39 — MINOR residui: formato k kg solo se il minimo >= 10.000 (intervalli misti mostrano kg interi); _volume somma pesi negativi (dati irrealistici)
+- Review finale — APPROVED (review.md), minor corretti in T20; test della feature sul server dopo T20: 47 passed. Feature chiusa e mergiata su main il 2026-10-05.
