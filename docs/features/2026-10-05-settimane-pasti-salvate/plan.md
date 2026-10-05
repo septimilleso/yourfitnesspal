@@ -36,7 +36,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. Un utente con `permissions=["diary.copy"]`: crea via `POST /api/diary/entries` una colazione al giorno A e una colazione già presente al giorno B; copia A su B in `append`; `GET /api/diary/day/B` deve mostrare le due colazioni con `position` 0 (esistente) e 1 (nuova), nell'ordine.
 - Verifica: locale `cd api && .venv/Scripts/python -m pytest tests/test_diary_copy_permission.py --collect-only -q` (raccoglie 2 test) e `.venv/Scripts/python -m ruff check tests/test_diary_copy_permission.py`. Remoto (dopo push e pull, DB): `docker compose exec api pytest tests/test_diary_copy_permission.py -v`, 2 test verdi, e devono essere verdi PRIMA di T2 (sono caratterizzazione del comportamento esistente).
 
-### [~] T2. Estrarre `apply_copy_plan` da `copy_days` (nessun cambio di comportamento)
+### [x] T2. Estrarre `apply_copy_plan` da `copy_days` (nessun cambio di comportamento)
 
 - Copre: C15, C16, C17
 - File: `api/app/services/diary_ops.py` (modifica)
@@ -47,7 +47,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Non cambiare firme pubbliche né import dei chiamanti (`api/app/routers/diary.py`, `api/app/mcp/tools/diary.py`).
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app/services/diary_ops.py && .venv/Scripts/python -c "import app.main"` (nessun errore) e `.venv/Scripts/python -m pytest tests/test_diary_copy_service.py -q` (verde, senza DB). Remoto: `docker compose exec api pytest tests/test_diary_copy.py tests/test_diary_copy_service.py tests/test_diary_copy_permission.py tests/test_mcp_tools_diary.py -v`, tutti verdi senza modificare nessun test.
 
-### [ ] T3. Modelli `SavedWeek` e `SavedWeekItem` e migrazione
+### [~] T3. Modelli `SavedWeek` e `SavedWeekItem` e migrazione
 
 - Copre: fondamenta di C1, C12 (cascata alla cancellazione)
 - File: `api/app/models/saved_week.py` (nuovo), `api/app/models/__init__.py` (modifica: import ed export), `api/alembic/versions/c4d7a2f81b56_saved_weeks.py` (nuovo), `api/tests/test_saved_week_models.py` (nuovo)
@@ -235,3 +235,4 @@ Nessuna bloccante. Scelte del piano da confermare in review: nome non valido com
 Commit di partenza: 7a42eed
 
 - T1 — DONE — review: 1 round — commit: c744368 (MINOR: date().isoformat inutile, entries_created non asserito)
+- T2 — DONE — review: 1 round — commit: a6ab0b1 (MINOR: firma su 3 righe)
