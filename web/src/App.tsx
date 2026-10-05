@@ -21,6 +21,7 @@ import LoginPage from "./pages/LoginPage";
 import ConnectPage from "./pages/ConnectPage";
 import DietStatsPage from "./pages/DietStatsPage";
 import SearchPage from "./pages/SearchPage";
+import SavedWeekDetailPage from "./pages/SavedWeekDetailPage";
 import SavedWeeksPage from "./pages/SavedWeeksPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
@@ -64,6 +65,7 @@ function App() {
               <Route path="/week" element={<WeekPage />} />
               <Route element={<PermissionGuard permission="diary.copy" />}>
                 <Route path="/week/saved" element={<SavedWeeksPage />} />
+                <Route path="/week/saved/:id" element={<SavedWeekDetailPage />} />
               </Route>
               <Route path="/search" element={<SearchPage />} />
               <Route path="/stats" element={<DietStatsPage />} />
