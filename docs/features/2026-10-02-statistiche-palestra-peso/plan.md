@@ -356,7 +356,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Da browser loggato: `GET /api/stats/gym/count` e `GET /api/weights?start=...&end=...` rispondono 200.
 - Verifica, sul server: `alembic current` mostra `a6c1e4b8d203 (head)`; il ciclo downgrade/upgrade termina senza errori; pytest: tutti i test passano, vecchi e nuovi.
 
-### [~] T18. Verifica manuale su iPhone (checklist)
+### [x] T18. Verifica manuale su iPhone (checklist)
 
 - Copre: C15, C16, C30, C31 (a vista), più conferme a vista per C1 (schermi stretti) e C21
 - File: Nessuno
@@ -410,3 +410,4 @@ Risolte il 2026-10-02:
 - T16 — DONE — review: 0 round — commit: 7b286ce — review fatta dall'orchestratore leggendo il documento (4 prompt, nomi file, integrazione ok); nessun reviewer separato
 - T17 — DONE — server 2026-10-04: alembic upgrade/downgrade -1/upgrade di a6c1e4b8d203 ok, current = head. Pytest dei test della feature e dei preservati: 82 passed, 1 failed (test_mcp_tools_workouts::test_search_and_create_template, assert 10 == 2 su AuditEvent: fallisce anche su main). Suite completa: 46 fallimenti, quasi tutti presenti anche su main (interferenza tra test sul DB di produzione); i test del peso falliti nella suite completa passano isolati e nel set della feature. Da aprire un devflow:fix per l'isolamento della suite. Nota: un primo downgrade -1 lanciato prima di upgrade head ha ricreato vuota push_subscriptions (riattivare il toggle avvisi su iPhone).
 - T19 — DONE — review: 2 round — commit: 3e70eeb — round 1: passi non multipli della precisione (77,25 mostrato 77,3) e 6 tick; MINOR: formato compatto k kg con passi 0.25 per volumi >= 10 t con escursione < 1 t
+- T18 — DONE — checklist iPhone confermata dall'utente (punti 1-6 ok) il 2026-10-05; unica segnalazione: valori assi mancanti, risolta in T19. Timer di riposo percepito veloce: da misurare col cronometro, eventuale devflow:fix separato.
