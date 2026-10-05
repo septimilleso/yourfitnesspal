@@ -381,6 +381,28 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: per ogni grafico, con dati finti, compaiono le etichette Y attese.
 - Verifica: `cd web && npm test` verde, `npx tsc -b` pulito; a vista su iPhone i valori sono leggibili e non si sovrappongono.
 
+### [x] T20. Correzione dei MINOR della review finale
+
+- Origine: `review.md` del 2026-10-05, l'utente ha scelto di correggere i minor prima di chiudere.
+- Copre: R3, R5, R12, R16 (rifiniture), più pulizia del codice; tutti i criteri restano verdi.
+- File: `api/app/schemas/weight.py`, `api/app/services/gym_stats.py`, `api/app/services/stats_rules.py`, `api/tests/test_stats_rules.py`, `api/tests/test_weights.py`, `api/tests/test_gym_stats.py`, `web/src/components/stats/PersonalRecords.tsx`, `web/src/components/stats/WeightSection.tsx`, `web/src/components/stats/ExerciseProgressSection.tsx`, `web/src/components/stats/ProgressChart.tsx`, `web/src/components/stats/PeriodPicker.tsx`, `web/src/lib/usePeriodParams.ts`, `web/src/lib/badges.ts`, `web/src/components/BadgeGrid.tsx`, `web/src/pages/gym/HistoryPage.tsx` e relativi test.
+- Passi:
+  1. API:
+     - `WeightIn.weight_kg: Any = None`, così un body senza campo risponde 400 (test);
+     - togliere `latest_started` inutilizzata in `performed_exercises`;
+     - durata media arrotondata half-up (test 74,5 → 75);
+     - in `stats_rules` un peso ≤ 0 non conta come zavorra né come carico per `reps` e non entra nei massimi di `weight_reps` (test);
+     - test REST 400 per periodo non valido su `/api/stats/gym/exercises/{id}`.
+  2. Web:
+     - `PersonalRecords` mostra le durate con `formatDuration`;
+     - `WeightSection` mostra un messaggio d'errore (`role="alert"`) se l'eliminazione di una pesata fallisce (test);
+     - `HistoryPage`: errore di eliminazione visibile vicino alla card aperta, non solo in cima (test);
+     - `ExerciseProgressSection`: testo "Nessun dato per questa metrica" se la metrica scelta non ha punti;
+     - `ProgressChart`: formato compatto "k kg" con 2 decimali (10.250 → "10,25k kg", test);
+     - un solo tipo `PeriodChoice` importato da un solo modulo;
+     - `gymBadgeProgress` usata da `WorkoutCountCard`/`BadgeGrid` oppure rimossa con i suoi test, senza cambiare i testi.
+- Verifica: `cd web && npm test` verde, `npx tsc -b` pulito; da `api/`: ruff, `import app.main`, `pytest tests/test_stats_rules.py -q`, `pytest --collect-only -q`. Test DB sul server.
+
 ## Domande aperte
 
 Risolte il 2026-10-02:
@@ -411,3 +433,4 @@ Risolte il 2026-10-02:
 - T17 — DONE — server 2026-10-04: alembic upgrade/downgrade -1/upgrade di a6c1e4b8d203 ok, current = head. Pytest dei test della feature e dei preservati: 82 passed, 1 failed (test_mcp_tools_workouts::test_search_and_create_template, assert 10 == 2 su AuditEvent: fallisce anche su main). Suite completa: 46 fallimenti, quasi tutti presenti anche su main (interferenza tra test sul DB di produzione); i test del peso falliti nella suite completa passano isolati e nel set della feature. Da aprire un devflow:fix per l'isolamento della suite. Nota: un primo downgrade -1 lanciato prima di upgrade head ha ricreato vuota push_subscriptions (riattivare il toggle avvisi su iPhone).
 - T19 — DONE — review: 2 round — commit: 3e70eeb — round 1: passi non multipli della precisione (77,25 mostrato 77,3) e 6 tick; MINOR: formato compatto k kg con passi 0.25 per volumi >= 10 t con escursione < 1 t
 - T18 — DONE — checklist iPhone confermata dall'utente (punti 1-6 ok) il 2026-10-05; unica segnalazione: valori assi mancanti, risolta in T19. Timer di riposo percepito veloce: da misurare col cronometro, eventuale devflow:fix separato.
+- T20 — DONE — review: 1 round — commit: 9814b39 — MINOR residui: formato k kg solo se il minimo >= 10.000 (intervalli misti mostrano kg interi); _volume somma pesi negativi (dati irrealistici)
