@@ -60,7 +60,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test DB (stile `api/tests/test_weight_models.py`): cancellare l'utente elimina le sue settimane e le righe; cancellare la settimana elimina le righe; cancellare un `Food` referenziato da una riga solleva `IntegrityError`; `day_index=7` solleva `IntegrityError`.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app/models alembic/versions/c4d7a2f81b56_saved_weeks.py tests/test_saved_week_models.py && .venv/Scripts/python -c "import app.models"`, poi `.venv/Scripts/python -m alembic upgrade a6c1e4b8d203:c4d7a2f81b56 --sql` (SQL offline con `CREATE TABLE saved_weeks` e `saved_week_items`, senza `CREATE TYPE meal`) e `.venv/Scripts/python -m alembic heads` (un solo head). Remoto: `docker compose exec api alembic upgrade head` poi `docker compose exec api pytest tests/test_saved_week_models.py -v`, 4 test verdi.
 
-### [~] T4. Schemi Pydantic e regole pure (`saved_week_rules`)
+### [x] T4. Schemi Pydantic e regole pure (`saved_week_rules`)
 
 - Copre: C2 (nome e lunedì), C4 (totali), C7 (mappatura giorni su `plan_copy`), C11 (nutrienti correnti)
 - File: `api/app/schemas/saved_week.py` (nuovo), `api/app/services/saved_week_rules.py` (nuovo), `api/tests/test_saved_week_rules.py` (nuovo)
@@ -71,7 +71,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test senza DB (`SimpleNamespace`/dataclass finti, stile `api/tests/test_diary_copy_service.py`): nome (strip, vuoto, 100 ok, 101 errore); `ensure_monday` (lunedì ok, martedì errore); `normalize_days` (None, vuota, 7, duplicati, ordinamento); `week_stats`; `plan_apply` con giorni `[1, 3]` e `target_start=2026-10-12` → inserts il 12 e il 13 (C7), filtro pasti, `replace` con giorno salvato vuoto produce comunque la delete (come `plan_copy`), `nutriments_snapshot` uguale ai nutrienti correnti del cibo e non a uno snapshot vecchio (C11); confronto di equivalenza: `plan_apply` e `plan_copy` diretta con le stesse righe danno lo stesso `days`/`deletes`.
 - Verifica: locale `cd api && .venv/Scripts/python -m pytest tests/test_saved_week_rules.py -q` (verde, senza DB) e `.venv/Scripts/python -m ruff check app/schemas/saved_week.py app/services/saved_week_rules.py tests/test_saved_week_rules.py`.
 
-### [ ] T5. Servizio e router: salva, elenca, dettaglio
+### [~] T5. Servizio e router: salva, elenca, dettaglio
 
 - Copre: C1, C2, C3, C4, C5, C13 (parte API)
 - File: `api/app/services/saved_weeks.py` (nuovo), `api/app/routers/saved_weeks.py` (nuovo), `api/app/main.py` (modifica: import e `include_router`), `api/tests/test_saved_weeks.py` (nuovo)
@@ -237,3 +237,4 @@ Commit di partenza: 7a42eed
 - T1 — DONE — review: 1 round — commit: c744368 (MINOR: date().isoformat inutile, entries_created non asserito)
 - T2 — DONE — review: 1 round — commit: a6ab0b1 (MINOR: firma su 3 righe)
 - T3 — DONE — review: 1 round — commit: 699d45b (MINOR: ruff format su CheckConstraint migrazione; test DB da eseguire sul remoto)
+- T4 — DONE — review: 1 round — commit: bb4994e (MINOR: ciclo morto in plan_apply righe 80-81; equivalenza test non confronta inserts)
