@@ -165,7 +165,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test (mock di `../api/savedWeeks`, `ModeSwitch`): 7 giorni Lun…Dom, kcal e macro del giorno, cibi per pasto con i grammi, giorno vuoto con "Nessun pasto"; `isError: true` → "Settimana non trovata.".
 - Verifica: `cd web && npx vitest run src/pages/SavedWeekDetailPage.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [~] T13. Dettaglio: selezione giorni, "Applica settimana…" e barra "Applica N giorni…"
+### [x] T13. Dettaglio: selezione giorni, "Applica settimana…" e barra "Applica N giorni…"
 
 - Copre: C6, C7, C10 (nel flusso), C14
 - File: `web/src/pages/SavedWeekDetailPage.tsx` (modifica), `web/src/pages/SavedWeekDetailPage.test.tsx` (modifica)
@@ -177,7 +177,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: "Applica settimana…" apre il dialog `Applica settimana`; spuntare Mar e Gio mostra "Applica 2 giorni…" e il dialog, confermando con data `2026-10-12`, chiama `mutate` con `days: [1, 3]`, `target_start: "2026-10-12"` (C7); la barra ha classi `bottom-[var(--nav-height)]` e `z-40`, senza `bottom-0`; senza selezione la barra non c'è.
 - Verifica: `cd web && npx vitest run src/pages/SavedWeekDetailPage.test.tsx src/components/ApplySavedWeekDialog.test.tsx` (verdi) e `cd web && npx tsc -b`.
 
-### [ ] T14. Dettaglio: rinomina ed elimina
+### [~] T14. Dettaglio: rinomina ed elimina
 
 - Copre: C12 (UI)
 - File: `web/src/pages/SavedWeekDetailPage.tsx` (modifica), `web/src/pages/SavedWeekDetailPage.test.tsx` (modifica)
@@ -246,3 +246,4 @@ Commit di partenza: 7a42eed
 - T10 — DONE — review: 1 round — commit: b170175 (MINOR: test titoli/isPending/singolari mancanti)
 - T11 — DONE — review: 1 round — commit: 7e99dbb (MINOR: manca test loading/error; '1 pasti' al singolare)
 - T12 — DONE — review: 1 round — commit: d9bea81 (MINOR: cast nei test)
+- T13 — DONE — review: 1 round — commit: 107cb1b (MINOR: regex \d vacuo nel test barra assente; mancano test reset selezione e singolare)
