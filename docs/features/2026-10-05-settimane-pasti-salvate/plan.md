@@ -95,7 +95,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test DB: rinomina "Dieta A" → "Dieta B" e l'elenco la mostra; rinomina con nome vuoto → 400; rinomina/elimina di una settimana altrui → 404; elimina → sparisce dall'elenco e dal DB (righe incluse) e le `DiaryEntry` dell'utente (create prima con `POST /api/diary/entries`) restano; 403 senza permesso su PATCH e DELETE.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main"`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py -v`, verdi.
 
-### [~] T7. Servizio e router: applica al diario
+### [x] T7. Servizio e router: applica al diario
 
 - Copre: C6 (lato API), C7, C8, C9, C11, C13, C14 (dati nuovi leggibili dal diario)
 - File: `api/app/services/saved_weeks.py` (modifica), `api/app/routers/saved_weeks.py` (modifica), `api/tests/test_saved_weeks.py` (modifica)
@@ -106,7 +106,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test DB: C6 (apply di tutta la settimana con `days: null` in `append` su 7 giorni vuoti: ogni giorno contiene le entry salvate del giorno corrispondente; `entries_created` e `days` di lunghezza 7); C7 (giorni `[1, 3]`, `target_start=2026-10-12`: martedì → 12, giovedì → 13, nessun altro giorno toccato, anche il giorno 14 resta vuoto); C8 (colazione già presente nel giorno di destinazione: resta, le nuove vanno dopo con `position` successive); C9 (`replace` con `meals=["lunch"]`: pranzi sostituiti, colazione/cena/spuntino restano); `replace` con giorno salvato vuoto svuota comunque i pasti selezionati nel giorno di destinazione; C11 (cambiare `Food.nutriments` dopo il salvataggio: le nuove entry hanno i nutrienti correnti nel `nutriments_snapshot`); `days: []` → 400; giorno 7 → 400; settimana altrui → 404 senza scrivere; 403 senza permesso; equivalenza con la copia: salvare una settimana e copiarne gli stessi giorni con `POST /api/diary/copy` (stessa destinazione in un altro utente/periodo) danno gli stessi `entries_created` per giorno.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main" && .venv/Scripts/python -m pytest tests/test_saved_week_rules.py -q`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py tests/test_diary_copy.py -v`, verdi.
 
-### [ ] T8. Hook web per le settimane salvate
+### [~] T8. Hook web per le settimane salvate
 
 - Copre: C10 (invalidazioni cache), base di C3, C4, C12, C14
 - File: `web/src/api/savedWeeks.ts` (nuovo), `web/src/api/savedWeeks.test.tsx` (nuovo)
@@ -240,3 +240,4 @@ Commit di partenza: 7a42eed
 - T4 — DONE — review: 1 round — commit: bb4994e (MINOR: ciclo morto in plan_apply righe 80-81; equivalenza test non confronta inserts)
 - T5 — DONE — review: 2 round (BLOCKER total dettaglio risolto; MAJOR avg_kcal test corretto, verificato dall'orchestratore) — commit: f6b86d4 (test DB da eseguire sul remoto)
 - T6 — DONE — review: 1 round — commit: f835cb8 (MINOR: 2 asserzioni opzionali nei test)
+- T7 — DONE — review: 1 round — commit: 5db4223 (MINOR: test equivalenza usa stesso utente)
