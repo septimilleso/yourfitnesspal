@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useSavedWeek } from "../api/savedWeeks";
 import type { Meal } from "../api/queries";
 import { MEALS } from "../api/queries";
+import ApplySavedWeekDialog from "../components/ApplySavedWeekDialog";
 import ModeSwitch from "../components/ModeSwitch";
 import { MEAL_LABELS } from "../lib/meals";
 
@@ -10,7 +12,27 @@ const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
 function SavedWeekDetailPage() {
   const { id } = useParams();
-  const week = useSavedWeek(Number(id));
+  const savedWeekId = Number(id);
+  const week = useSavedWeek(savedWeekId);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [dialogDays, setDialogDays] = useState<number[] | null | undefined>(undefined);
+
+  function toggleDay(dayIndex: number) {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (next.has(dayIndex)) {
+        next.delete(dayIndex);
+      } else {
+        next.add(dayIndex);
+      }
+      return next;
+    });
+  }
+
+  function handleCloseDialog() {
+    setDialogDays(undefined);
+    setSelected(new Set());
+  }
 
   return (
     <div>
@@ -35,14 +57,32 @@ function SavedWeekDetailPage() {
           <p className="card px-4 py-3 text-center text-sm text-red-600">Settimana non trovata.</p>
         )}
 
+        {week.data && (
+          <button
+            type="button"
+            onClick={() => setDialogDays(null)}
+            className="btn-primary w-full"
+          >
+            Applica settimana&hellip;
+          </button>
+        )}
+
         {week.data?.days.map((day) => {
           const label = WEEKDAY_LABELS[day.day_index] ?? "";
           const hasMeals = MEALS.some((meal) => day.meals[meal].length > 0);
 
           return (
             <section key={day.day_index} className="card overflow-hidden" aria-label={label}>
-              <div className="border-b border-slate-100 bg-slate-50/70 px-3 py-2">
-                <h2 className="text-[15px] font-semibold text-slate-900">{label}</h2>
+              <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+                <label className="flex min-h-[44px] flex-1 items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(day.day_index)}
+                    onChange={() => toggleDay(day.day_index)}
+                    aria-label={`Seleziona ${label}`}
+                  />
+                  <h2 className="text-[15px] font-semibold text-slate-900">{label}</h2>
+                </label>
               </div>
 
               <div className="space-y-3 px-3 py-3">
@@ -105,6 +145,26 @@ function SavedWeekDetailPage() {
           );
         })}
       </div>
+
+      {selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-[var(--nav-height)] z-40 flex justify-center border-t border-slate-200/80 bg-white/90 p-3 shadow-sheet backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setDialogDays(Array.from(selected).sort((a, b) => a - b))}
+            className="btn-primary w-full max-w-sm"
+          >
+            Applica {selected.size} {selected.size === 1 ? "giorno" : "giorni"}&hellip;
+          </button>
+        </div>
+      )}
+
+      {dialogDays !== undefined && (
+        <ApplySavedWeekDialog
+          savedWeekId={savedWeekId}
+          days={dialogDays}
+          onClose={handleCloseDialog}
+        />
+      )}
     </div>
   );
 }

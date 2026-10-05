@@ -1,11 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useSavedWeek } from "../api/savedWeeks";
+import { useApplySavedWeek, useSavedWeek } from "../api/savedWeeks";
 import SavedWeekDetailPage from "./SavedWeekDetailPage";
 
-vi.mock("../api/savedWeeks", () => ({ useSavedWeek: vi.fn() }));
+vi.mock("../api/savedWeeks", () => ({
+  useSavedWeek: vi.fn(),
+  useApplySavedWeek: vi.fn(),
+}));
 vi.mock("../components/ModeSwitch", () => ({ default: () => <div data-testid="mode-switch" /> }));
 
 const nutriments = {
@@ -48,6 +52,8 @@ const week = {
   })),
 };
 
+const mutate = vi.fn();
+
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/week/saved/8"]}>
@@ -60,7 +66,16 @@ function renderPage() {
 
 describe("SavedWeekDetailPage", () => {
   beforeEach(() => {
+    mutate.mockClear();
     vi.mocked(useSavedWeek).mockReturnValue({ data: week, isLoading: false, isError: false } as unknown as ReturnType<typeof useSavedWeek>);
+    vi.mocked(useApplySavedWeek).mockReturnValue({
+      mutate,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      data: undefined,
+      reset: vi.fn(),
+    } as unknown as ReturnType<typeof useApplySavedWeek>);
   });
 
   it("shows all seven days, totals, and foods grouped by meal", () => {
@@ -72,7 +87,7 @@ describe("SavedWeekDetailPage", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
 
-    const monday = screen.getByLabelText("Lun");
+    const monday = screen.getByRole("region", { name: "Lun" });
     expect(within(monday).getByText("123")).toBeInTheDocument();
     expect(within(monday).getByText("21g")).toBeInTheDocument();
     expect(within(monday).getByText("33g")).toBeInTheDocument();
@@ -80,7 +95,7 @@ describe("SavedWeekDetailPage", () => {
     expect(within(monday).getByText("Colazione")).toBeInTheDocument();
     expect(within(monday).getByText("Avena — 45 g (1 ciotola)")).toBeInTheDocument();
 
-    const tuesday = screen.getByLabelText("Mar");
+    const tuesday = screen.getByRole("region", { name: "Mar" });
     expect(within(tuesday).getByText("Nessun pasto")).toBeInTheDocument();
   });
 
@@ -89,5 +104,41 @@ describe("SavedWeekDetailPage", () => {
     renderPage();
 
     expect(screen.getByText("Settimana non trovata.")).toBeInTheDocument();
+  });
+
+  it("opens the apply dialog for the whole week", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Applica settimana…" }));
+
+    expect(screen.getByRole("dialog", { name: "Applica settimana" })).toBeInTheDocument();
+  });
+
+  it("applies selected days in weekday order from the fixed action bar", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.queryByText(/Applica \\d+ giorni/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Seleziona Mar" }));
+    await user.click(screen.getByRole("checkbox", { name: "Seleziona Gio" }));
+
+    const applyButton = screen.getByRole("button", { name: "Applica 2 giorni…" });
+    const actionBar = applyButton.parentElement;
+    expect(actionBar).toHaveClass("bottom-[var(--nav-height)]", "z-40");
+    expect(actionBar).not.toHaveClass("bottom-0");
+    await user.click(applyButton);
+    expect(screen.getByRole("dialog", { name: "Applica settimana" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/data di inizio/i), "2026-10-12");
+    await user.click(screen.getByRole("button", { name: /^applica$/i }));
+
+    expect(mutate).toHaveBeenCalledWith({
+      id: 8,
+      days: [1, 3],
+      target_start: "2026-10-12",
+      meals: null,
+      mode: "append",
+    });
   });
 });
