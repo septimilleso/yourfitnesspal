@@ -84,7 +84,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Test DB (fixture `db`, `make_user`, `make_food`, `http_client` da `api/tests/factories.py`): C1 (pranzo lunedì + cena giovedì → righe a `day_index` 0 e 3 con stessi cibi, grammi e `portion_label`); C2 (settimana vuota → 400 e nessuna riga; `start` non lunedì → 400; nome vuoto o solo spazi → 400); nome con spazi ai bordi salvato senza spazi; due settimane con lo stesso nome ok; C3 (due settimane, ordine più recente prima, `entries_count`); C4 (totali per giorno coerenti con grammi × nutrienti, giorni vuoti con `total.kcal == 0` e `meals` vuoti); C5 (id di un altro utente → 404 su GET); C13 (utente con `permissions=[]` → 403 su POST, GET lista, GET dettaglio).
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main" && .venv/Scripts/python -m pytest tests/test_saved_weeks.py --collect-only -q`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py -v`, tutti verdi.
 
-### [~] T6. Servizio e router: rinomina ed elimina
+### [x] T6. Servizio e router: rinomina ed elimina
 
 - Copre: C12 (lato API), C5, C13
 - File: `api/app/services/saved_weeks.py` (modifica), `api/app/routers/saved_weeks.py` (modifica), `api/tests/test_saved_weeks.py` (modifica)
@@ -95,7 +95,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test DB: rinomina "Dieta A" → "Dieta B" e l'elenco la mostra; rinomina con nome vuoto → 400; rinomina/elimina di una settimana altrui → 404; elimina → sparisce dall'elenco e dal DB (righe incluse) e le `DiaryEntry` dell'utente (create prima con `POST /api/diary/entries`) restano; 403 senza permesso su PATCH e DELETE.
 - Verifica: locale `cd api && .venv/Scripts/python -m ruff check app tests/test_saved_weeks.py && .venv/Scripts/python -c "import app.main"`. Remoto: `docker compose exec api pytest tests/test_saved_weeks.py -v`, verdi.
 
-### [ ] T7. Servizio e router: applica al diario
+### [~] T7. Servizio e router: applica al diario
 
 - Copre: C6 (lato API), C7, C8, C9, C11, C13, C14 (dati nuovi leggibili dal diario)
 - File: `api/app/services/saved_weeks.py` (modifica), `api/app/routers/saved_weeks.py` (modifica), `api/tests/test_saved_weeks.py` (modifica)
@@ -239,3 +239,4 @@ Commit di partenza: 7a42eed
 - T3 — DONE — review: 1 round — commit: 699d45b (MINOR: ruff format su CheckConstraint migrazione; test DB da eseguire sul remoto)
 - T4 — DONE — review: 1 round — commit: bb4994e (MINOR: ciclo morto in plan_apply righe 80-81; equivalenza test non confronta inserts)
 - T5 — DONE — review: 2 round (BLOCKER total dettaglio risolto; MAJOR avg_kcal test corretto, verificato dall'orchestratore) — commit: f6b86d4 (test DB da eseguire sul remoto)
+- T6 — DONE — review: 1 round — commit: f835cb8 (MINOR: 2 asserzioni opzionali nei test)
