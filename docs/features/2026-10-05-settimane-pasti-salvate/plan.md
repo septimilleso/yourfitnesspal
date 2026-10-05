@@ -1,7 +1,7 @@
 # Piano: Settimane di pasti salvate
 
 - Data: 2026-10-05
-- Stato: approvato
+- Stato: completata
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/settimane-pasti-salvate
