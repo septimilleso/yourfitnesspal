@@ -129,7 +129,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test del nuovo componente: rende la data, le 4 checkbox dei pasti (tutte spuntate se passate così), le due modalità con le descrizioni; i callback ricevono i cambi.
 - Verifica: `cd web && npx vitest run src/components/CopyDaysDialog.test.tsx src/pages/WeekPage.test.tsx src/components/CopyOptionsFields.test.tsx` (verdi, i primi due senza modifiche ai file di test) e `cd web && npx tsc -b`.
 
-### [~] T10. `ApplySavedWeekDialog` (bottom sheet di applicazione)
+### [x] T10. `ApplySavedWeekDialog` (bottom sheet di applicazione)
 
 - Copre: C6 (UI), C10
 - File: `web/src/components/ApplySavedWeekDialog.tsx` (nuovo), `web/src/components/ApplySavedWeekDialog.test.tsx` (nuovo)
@@ -142,7 +142,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Test: submit con tutti i pasti → `meals: null`; sottoinsieme pasti → array; modalità replace; "Applica" disabilitato senza data e con zero pasti (C10); riepilogo "Applicati 5 pasti in 2 giorni"; Annulla chiama `onClose`.
 - Verifica: `cd web && npx vitest run src/components/ApplySavedWeekDialog.test.tsx` (verde) e `cd web && npx tsc -b`.
 
-### [ ] T11. Pagina elenco `/week/saved` e rotta
+### [~] T11. Pagina elenco `/week/saved` e rotta
 
 - Copre: C3, C13 (web), C18
 - File: `web/src/pages/SavedWeeksPage.tsx` (nuovo), `web/src/pages/SavedWeeksPage.test.tsx` (nuovo), `web/src/App.tsx` (modifica), `web/src/components/AppShell.test.tsx` (modifica: un test in più)
@@ -243,3 +243,4 @@ Commit di partenza: 7a42eed
 - T7 — DONE — review: 1 round — commit: 5db4223 (MINOR: test equivalenza usa stesso utente)
 - T8 — DONE — review: 1 round — commit: bc86cb2 (MINOR: test apply con days/meals null mancante)
 - T9 — DONE — review: 1 round — commit: c3d67ab
+- T10 — DONE — review: 1 round — commit: b170175 (MINOR: test titoli/isPending/singolari mancanti)
