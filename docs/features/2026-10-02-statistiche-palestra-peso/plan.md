@@ -369,6 +369,18 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   6. Statistiche Palestra: card "N allenamenti" con badge, periodo, riepilogo, frequenza, progressione e record di un esercizio reale.
 - Verifica: manuale. Risultato atteso: tutti i punti confermati dall'utente e annotati nel registro.
 
+### [x] T19. Valori sugli assi dei grafici (segnalazione utente in T18)
+
+- Origine: verifica su iPhone del 2026-10-05, "nelle statistiche mancano i valori sugli assi". Oggi tutti i grafici SVG mostrano solo le date sull'asse X, nessun valore sull'asse Y.
+- Copre: leggibilità di R4, R10, R11 e dei grafici esistenti di Statistiche Dieta (C6, C8, C11, C19 restano verdi)
+- File: `web/src/components/stats/KcalChart.tsx`, `MacroChart.tsx`, `WeeklyFrequencyChart.tsx`, `ProgressChart.tsx`, `WeightChart.tsx`, un helper condiviso per i tick (es. `web/src/lib/chartTicks.ts` + test), `web/src/components/stats/charts.test.tsx`
+- Passi:
+  1. Helper puro `niceTicks(min, max, count≈4)` che restituisce valori "tondi" (1, 2, 2.5, 5 × 10^n) che coprono il dominio; test per domini tipici (0–2500 kcal, 0–4 allenamenti, 77.2–79.8 kg, 0 costante).
+  2. In ogni grafico: asse Y con 3–5 etichette di valore a sinistra e linee guida orizzontali leggere; padding sinistro sufficiente per le etichette; unità coerente col grafico (kcal, g, allenamenti interi senza decimali, kg con al massimo 1 decimale, s/min per le durate, kg per volume/carico). Il dominio Y usa i tick (min/max arrotondati), il peso non parte da 0.
+  3. Le date sull'asse X restano come oggi.
+  4. Test: per ogni grafico, con dati finti, compaiono le etichette Y attese.
+- Verifica: `cd web && npm test` verde, `npx tsc -b` pulito; a vista su iPhone i valori sono leggibili e non si sovrappongono.
+
 ## Domande aperte
 
 Risolte il 2026-10-02:
@@ -397,3 +409,4 @@ Risolte il 2026-10-02:
 - T15 — DONE — review: 2 round — commit: 25d2aa5 — round 1: pulsante Elimina sporgeva dagli angoli e ombra tagliata, touchcancel, doppio tap, reset errore; MINOR: messaggio errore in cima alla pagina; esecuzione interrotta e ripresa
 - T16 — DONE — review: 0 round — commit: 7b286ce — review fatta dall'orchestratore leggendo il documento (4 prompt, nomi file, integrazione ok); nessun reviewer separato
 - T17 — DONE — server 2026-10-04: alembic upgrade/downgrade -1/upgrade di a6c1e4b8d203 ok, current = head. Pytest dei test della feature e dei preservati: 82 passed, 1 failed (test_mcp_tools_workouts::test_search_and_create_template, assert 10 == 2 su AuditEvent: fallisce anche su main). Suite completa: 46 fallimenti, quasi tutti presenti anche su main (interferenza tra test sul DB di produzione); i test del peso falliti nella suite completa passano isolati e nel set della feature. Da aprire un devflow:fix per l'isolamento della suite. Nota: un primo downgrade -1 lanciato prima di upgrade head ha ricreato vuota push_subscriptions (riattivare il toggle avvisi su iPhone).
+- T19 — DONE — review: 2 round — commit: 3e70eeb — round 1: passi non multipli della precisione (77,25 mostrato 77,3) e 6 tick; MINOR: formato compatto k kg con passi 0.25 per volumi >= 10 t con escursione < 1 t
