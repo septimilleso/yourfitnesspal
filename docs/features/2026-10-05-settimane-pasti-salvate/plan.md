@@ -26,7 +26,7 @@ Scelte prese dal piano dove la spec lascia margine:
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [ ] T1. Test di caratterizzazione di `POST /api/diary/copy` (403 e posizioni in append)
+### [x] T1. Test di caratterizzazione di `POST /api/diary/copy` (403 e posizioni in append)
 
 - Copre: C16, C17 (prepara C15)
 - File: `api/tests/test_diary_copy_permission.py` (nuovo)
@@ -36,7 +36,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. Un utente con `permissions=["diary.copy"]`: crea via `POST /api/diary/entries` una colazione al giorno A e una colazione già presente al giorno B; copia A su B in `append`; `GET /api/diary/day/B` deve mostrare le due colazioni con `position` 0 (esistente) e 1 (nuova), nell'ordine.
 - Verifica: locale `cd api && .venv/Scripts/python -m pytest tests/test_diary_copy_permission.py --collect-only -q` (raccoglie 2 test) e `.venv/Scripts/python -m ruff check tests/test_diary_copy_permission.py`. Remoto (dopo push e pull, DB): `docker compose exec api pytest tests/test_diary_copy_permission.py -v`, 2 test verdi, e devono essere verdi PRIMA di T2 (sono caratterizzazione del comportamento esistente).
 
-### [ ] T2. Estrarre `apply_copy_plan` da `copy_days` (nessun cambio di comportamento)
+### [~] T2. Estrarre `apply_copy_plan` da `copy_days` (nessun cambio di comportamento)
 
 - Copre: C15, C16, C17
 - File: `api/app/services/diary_ops.py` (modifica)
@@ -232,4 +232,6 @@ Nessuna bloccante. Scelte del piano da confermare in review: nome non valido com
 
 ## Registro di esecuzione
 
-<Compilato da devflow:implement: per ogni task, esito, round di review, commit.>
+Commit di partenza: 7a42eed
+
+- T1 — DONE — review: 1 round — commit: pending (MINOR: date().isoformat inutile, entries_created non asserito)
