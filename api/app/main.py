@@ -17,6 +17,7 @@ from app.routers import (
     foods,
     oauth,
     push,
+    saved_weeks,
     stats,
     templates,
     weights,
@@ -77,6 +78,7 @@ app.include_router(templates.router, dependencies=[Depends(get_current_user)])
 app.include_router(workouts.router, dependencies=[Depends(get_current_user)])
 app.include_router(push.router, dependencies=[Depends(get_current_user)])
 app.include_router(weights.router, dependencies=[Depends(get_current_user)])
+app.include_router(saved_weeks.router, dependencies=[Depends(get_current_user)])
 app.include_router(stats.router, dependencies=[Depends(get_current_user)])
 app.include_router(admin.router, dependencies=[Depends(require_admin)])
 
