@@ -7,6 +7,7 @@ from app.models.goal import Goal
 from app.models.meal_template import MealTemplate, MealTemplateItem
 from app.models.oauth import OAuthAuthCode, OAuthClient, OAuthTokenPair
 from app.models.push import PushSubscription
+from app.models.saved_week import SavedWeek, SavedWeekItem
 from app.models.user import AuditEvent, RecoveryCode, Role, User, UserSession
 from app.models.weight import BodyWeight
 from app.models.workout import (
@@ -38,6 +39,8 @@ __all__ = [
     "PushSubscription",
     "RecoveryCode",
     "Role",
+    "SavedWeek",
+    "SavedWeekItem",
     "TemplateExercise",
     "TemplateFolder",
     "TemplateSet",
