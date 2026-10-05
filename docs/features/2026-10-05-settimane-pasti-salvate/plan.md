@@ -118,7 +118,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: ogni mutazione manda il metodo, l'URL e il body attesi; salvataggio/rinomina/eliminazione invalidano `["saved-weeks"]`; apply invalida `["diary","week"]` e `["diary","day"]`.
 - Verifica: `cd web && npx vitest run src/api/savedWeeks.test.tsx` (verde) e `cd web && npx tsc -b` (nessun errore).
 
-### [~] T9. Estrarre `CopyOptionsFields` da `CopyDaysDialog` (nessun cambio visibile)
+### [x] T9. Estrarre `CopyOptionsFields` da `CopyDaysDialog` (nessun cambio visibile)
 
 - Copre: C15 (preservare), base di C6/C10
 - File: `web/src/components/CopyOptionsFields.tsx` (nuovo), `web/src/components/CopyOptionsFields.test.tsx` (nuovo), `web/src/components/CopyDaysDialog.tsx` (modifica)
@@ -129,7 +129,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test del nuovo componente: rende la data, le 4 checkbox dei pasti (tutte spuntate se passate così), le due modalità con le descrizioni; i callback ricevono i cambi.
 - Verifica: `cd web && npx vitest run src/components/CopyDaysDialog.test.tsx src/pages/WeekPage.test.tsx src/components/CopyOptionsFields.test.tsx` (verdi, i primi due senza modifiche ai file di test) e `cd web && npx tsc -b`.
 
-### [ ] T10. `ApplySavedWeekDialog` (bottom sheet di applicazione)
+### [~] T10. `ApplySavedWeekDialog` (bottom sheet di applicazione)
 
 - Copre: C6 (UI), C10
 - File: `web/src/components/ApplySavedWeekDialog.tsx` (nuovo), `web/src/components/ApplySavedWeekDialog.test.tsx` (nuovo)
@@ -242,3 +242,4 @@ Commit di partenza: 7a42eed
 - T6 — DONE — review: 1 round — commit: f835cb8 (MINOR: 2 asserzioni opzionali nei test)
 - T7 — DONE — review: 1 round — commit: 5db4223 (MINOR: test equivalenza usa stesso utente)
 - T8 — DONE — review: 1 round — commit: bc86cb2 (MINOR: test apply con days/meals null mancante)
+- T9 — DONE — review: 1 round — commit: c3d67ab
