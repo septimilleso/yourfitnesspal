@@ -171,6 +171,12 @@ All routes are under `/api` and require the session cookie unless noted.
 | `PATCH`  | `/api/diary/entries/{id}`      | Change a logged entry's quantity and/or move it to another meal. |
 | `DELETE` | `/api/diary/entries/{id}`      | Remove a logged entry.                                           |
 | `POST`   | `/api/diary/copy`              | Bulk-copy days onto a target start date (append/replace).        |
+| `POST`   | `/api/saved-weeks`             | Save a diary week. Requires `diary.copy`.                        |
+| `GET`    | `/api/saved-weeks`             | List saved weeks. Requires `diary.copy`.                         |
+| `GET`    | `/api/saved-weeks/{id}`        | Get a saved week and its seven days. Requires `diary.copy`.      |
+| `PATCH`  | `/api/saved-weeks/{id}`        | Rename a saved week. Requires `diary.copy`. |
+| `DELETE` | `/api/saved-weeks/{id}`        | Delete a saved week. Requires `diary.copy`. |
+| `POST`   | `/api/saved-weeks/{id}/apply`  | Apply a saved week to the diary. Requires `diary.copy`.          |
 | `GET`    | `/api/goals`                   | Currently active goal.                                           |
 | `PUT`    | `/api/goals`                   | Set the daily kcal/protein/carbs/fat targets.                    |
 | —        | `/api/exercises`               | Search the exercise catalog and manage custom exercises.         |
@@ -299,6 +305,6 @@ gets the diary.
 ## Known gaps
 
 - No favourites: the fastest way back to a food you eat often is `GET /api/foods/recent`.
-- `meal_template` exists as a model with no API or UI on top of it.
+- `meal_template` exists as a model with no API or UI on top of it. Saved weeks are a separate feature and do not use `meal_template`.
 - Weight tracking isn't built; the diary covers food and macros only.
 - Single-tenant by design (see *Authentication model*).
