@@ -63,6 +63,39 @@ describe("SetRow", () => {
     expect(handlers.onSave).not.toHaveBeenCalled();
   });
 
+  it("opens the set menu aligned to the left of the narrow number cell", () => {
+    const originalInnerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const originalInnerHeight = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    const rect = (top: number, left: number, width: number, height: number) => ({
+      top, left, width, height, bottom: top + height, right: left + width,
+      x: left, y: top, toJSON: () => ({}),
+    });
+
+    try {
+      Object.defineProperty(window, "innerWidth", { value: 390, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: 700, configurable: true });
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute("role") === "menu") return rect(0, 0, 224, 190) as DOMRect;
+        if (
+          this.getAttribute("aria-label") === "Serie 1"
+          || this.querySelector('button[aria-label="Serie 1"]')
+        ) return rect(100, 32, 36, 36) as DOMRect;
+        return rect(0, 0, 0, 0) as DOMRect;
+      });
+
+      setup();
+      fireEvent.click(screen.getByRole("button", { name: "Serie 1" }));
+      const menu = screen.getByRole("menu");
+      expect(menu).toHaveAttribute("data-align", "left");
+      expect(menu).toHaveAttribute("data-placement", "bottom");
+      expect(screen.getByRole("menuitem", { name: "Elimina serie" })).toBeInTheDocument();
+    } finally {
+      vi.restoreAllMocks();
+      if (originalInnerWidth) Object.defineProperty(window, "innerWidth", originalInnerWidth);
+      if (originalInnerHeight) Object.defineProperty(window, "innerHeight", originalInnerHeight);
+    }
+  });
+
   it("unticks a completed set", () => {
     const { onUncomplete } = setup({ ...baseSet, completed_at: "2026-09-24T18:00:00Z" });
     fireEvent.click(screen.getByRole("button", { name: "Annulla serie 1" }));
