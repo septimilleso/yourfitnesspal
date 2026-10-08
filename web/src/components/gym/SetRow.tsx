@@ -103,15 +103,25 @@ function SetRow({ index, tracking, set, onSave, onComplete, onUncomplete, onDele
         triggerClassName="h-9 w-full rounded-lg bg-slate-100 text-[15px] font-semibold text-slate-700"
         actions={[{ label: "Elimina serie", onSelect: deleteSet, destructive: true }]}
       />
-      <button
-        type="button"
-        aria-label={`Usa precedente serie ${number}`}
-        disabled={!set.previous}
-        onClick={() => set.previous && change(pick(set.previous))}
-        className="truncate text-center text-[14px] text-slate-400"
-      >
-        {set.previous ? formatSet(tracking, set.previous) : "—"}
-      </button>
+      <div className="min-w-0">
+        <button
+          type="button"
+          aria-label={`Usa precedente serie ${number}`}
+          disabled={!set.previous}
+          onClick={() => set.previous && change(pick(set.previous))}
+          className="block w-full truncate text-center text-[14px] text-slate-400"
+        >
+          {set.previous ? formatSet(tracking, set.previous) : "—"}
+        </button>
+        {set.max_set && (
+          <span className="block truncate text-center text-[11px] leading-tight text-slate-400">
+            <span aria-hidden="true">{`max ${formatSet(tracking, set.max_set)}`}</span>
+            <span className="sr-only">
+              {`Massimo serie ${number}: ${formatSet(tracking, set.max_set)}`}
+            </span>
+          </span>
+        )}
+      </div>
       {fields.map((field) => (
         <NumberInput
           key={field}

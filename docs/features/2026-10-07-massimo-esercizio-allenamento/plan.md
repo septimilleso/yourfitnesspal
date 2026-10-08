@@ -45,7 +45,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test DB in `api/tests/test_workouts_live.py` (con `make_user`, `make_exercise`, `make_finished_workout` di `api/tests/factories.py`, per le serie incomplete creare `Workout`/`WorkoutSet` direttamente): `test_max_set_per_position` (C1: allenamento A 80×8 completata, 120×1 incompleta, 100×5 completata, 70×10 completata; B 90×6, 100×4; allenamento in corso con 4 serie; attesi 90×6, 100×5, 70×10, `None`); `test_max_set_ordering` (C2: in posizione 1 le serie 90×4, 90×5, 80×8 danno 90×5; esercizio `Tracking.weight_reps` con serie 0 kg × 12 e 0 kg × 15 dà 0×15; esercizio `Tracking.duration` con 60 s e 90 s dà 90 s); `test_max_set_ignores_other_users_and_active_workout` (C3: secondo utente con serie più pesanti e serie completate più pesanti nell'allenamento in corso non cambiano i massimi); `test_max_set_none_for_finished_workout` (C10: dopo `finish` o con `get_workout` su un finito, ogni `max_set` è `None`); `test_max_set_single_query` (C4: con un listener `before_cursor_execute` su `engine.sync_engine` contare le istruzioni eseguite da `best_sets` per 1 e per 3 esercizi: sempre 1).
 - Verifica: `api/.venv/Scripts/python.exe -m py_compile api/app/services/workouts.py api/app/schemas/workout.py api/tests/test_workouts_live.py` e `api/.venv/Scripts/ruff.exe check api/app api/tests/test_workouts_live.py` senza errori; `api/.venv/Scripts/python.exe -m pytest api/tests/test_gym_rules.py api/tests/test_stats_rules.py -q` verde. Nota: i test `test_max_set_*` richiedono Postgres e girano solo sul server remoto via docker compose (T5); in locale non si dichiara che passano.
 
-### [ ] T3. Web: tipo e seconda riga "max" nella cella "Precedente"
+### [x] T3. Web: tipo e seconda riga "max" nella cella "Precedente"
 
 - Copre: C5, C6, C7, C8, C9
 - Rischio: alto
@@ -82,3 +82,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - Partenza: 4a7376d987fa56ab2dfa58c0abd65dc38dd82770 su main
 - T1 — DONE — review: saltata (correzione orchestratore: item usato prima di assegnazione nel test DB)
 - T2 — DONE — review: 1 round, APPROVED. MINOR: test_max_set_single_query conta solo best_sets (ok per C4); `from sqlalchemy import event` importato dentro la funzione
+- T3 — DONE — review: 1 round, solo MINOR; corretti aria-label su span (ora aria-hidden + sr-only) e altezza cella (bottone block w-full). MINOR accettato: test "copies them on tap" esteso con max_set (asserzioni originali intatte)
