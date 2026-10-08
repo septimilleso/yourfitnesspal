@@ -120,6 +120,37 @@ async def test_empty_workout_and_previous_values(db, clock) -> None:
     assert (third.weight_kg, third.reps, third.previous) == (75, 8, None)
 
 
+async def test_previous_follows_completed_position_skipping_incomplete(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Squat")
+    db.add(Workout(
+        user_id=user.id, name="Old", status=WorkoutStatus.finished,
+        started_at=T0 - timedelta(days=2), finished_at=T0 - timedelta(days=2, minutes=-50),
+        exercises=[WorkoutExercise(
+            exercise_id=squat.id, position=0, rest_seconds=90,
+            sets=[
+                WorkoutSet(position=0, weight_kg=80, reps=8, completed_at=T0),
+                WorkoutSet(position=1, weight_kg=120, reps=1, completed_at=None),
+                WorkoutSet(position=2, weight_kg=100, reps=5, completed_at=T0),
+            ],
+        )],
+    ))
+    await db.flush()
+
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=squat.id)
+    )
+    [item] = workout.exercises
+    assert len(item.sets) == 2
+    workout = await workouts.add_set(db, user, workout.id, item.id)
+    [item] = workout.exercises
+    assert len(item.sets) == 3
+    assert [(s.previous.weight_kg, s.previous.reps) if s.previous else None for s in item.sets] == [
+        (80, 8), (100, 5), None,
+    ]
+
+
 async def test_edit_sets_and_exercises(db, clock) -> None:
     user = await make_user(db, permissions=GYM)
     squat = await make_exercise(db, name="Zzq Squat")

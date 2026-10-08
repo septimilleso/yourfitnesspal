@@ -22,7 +22,7 @@ Ambiente: nessun Postgres locale. I test DB (`db` fixture di `api/tests/conftest
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [ ] T1. Test di caratterizzazione di precedente, cella e griglia
+### [x] T1. Test di caratterizzazione di precedente, cella e griglia
 
 - Copre: C8, C9 (prepara C1, C6)
 - Rischio: basso
@@ -80,3 +80,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 ## Registro di esecuzione
 
 - Partenza: 4a7376d987fa56ab2dfa58c0abd65dc38dd82770 su main
+- T1 — DONE — review: saltata (correzione orchestratore: item usato prima di assegnazione nel test DB)

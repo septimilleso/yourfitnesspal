@@ -21,6 +21,33 @@ describe("SetRow", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("shows the previous value without a max line", () => {
+    setup();
+    expect(screen.getByRole("button", { name: "Usa precedente serie 1" })).toHaveTextContent(
+      "77,5 kg × 8",
+    );
+    expect(screen.queryByText(/^max/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a disabled dash when there is no previous set", () => {
+    setup({ ...baseSet, previous: null });
+    expect(screen.getByRole("button", { name: "Usa precedente serie 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Usa precedente serie 1" })).toHaveTextContent("—");
+  });
+
+  it("keeps five direct grid cells for weight and reps", () => {
+    const { container } = render(<SetRow
+      index={0}
+      tracking="weight_reps"
+      set={baseSet}
+      onSave={vi.fn()}
+      onComplete={vi.fn()}
+      onUncomplete={vi.fn()}
+      onDelete={vi.fn()}
+    />);
+    expect(container.firstElementChild?.children).toHaveLength(5);
+  });
+
   it("shows the previous values and copies them on tap", () => {
     const { onSave } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Usa precedente serie 1" }));
