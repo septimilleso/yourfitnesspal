@@ -1,7 +1,7 @@
 # Piano: massimo raggiunto sotto il precedente
 
 - Data: 2026-10-07
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/massimo-esercizio-allenamento
@@ -85,3 +85,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - T3 — DONE — review: 1 round, solo MINOR; corretti aria-label su span (ora aria-hidden + sr-only) e altezza cella (bottone block w-full). MINOR accettato: test "copies them on tap" esteso con max_set (asserzioni originali intatte)
 - T4 — DONE — review: saltata
 - T5 — DONE — review: saltata. Test DB remoti (test_workouts_live.py, test_workouts_finish.py su yfp_test) tutti verdi secondo utente; controllo manuale iPhone ok (2026-10-08)
+- Review 1 — APPROVED
