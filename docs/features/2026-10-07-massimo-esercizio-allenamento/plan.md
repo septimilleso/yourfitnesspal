@@ -66,7 +66,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. In `WorkoutDetailPage.test.tsx` aggiungere l'asserzione che per un allenamento finito (set con `max_set: null`) il dettaglio non contiene testo che inizia con "max" e mostra le serie come prima.
 - Verifica: `cd web && npm test`, risultato atteso: tutti i test passano.
 
-### [ ] T5. Verifica remota del backend e controllo su iPhone
+### [x] T5. Verifica remota del backend e controllo su iPhone
 
 - Copre: C1, C2, C3, C4, C7, C10, C11
 - Rischio: basso
@@ -84,3 +84,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - T2 — DONE — review: 1 round, APPROVED. MINOR: test_max_set_single_query conta solo best_sets (ok per C4); `from sqlalchemy import event` importato dentro la funzione
 - T3 — DONE — review: 1 round, solo MINOR; corretti aria-label su span (ora aria-hidden + sr-only) e altezza cella (bottone block w-full). MINOR accettato: test "copies them on tap" esteso con max_set (asserzioni originali intatte)
 - T4 — DONE — review: saltata
+- T5 — DONE — review: saltata. Test DB remoti (test_workouts_live.py, test_workouts_finish.py su yfp_test) tutti verdi secondo utente; controllo manuale iPhone ok (2026-10-08)
