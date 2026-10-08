@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.db import engine
 from app.models.exercise import Tracking
 from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
 from app.schemas.workout import (
@@ -20,7 +21,7 @@ from app.schemas.workout import (
 )
 from app.services import templates, workouts
 from app.services.errors import Invalid, NotFound
-from tests.factories import GYM, make_exercise, make_user
+from tests.factories import GYM, make_exercise, make_finished_workout, make_user
 
 T0 = datetime(2026, 9, 24, 18, 0, tzinfo=UTC)
 
@@ -118,6 +119,171 @@ async def test_empty_workout_and_previous_values(db, clock) -> None:
     workout = await workouts.add_set(db, user, workout.id, item.id)
     third = workout.exercises[0].sets[2]
     assert (third.weight_kg, third.reps, third.previous) == (75, 8, None)
+
+
+async def test_previous_follows_completed_position_skipping_incomplete(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Squat")
+    db.add(Workout(
+        user_id=user.id, name="Old", status=WorkoutStatus.finished,
+        started_at=T0 - timedelta(days=2), finished_at=T0 - timedelta(days=2, minutes=-50),
+        exercises=[WorkoutExercise(
+            exercise_id=squat.id, position=0, rest_seconds=90,
+            sets=[
+                WorkoutSet(position=0, weight_kg=80, reps=8, completed_at=T0),
+                WorkoutSet(position=1, weight_kg=120, reps=1, completed_at=None),
+                WorkoutSet(position=2, weight_kg=100, reps=5, completed_at=T0),
+            ],
+        )],
+    ))
+    await db.flush()
+
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=squat.id)
+    )
+    [item] = workout.exercises
+    assert len(item.sets) == 2
+    workout = await workouts.add_set(db, user, workout.id, item.id)
+    [item] = workout.exercises
+    assert len(item.sets) == 3
+    assert [(s.previous.weight_kg, s.previous.reps) if s.previous else None for s in item.sets] == [
+        (80, 8), (100, 5), None,
+    ]
+
+
+async def test_max_set_per_position(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Max Squat")
+    old = Workout(
+        user_id=user.id, name="Old A", status=WorkoutStatus.finished,
+        started_at=T0 - timedelta(days=3), finished_at=T0 - timedelta(days=3) + timedelta(minutes=50),
+        exercises=[WorkoutExercise(
+            exercise_id=squat.id, position=0, rest_seconds=90,
+            sets=[
+                WorkoutSet(position=0, weight_kg=80, reps=8, completed_at=T0),
+                WorkoutSet(position=1, weight_kg=120, reps=1, completed_at=None),
+                WorkoutSet(position=2, weight_kg=100, reps=5, completed_at=T0),
+                WorkoutSet(position=3, weight_kg=70, reps=10, completed_at=T0),
+            ],
+        )],
+    )
+    db.add(old)
+    await db.flush()
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=2), minutes=50,
+        items=[(squat, [(90, 6, None), (100, 4, None)])],
+    )
+
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=squat.id)
+    )
+    while len(workout.exercises[0].sets) < 4:
+        workout = await workouts.add_set(db, user, workout.id, workout.exercises[0].id)
+    [item] = workout.exercises
+    assert [(s.max_set.weight_kg, s.max_set.reps) if s.max_set else None for s in item.sets] == [
+        (90, 6), (100, 5), (70, 10), None,
+    ]
+
+
+async def test_max_set_ordering(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    weighted = await make_exercise(db, name="Zzq Max Ordering")
+    bodyweight = await make_exercise(db, name="Zzq Max Bodyweight")
+    timed = await make_exercise(db, name="Zzq Max Duration", tracking=Tracking.duration)
+    for days, sets in ((3, [(90, 4, None)]), (2, [(90, 5, None)]), (1, [(80, 8, None)])):
+        await make_finished_workout(
+            db, user, started_at=T0 - timedelta(days=days), minutes=50,
+            items=[(weighted, sets)],
+        )
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=2), minutes=50,
+        items=[(bodyweight, [(0, 12, None)])],
+    )
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=1), minutes=50,
+        items=[(bodyweight, [(0, 15, None)])],
+    )
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=2), minutes=50,
+        items=[(timed, [(None, None, 60)])],
+    )
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=1), minutes=50,
+        items=[(timed, [(None, None, 90)])],
+    )
+
+    best = await workouts.best_sets(db, user, {weighted.id, bodyweight.id, timed.id})
+    assert (best[weighted.id][0].weight_kg, best[weighted.id][0].reps) == (90, 5)
+    assert (best[bodyweight.id][0].weight_kg, best[bodyweight.id][0].reps) == (0, 15)
+    assert best[timed.id][0].duration_s == 90
+
+
+async def test_max_set_ignores_other_users_and_active_workout(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    other = await make_user(db, username="bob", permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Max Private")
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=1), minutes=50,
+        items=[(squat, [(80, 8, None)])],
+    )
+    await make_finished_workout(
+        db, other, started_at=T0 - timedelta(days=1), minutes=50,
+        items=[(squat, [(200, 20, None)])],
+    )
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=squat.id)
+    )
+    item = workout.exercises[0]
+    workout = await workouts.complete_set(
+        db, user, workout.id, item.sets[0].id, SetPatch(weight_kg=300, reps=30)
+    )
+    assert (workout.exercises[0].sets[0].max_set.weight_kg,
+            workout.exercises[0].sets[0].max_set.reps) == (80, 8)
+
+
+async def test_max_set_none_for_finished_workout(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Max Finished")
+    workout = await workouts.start_workout(db, user, WorkoutStart())
+    workout = await workouts.add_exercise(
+        db, user, workout.id, WorkoutExerciseAdd(exercise_id=squat.id)
+    )
+    workout = await workouts.complete_set(
+        db, user, workout.id, workout.exercises[0].sets[0].id,
+        SetPatch(weight_kg=80, reps=8),
+    )
+    finished = await workouts.finish_workout(db, user, workout.id, workouts.FinishIn())
+    assert all(s.max_set is None for item in finished.exercises for s in item.sets)
+    loaded = await workouts.get_workout(db, user, workout.id)
+    assert all(s.max_set is None for item in loaded.exercises for s in item.sets)
+
+
+async def test_max_set_single_query(db, clock) -> None:
+    from sqlalchemy import event
+
+    user = await make_user(db, permissions=GYM)
+    exercises = [await make_exercise(db, name=f"Zzq Max Query {i}") for i in range(3)]
+    await make_finished_workout(
+        db, user, started_at=T0 - timedelta(days=1), minutes=50,
+        items=[(exercise, [(80, 8, None)]) for exercise in exercises],
+    )
+    statements = []
+
+    def count_statement(*_args):
+        statements.append(None)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", count_statement)
+    try:
+        await workouts.best_sets(db, user, {exercises[0].id})
+        assert len(statements) == 1
+        statements.clear()
+        await workouts.best_sets(db, user, {exercise.id for exercise in exercises})
+        assert len(statements) == 1
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", count_statement)
 
 
 async def test_edit_sets_and_exercises(db, clock) -> None:

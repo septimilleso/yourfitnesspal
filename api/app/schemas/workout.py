@@ -95,6 +95,8 @@ class WorkoutSetOut(SetValues):
     completed_at: datetime | None
     # Same position in the last finished workout with this exercise.
     previous: SetValues | None
+    # Best completed set at this position across finished workouts; None if absent or finished workout.
+    max_set: SetValues | None = None
 
 
 class WorkoutExerciseOut(BaseModel):

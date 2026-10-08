@@ -104,6 +104,8 @@ export interface WorkoutSet extends SetValues {
   completed_at: string | null;
   /** Same position in the last finished workout with this exercise. */
   previous: SetValues | null;
+  /** Best set value for this position; absent or null means no maximum. */
+  max_set?: SetValues | null;
 }
 
 export interface WorkoutExercise {

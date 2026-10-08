@@ -15,6 +15,7 @@ import {
   parseDecimal,
   parseDuration,
   parseInteger,
+  setGridColumns,
   unlinkFromGroup,
 } from "./gym";
 
@@ -47,6 +48,17 @@ describe("number formatting", () => {
     expect(formatSet("weight_reps", { weight_kg: 80, reps: 8, duration_s: null })).toBe("80 kg × 8");
     expect(formatSet("reps", { weight_kg: null, reps: 12, duration_s: null })).toBe("12 rip");
     expect(formatSet("duration", { weight_kg: null, reps: null, duration_s: 75 })).toBe("1:15");
+  });
+});
+
+describe("set grid columns", () => {
+  it("keeps the current columns for one or two input fields", () => {
+    expect(setGridColumns(1)).toBe(
+      "2.25rem minmax(0,1.3fr) repeat(1, minmax(0,1fr)) 2.75rem",
+    );
+    expect(setGridColumns(2)).toBe(
+      "2.25rem minmax(0,1.3fr) repeat(2, minmax(0,1fr)) 2.75rem",
+    );
   });
 });
 
