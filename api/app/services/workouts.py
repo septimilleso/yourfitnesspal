@@ -176,6 +176,69 @@ def _previous_at(previous: Previous | None, index: int) -> SetValues | None:
     return previous.sets[index]
 
 
+async def best_sets(
+    db: AsyncSession, user: User, exercise_ids: Iterable[int]
+) -> dict[int, list[SetValues]]:
+    """Best completed set at each position across finished workouts."""
+    ids = set(exercise_ids)
+    if not ids:
+        return {}
+    ranked = (
+        sa.select(
+            WorkoutExercise.exercise_id.label("exercise_id"),
+            sa.func.row_number()
+            .over(
+                partition_by=WorkoutSet.workout_exercise_id,
+                order_by=WorkoutSet.position,
+            )
+            .label("n"),
+            WorkoutSet.weight_kg.label("weight_kg"),
+            WorkoutSet.reps.label("reps"),
+            WorkoutSet.duration_s.label("duration_s"),
+        )
+        .join(WorkoutSet, WorkoutSet.workout_exercise_id == WorkoutExercise.id)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .where(
+            Workout.user_id == user.id,
+            Workout.status == WorkoutStatus.finished,
+            WorkoutSet.completed_at.is_not(None),
+            WorkoutExercise.exercise_id.in_(ids),
+        )
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            sa.select(
+                ranked.c.exercise_id,
+                ranked.c.n,
+                ranked.c.weight_kg,
+                ranked.c.reps,
+                ranked.c.duration_s,
+            )
+            .distinct(ranked.c.exercise_id, ranked.c.n)
+            .order_by(
+                ranked.c.exercise_id,
+                ranked.c.n,
+                sa.func.coalesce(ranked.c.weight_kg, 0).desc(),
+                sa.func.coalesce(ranked.c.reps, 0).desc(),
+                sa.func.coalesce(ranked.c.duration_s, 0).desc(),
+            )
+        )
+    ).all()
+    result: dict[int, list[SetValues]] = {}
+    for exercise_id, _, weight_kg, reps, duration_s in rows:
+        result.setdefault(exercise_id, []).append(
+            SetValues(weight_kg=weight_kg, reps=reps, duration_s=duration_s)
+        )
+    return result
+
+
+def _best_at(best: list[SetValues] | None, index: int) -> SetValues | None:
+    if best is None or index >= len(best):
+        return None
+    return best[index]
+
+
 def _diff_item(item) -> DiffExercise:
     return DiffExercise(
         exercise_id=item.exercise_id, name=item.exercise.name, tracking=item.exercise.tracking,
@@ -198,9 +261,12 @@ async def _template_diff(db: AsyncSession, user: User, workout: Workout) -> list
 
 async def workout_out(db: AsyncSession, user: User, workout: Workout) -> WorkoutOut:
     previous: dict[int, Previous] = {}
+    best: dict[int, list[SetValues]] = {}
     diff: list[str] = []
     if workout.status is WorkoutStatus.in_progress:
-        previous = await previous_sets(db, user, {item.exercise_id for item in workout.exercises})
+        exercise_ids = {item.exercise_id for item in workout.exercises}
+        previous = await previous_sets(db, user, exercise_ids)
+        best = await best_sets(db, user, exercise_ids)
     else:
         diff = await _template_diff(db, user, workout)
     return WorkoutOut(
@@ -217,6 +283,7 @@ async def workout_out(db: AsyncSession, user: User, workout: Workout) -> Workout
                         id=s.id, weight_kg=s.weight_kg, reps=s.reps, duration_s=s.duration_s,
                         completed_at=s.completed_at,
                         previous=_previous_at(previous.get(item.exercise_id), number),
+                        max_set=_best_at(best.get(item.exercise_id), number),
                     )
                     for number, s in enumerate(item.sets)
                 ],

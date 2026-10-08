@@ -33,7 +33,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. In `api/tests/test_workouts_live.py` aggiungere `test_previous_follows_completed_position_skipping_incomplete`: un allenamento finito per l'utente con tre serie dell'esercizio (80 × 8 completata, 120 × 1 con `completed_at=None`, 100 × 5 completata), costruito con i modelli come in `test_empty_workout_and_previous_values`. Avviato un allenamento e aggiunto l'esercizio con una serie in più (3 serie nel nuovo), `previous` delle serie vale 80 × 8, 100 × 5, `None`. Il test documenta la nozione di posizione che il massimo deve rispettare.
 - Verifica: `cd web && npm test`, risultato atteso: tutti i test passano, compresi i nuovi. Backend: `api/.venv/Scripts/python.exe -m py_compile api/tests/test_workouts_live.py` senza errori; il test DB gira solo sul server remoto (T5), non in locale.
 
-### [ ] T2. Backend: `max_set` per posizione in `WorkoutOut`
+### [x] T2. Backend: `max_set` per posizione in `WorkoutOut`
 
 - Copre: C1, C2, C3, C4, C10
 - Rischio: alto
@@ -81,3 +81,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 - Partenza: 4a7376d987fa56ab2dfa58c0abd65dc38dd82770 su main
 - T1 — DONE — review: saltata (correzione orchestratore: item usato prima di assegnazione nel test DB)
+- T2 — DONE — review: 1 round, APPROVED. MINOR: test_max_set_single_query conta solo best_sets (ok per C4); `from sqlalchemy import event` importato dentro la funzione
