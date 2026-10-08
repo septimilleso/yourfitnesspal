@@ -72,6 +72,29 @@ describe("WorkoutPage", () => {
     expect(screen.getByRole("button", { name: "Completa serie 2" })).toBeInTheDocument();
   });
 
+  it("shows max below the previous value only when max_set is present", () => {
+    vi.mocked(useActiveWorkout).mockReturnValue({
+      data: {
+        ...workout,
+        exercises: [{
+          ...workout.exercises[0],
+          sets: [
+            { ...workout.exercises[0].sets[0], previous: { weight_kg: 80, reps: 8, duration_s: null }, max_set: { weight_kg: 100, reps: 5, duration_s: null } },
+            { ...workout.exercises[0].sets[1] },
+          ],
+        }],
+      },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useActiveWorkout>);
+
+    renderPage();
+
+    expect(screen.getByText("max 100 kg × 5")).toBeInTheDocument();
+    const secondSetPrevious = screen.getByRole("button", { name: "Usa precedente serie 2" });
+    expect(secondSetPrevious.parentElement?.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
   it("asks before discarding undone sets, then finishes", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();

@@ -56,7 +56,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test in `SetRow.test.tsx`: C5 (weight_reps con previous 80×8 e `max_set` 100×5: nella stessa cella "80 kg × 8" e sotto "max 100 kg × 5"; `reps` con `max_set` 20 rip: "max 20 rip"; `duration` con 90 s: "max 1:30"); C6 (`max_set: null` e campo assente: nessun testo "max"; senza precedente ma con massimo: "—" e "max …"); C7 (l'elemento del massimo ha le classi `truncate` e non è un `button`); C8 (con `previous` 77,5×8 e `max_set` 100×5, il tap su "Usa precedente serie 1" porta i campi a 77,5 e 8 e dopo 500 ms `onSave` riceve 77,5, 8); C9 (stesso numero di figli della griglia di T1).
 - Verifica: `cd web && npm test`, risultato atteso: tutti i test passano, compresi quelli di T1 e quelli nuovi. `cd web && npm run build`: compila senza errori di tipo.
 
-### [ ] T4. Fixture e test di pagina, dettaglio senza "max"
+### [x] T4. Fixture e test di pagina, dettaglio senza "max"
 
 - Copre: C6, C10 (lato web), C11
 - Rischio: basso
@@ -83,3 +83,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - T1 — DONE — review: saltata (correzione orchestratore: item usato prima di assegnazione nel test DB)
 - T2 — DONE — review: 1 round, APPROVED. MINOR: test_max_set_single_query conta solo best_sets (ok per C4); `from sqlalchemy import event` importato dentro la funzione
 - T3 — DONE — review: 1 round, solo MINOR; corretti aria-label su span (ora aria-hidden + sr-only) e altezza cella (bottone block w-full). MINOR accettato: test "copies them on tap" esteso con max_set (asserzioni originali intatte)
+- T4 — DONE — review: saltata

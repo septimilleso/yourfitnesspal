@@ -30,7 +30,7 @@ const finished: Workout = {
         id: 7, name: "Barbell Squat", equipment: "barbell", primary_muscles: ["quadriceps"],
         secondary_muscles: [], category: "strength", tracking: "weight_reps", custom: false,
       },
-      sets: [{ id: 31, weight_kg: 85, reps: 8, duration_s: null, completed_at: "2026-09-24T18:10:00Z", previous: null }],
+      sets: [{ id: 31, weight_kg: 85, reps: 8, duration_s: null, completed_at: "2026-09-24T18:10:00Z", previous: null, max_set: null }],
     },
   ],
 };
@@ -83,6 +83,14 @@ describe("WorkoutDetailPage", () => {
     renderAt("/gym/history/9?summary=1");
     await user.click(screen.getByRole("button", { name: "Mantieni modello" }));
     expect(screen.queryByRole("button", { name: "Aggiorna modello" })).not.toBeInTheDocument();
+  });
+
+  it("does not show max values for a finished workout", () => {
+    mockWorkout(finished);
+    renderAt("/gym/history/9");
+
+    expect(screen.getByText("85 kg × 8")).toBeInTheDocument();
+    expect(screen.queryByText(/^max /)).not.toBeInTheDocument();
   });
 
   it("does not show the diff outside the summary", () => {
