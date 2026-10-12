@@ -56,7 +56,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Eseguire `cd web && npm run build` e annotare nel registro i file PWA presenti in `dist/`: oggi ci sono `sw.js`, `registerSW.js`, `manifest.webmanifest` e `workbox-*.js`, con `registerSW.js` referenziato da `dist/index.html`.
 - Verifica: `cd web && npm test` con tutti i test verdi, compresi i nuovi. `cd web && npm run build` termina senza errori e `ls dist/sw.js dist/registerSW.js` li trova entrambi.
 
-### [ ] T2. Caratterizzazione backend: logout, sessioni, setup TOTP, cambio password
+### [x] T2. Caratterizzazione backend: logout, sessioni, setup TOTP, cambio password
 
 - Copre: C20, C24 (parte cookie), C26
 - Rischio: basso
@@ -364,3 +364,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T1 punto 4: `npm run build` ok; in `dist/` ci sono `sw.js`, `registerSW.js`, `manifest.webmanifest`, `workbox-efbd304a.js`; `dist/index.html` referenzia `registerSW.js`.
 - T1 — DONE — review: saltata (rischio basso)
+- T2 — DONE — review: saltata (rischio basso); test DB da eseguire sul remoto con T3-T5 (rischio: password di test 'a brand new passphrase' in setup/complete)
