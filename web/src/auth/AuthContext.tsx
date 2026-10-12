@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, logout, type Me } from "../api/auth";
 import type { Permission } from "../lib/permissions";
 import { unsubscribeDeviceOnLogout } from "../lib/push";
+import { retryOnlyNetwork } from "../lib/queryClient";
 import { isNative } from "../native/platform";
 import { cancelRestNotification } from "../native/restNotifications";
 import { clearToken } from "../native/session";
@@ -16,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: getMe, retry: false, staleTime: 5 * 60_000 });
+  return useQuery({ queryKey: ["me"], queryFn: getMe, retry: isNative() ? retryOnlyNetwork : false, staleTime: 5 * 60_000 });
 }
 
 export function useHasPermission(permission: Permission) {

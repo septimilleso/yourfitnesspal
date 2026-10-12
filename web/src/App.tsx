@@ -1,12 +1,12 @@
-import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 
-import { ApiError } from "./api/client";
 import { AuthProvider } from "./auth/AuthContext";
 import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
 import PermissionGuard from "./auth/PermissionGuard";
 import AppShell from "./components/AppShell";
+import { queryClient } from "./lib/queryClient";
 import NativeBridge from "./native/NativeBridge";
 import AccountPage from "./pages/AccountPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
@@ -26,23 +26,6 @@ import SavedWeekDetailPage from "./pages/SavedWeekDetailPage";
 import SavedWeeksPage from "./pages/SavedWeeksPage";
 import SettingsPage from "./pages/SettingsPage";
 import WeekPage from "./pages/WeekPage";
-
-const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (error, query) => {
-      if (error instanceof ApiError && error.status === 401 && query.queryKey[0] !== "me") {
-        queryClient.setQueryData(["me"], null);
-        void queryClient.invalidateQueries({ queryKey: ["me"] });
-      }
-    },
-  }),
-  mutationCache: new MutationCache({ onError: (error) => {
-    if (error instanceof ApiError && error.status === 401) {
-      queryClient.setQueryData(["me"], null);
-      void queryClient.invalidateQueries({ queryKey: ["me"] });
-    }
-  } }),
-});
 
 function TemplateEditorRoute() {
   const { id } = useParams();

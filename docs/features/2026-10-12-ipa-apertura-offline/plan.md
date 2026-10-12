@@ -150,7 +150,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. `client.native.test.ts` deve passare senza modifiche.
 - Verifica: `cd web && npx vitest run src/api/client.errors.native.test.ts src/api/client.native.test.ts src/api/auth.native.test.ts`, risultato atteso: verdi. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T5. `QueryClient` condiviso con le opzioni native e `useMe` in pausa offline
+### [x] T5. `QueryClient` condiviso con le opzioni native e `useMe` in pausa offline
 
 - Copre: C5, C21, C26
 - Rischio: alto
@@ -355,3 +355,4 @@ T1 — DONE — review: saltata
 T2 — DONE — review: 1 round. Avvisi: client.ts fetchNative tratta AbortError come errore di rete (nessun chiamante usa signal); errore a metà body resta TypeError generico, da tenere presente in T5/T10.
 T3 — DONE — review: 1 round. MINOR: queryPersistence.ts:89 restore non rifiltra status success né svuota mutations; mancano test (scrittura in coda dopo clear, chiavi foods/admin al ripristino, writeFile che rifiuta). Vincolo per T4/T8: clearToken() prima di clearPersistedQueryCache(). Avviso: dopo 401 la cache in memoria resta piena, un nuovo login riscrive i dati vecchi su file (verificare in T4/T7); debounce si riarma a ogni evento.
 T4 — DONE — review: 1 round. Avvisi: ciclo di import client.ts -> queryPersistence.ts -> api/gym.ts -> client.ts sicuro solo finché nessun binding è usato a livello di modulo (nessun TDZ oggi, build ok); il 401 non svuota le query in memoria: decidere in T7/T8 (queryClient.clear) per evitare che un nuovo login riscriva dati vecchi su file.
+T5 — DONE — review: 1 round. MINOR da chiudere in T10: web/src/api/savedWeeks.ts:69 `retry: false` esplicito batte retryNative, offline mostra "Settimana non trovata." sopra la cache (usare `isNative() ? retryNative : false`). Avvisi: tra T5 e T7 AuthGuard nativo offline a freddo va a /login (["me"] pending+paused), chiuso da T7; useLiveMutation (gym.ts:394) ritenta 2 volte gli errori di rete, offline fallisce dopo ~3 s senza coda (T10); i test nativi di T7/T9 usano createQueryClient(true), non il singleton, e client.mount().
