@@ -298,7 +298,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. Nella tabella "Environment variables" aggiungere `CORS_ALLOWED_ORIGINS`, con default `["capacitor://localhost"]`. In "Authentication model" aggiungere una riga sul Bearer per l'app nativa.
 - Verifica: `grep -n "CORS_ALLOWED_ORIGINS\|API_BASE_URL\|SideStore" README.md` trova le tre voci. `cd web && npm test` è verde.
 
-### [~] T14. Verifica remota completa del backend e deploy del branch
+### [x] T14. Verifica remota completa del backend e deploy del branch
 
 - Copre: C8, C9, C10, C11, C23, C24, C26
 - Rischio: basso
@@ -313,7 +313,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - la PWA dal browser fa login con cookie come prima.
   I fallimenti dovuti al DB condiviso vanno annotati senza dichiarare la feature verificata.
 
-### [ ] T15. Verifica CI e mirror con un tag di prova
+### [x] T15. Verifica CI e mirror con un tag di prova
 
 - Copre: C12, C13
 - Rischio: basso
@@ -382,3 +382,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T13 — DONE — review: saltata (rischio basso). README: sezione 'iOS app (IPA)', CORS_ALLOWED_ORIGINS, Bearer nativo. Impostazioni esterne (mirror, Actions, secret) descritte, non verificate dall'agent.
 - T14 (parte pytest) — suite intera sul server, DB isolato yfp_test, con PUBLIC_BASE_URL=http://localhost:6500 e VAPID vuote (riportato dall'utente 2026-10-12): feature 24 falliti / 394 passed; baseline origin/main 24 falliti; confronto con comm: nessun test fallisce solo sulla feature, nessuno solo su main. Nessuna regressione (C26 soddisfatto a meno dei 24 fallimenti preesistenti del DB condiviso, tutti identici al baseline). Restano in T14: deploy del branch (docker compose up -d --build) e preflight curl su pal.septimilleso.uk, decisione dell'utente.
 - T15 — run GitHub 38302333605 (tag v0.0.1 pushato solo su Gitea, mirror ok): attempt 1 fallito allo step 'Build web and sync Capacitor' per variable API_BASE_URL assente (il controllo ha funzionato); attempt 2 dopo correzione della variable (re-run): tutti gli step success, compresi 'Build unsigned app' (xcodebuild con schema App, nessun problema di schema condiviso né di Package.swift rigenerato), 'Check app version matches tag', 'GitHub release' e 'Gitea release'. Release GitHub v0.0.1 con yourfitnesspal-v0.0.1.ipa (3197210 byte). Release Gitea non verificabile senza credenziali (repo privato): conferma dell'utente richiesta. C12 ok, C13 ok lato GitHub.
+- T14 — DONE: deploy del branch sul server; prima del rebuild di api la preflight rispondeva 404 senza header CORS (container vecchio, app 'Impossibile contattare il server'); dopo `docker compose up -d --build api`, curl su pal.septimilleso.uk (2026-10-12): preflight da capacitor://localhost 200 con access-control-allow-origin: capacitor://localhost e header consentiti (Authorization, Content-Type, X-Requested-With, X-YFP-Challenge, X-YFP-Client); origin https://evil.example 400 senza ACAO; GET /api/auth/me con Origin nativo 401 con ACAO; preflight OAuth /token da altro origin invariata (200, ACAO *). Cloudflare non altera le risposte. C11 ok sul dominio reale.
