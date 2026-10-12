@@ -53,7 +53,7 @@ Decisioni di design (prese qui, valgono per tutti i task):
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [ ] T1. Test di caratterizzazione del comportamento attuale
+### [x] T1. Test di caratterizzazione del comportamento attuale
 
 - Copre: C21, C22, C26
 - Rischio: basso
@@ -351,3 +351,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 Partenza: 2e18773b0374f2a1605b278f283e3f98f152af93 su main
 
+T1 — DONE — review: saltata
