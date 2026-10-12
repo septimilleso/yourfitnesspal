@@ -67,3 +67,8 @@ Ordine consigliato delle feature:
 
 - [0003 Autenticazione Bearer per il client nativo](../../decisions/0003-auth-bearer-client-nativo.md)
 - [0004 Palestra offline con stato locale e sync a blocco](../../decisions/0004-palestra-offline-sync-a-blocco.md)
+
+## Aggiunte dopo la feature 1
+
+- Icona app: l IPA della feature 1 usa l icona predefinita di Capacitor (AppIcon placeholder in web/ios/App/App/Assets.xcassets). La vera icona (art di YFP) va inclusa nella **prossima feature**, qualunque essa sia. Richiesta dell utente 2026-10-12.
+- Offline: l utente si aspettava che l IPA si aprisse offline con i dati in cache già dalla feature 1. La spec della feature 1 lo escludeva (C19). Priorità alta per la prossima feature; ordine ancora da decidere tra offline e Live Activity.
