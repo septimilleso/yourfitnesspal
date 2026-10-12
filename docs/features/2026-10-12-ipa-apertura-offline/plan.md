@@ -103,7 +103,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. In `client.errors.native.test.ts` aggiorna i casi di T1: con `fetch` che rifiuta, l'errore è `instanceof NetworkError` e `isOffline()` è true; dopo una risposta 500 `isOffline()` è false. Gli altri asserti di T1 restano.
 - Verifica: `cd web && npx vitest run src/native/connectivity.test.ts src/api/client.errors.native.test.ts src/api/client.test.ts src/api/client.native.test.ts && npx tsc -b`, risultato atteso: verdi e nessun errore di tipo. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T3. Modulo di persistenza della cache su file
+### [x] T3. Modulo di persistenza della cache su file
 
 - Copre: C1, C4, C6, C7, C26
 - Rischio: alto
@@ -353,3 +353,4 @@ Partenza: 2e18773b0374f2a1605b278f283e3f98f152af93 su main
 
 T1 — DONE — review: saltata
 T2 — DONE — review: 1 round. Avvisi: client.ts fetchNative tratta AbortError come errore di rete (nessun chiamante usa signal); errore a metà body resta TypeError generico, da tenere presente in T5/T10.
+T3 — DONE — review: 1 round. MINOR: queryPersistence.ts:89 restore non rifiltra status success né svuota mutations; mancano test (scrittura in coda dopo clear, chiavi foods/admin al ripristino, writeFile che rifiuta). Vincolo per T4/T8: clearToken() prima di clearPersistedQueryCache(). Avviso: dopo 401 la cache in memoria resta piena, un nuovo login riscrive i dati vecchi su file (verificare in T4/T7); debounce si riarma a ogni evento.
