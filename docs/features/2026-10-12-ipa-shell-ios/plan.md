@@ -298,7 +298,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. Nella tabella "Environment variables" aggiungere `CORS_ALLOWED_ORIGINS`, con default `["capacitor://localhost"]`. In "Authentication model" aggiungere una riga sul Bearer per l'app nativa.
 - Verifica: `grep -n "CORS_ALLOWED_ORIGINS\|API_BASE_URL\|SideStore" README.md` trova le tre voci. `cd web && npm test` è verde.
 
-### [ ] T14. Verifica remota completa del backend e deploy del branch
+### [~] T14. Verifica remota completa del backend e deploy del branch
 
 - Copre: C8, C9, C10, C11, C23, C24, C26
 - Rischio: basso
@@ -380,3 +380,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T11 — DONE — review: 1 round, APPROVED. MINOR: RestTimerBar.native.test.tsx:45-60 non verifica che l'haptic avvenga insieme a beep() e vibrate() (aggiungere expect su beep e vibrate). Aggiunto fuori elenco file: SetRow.native.test.tsx. Haptic reale su iPhone da verificare in C18.
 - T12 — DONE — review: saltata (rischio basso); diff del workflow letto dall'orchestratore. Aggiunto step diagnostico 'xcodebuild -list' (|| true) per il caso schema App non condiviso. Verifica reale in T15.
 - T13 — DONE — review: saltata (rischio basso). README: sezione 'iOS app (IPA)', CORS_ALLOWED_ORIGINS, Bearer nativo. Impostazioni esterne (mirror, Actions, secret) descritte, non verificate dall'agent.
+- T14 (parte pytest) — suite intera sul server, DB isolato yfp_test, con PUBLIC_BASE_URL=http://localhost:6500 e VAPID vuote (riportato dall'utente 2026-10-12): feature 24 falliti / 394 passed; baseline origin/main 24 falliti; confronto con comm: nessun test fallisce solo sulla feature, nessuno solo su main. Nessuna regressione (C26 soddisfatto a meno dei 24 fallimenti preesistenti del DB condiviso, tutti identici al baseline). Restano in T14: deploy del branch (docker compose up -d --build) e preflight curl su pal.septimilleso.uk, decisione dell'utente.
