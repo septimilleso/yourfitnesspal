@@ -284,7 +284,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. `RestTimerBar.test.tsx`, `RestTimerBar.native.test.tsx`, `NativeBridge.test.tsx` e `restNotifications.test.ts` passano senza modifiche.
 - Verifica: `cd web && npx vitest run src/pages/gym/ src/native/ src/components/gym/`, risultato atteso: verdi. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T11. Icona dell'app dal gatto chef
+### [x] T11. Icona dell'app dal gatto chef
 
 - Copre: C11
 - Rischio: basso
@@ -361,3 +361,4 @@ T7 — DONE — review: 1 round. Deviazione approvata: AuthGuard nativo svuota l
 T8 — DONE — review: 1 round (prima PARTIAL: asserzione restAlerts "cancel una volta" in conflitto con R11, ritoccata a 2 chiamate come ammette C22). MINOR: AuthContext.logout.native.test.tsx:89 C8 copre solo l ordine delle chiamate al mock, non una sync che riprogramma durante il logout (la garanzia sta nella coda di restNotifications.ts:65-79). Avvisi preesistenti, fuori scope: (1) AuthProvider (App.tsx:39-41) sopra Routes: dopo queryClient.clear() il suo observer di ["me"] può restare legato alla query rimossa, permessi (useHasPermission/useIsAdmin) dell account precedente fino al riavvio dopo logout+login di un altro account, vale anche sul web; da verificare in T13 e da proporre come follow-up; (2) una mutation in volo che finisce dopo clear() può riprogrammare la notifica.
 T9 — DONE — review: 1 round. MINOR: OfflineBar.test.tsx:119-124 C5 non prova che la ripresa avvenga a 20 s e non prima; OfflineBar.tsx:29-32 subscribe non avvolto in notifyManager.batchCalls. Da verificare su dispositivo (T14): la barra fixed top-0 z-50 può coprire ~20 px di header/tap target sotto la status bar; la barra compare solo dopo una fetch fallita (apertura offline a freddo con tutti i dati freschi potrebbe non mostrarla); sparisce alla prima risposta HTTP riuscita.
 T10 — DONE — review: 1 round. Incluso MINOR di T5: useSavedWeek con retry nativo (retryNative spostato in lib/retry.ts). MINOR: queryPersistence.restore.native.test.tsx:84-85 le asserzioni su schedule/cancel non sono discriminanti (vale getQueryData(gymKeys.active) undefined); WorkoutPage.tsx:86 `!workout` vale anche per null (204), meglio `workout === undefined`. Nota: useLiveMutation (gym.ts:394) ritenta 2 volte gli errori di rete, offline fallisce dopo ~3 s senza coda (R7 ok).
+T11 — DONE — review: saltata. Icona 1024x1024 RGB opaca, rigenerabile e deterministica (sha256 uguale), web/public invariato. Il ritaglio a piena area è stretto (cappello e cucchiaio tagliati ai bordi, come il maskable PWA): giudizio visivo su dispositivo in C16. File 875 KB (era 110 KB).

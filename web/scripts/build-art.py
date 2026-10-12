@@ -292,6 +292,23 @@ def green_square_crop(image: Image.Image, sage: tuple[int, int, int]) -> Image.I
     return rgba.crop((left, top, left + side, top + side))
 
 
+def opaque_full_bleed(source: Image.Image) -> Image.Image:
+    sage = sage_color(source)
+    crop = green_square_crop(source, sage)
+    # Keep the largest axis-aligned square inside the rounded body so no corner
+    # or outline pixels survive when this crop is scaled to full bleed.
+    diameter = min(crop.size)
+    radius = round(diameter * 0.21)
+    inset = ceil(radius * (1 - 1 / sqrt(2))) + 2
+    left = (crop.width - diameter) // 2 + inset
+    top = (crop.height - diameter) // 2 + inset
+    inner_side = diameter - inset * 2
+    inner = crop.crop((left, top, left + inner_side, top + inner_side))
+    opaque_inner = Image.new("RGBA", inner.size, (*sage, 255))
+    opaque_inner.alpha_composite(inner)
+    return opaque_inner
+
+
 def pwa_icons() -> None:
     source = Image.open(ART / "dieta" / "app-icon.png").convert("RGBA")
     sage = sage_color(source)
@@ -308,23 +325,22 @@ def pwa_icons() -> None:
     for size, filename in ((192, "pwa-192x192.png"), (512, "pwa-512x512.png"), (32, "favicon-32x32.png")):
         clean.resize((size, size), Image.Resampling.LANCZOS).save(PUBLIC / filename, optimize=True)
 
-    # Keep the largest axis-aligned square inside the rounded body so no corner
-    # or outline pixels survive when this crop is scaled to full bleed.
-    diameter = min(crop.size)
-    radius = round(diameter * 0.21)
-    inset = ceil(radius * (1 - 1 / sqrt(2))) + 2
-    left = (crop.width - diameter) // 2 + inset
-    top = (crop.height - diameter) // 2 + inset
-    inner_side = diameter - inset * 2
-    inner = crop.crop((left, top, left + inner_side, top + inner_side))
-    opaque_inner = Image.new("RGBA", inner.size, (*sage, 255))
-    opaque_inner.alpha_composite(inner)
-
+    opaque_inner = opaque_full_bleed(source)
     for size, filename in ((512, "pwa-maskable-512x512.png"), (180, "apple-touch-icon.png")):
         opaque_inner.resize((size, size), Image.Resampling.LANCZOS).convert("RGB").save(
             PUBLIC / filename,
             optimize=True,
         )
+
+
+def ios_app_icon() -> None:
+    # iOS applies its own mask, so the icon must be opaque and full bleed.
+    source = Image.open(ART / "dieta" / "app-icon.png").convert("RGBA")
+    icon = opaque_full_bleed(source).resize((1024, 1024), Image.Resampling.LANCZOS).convert("RGB")
+    icon.save(
+        ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "AppIcon.appiconset" / "AppIcon-512@2x.png",
+        optimize=True,
+    )
 
 
 def report_outputs() -> None:
@@ -341,6 +357,7 @@ def main() -> None:
         save_backgrounds(mode)
         save_badges(mode)
     pwa_icons()
+    ios_app_icon()
     report_outputs()
 
 
