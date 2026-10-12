@@ -174,7 +174,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - **mutazione nativa offline:** con `NetworkError` rifiuta subito e non resta in pausa (`isPaused` false), senza coda (R7).
 - Verifica: `cd web && npx vitest run src/lib/queryClient.test.ts src/auth/AuthGuard.test.tsx src/auth/AuthContext.test.tsx && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T6. Avvio nativo: ripristino della cache prima del primo render
+### [x] T6. Avvio nativo: ripristino della cache prima del primo render
 
 - Copre: C1, C26
 - Rischio: alto
@@ -356,3 +356,4 @@ T2 — DONE — review: 1 round. Avvisi: client.ts fetchNative tratta AbortError
 T3 — DONE — review: 1 round. MINOR: queryPersistence.ts:89 restore non rifiltra status success né svuota mutations; mancano test (scrittura in coda dopo clear, chiavi foods/admin al ripristino, writeFile che rifiuta). Vincolo per T4/T8: clearToken() prima di clearPersistedQueryCache(). Avviso: dopo 401 la cache in memoria resta piena, un nuovo login riscrive i dati vecchi su file (verificare in T4/T7); debounce si riarma a ogni evento.
 T4 — DONE — review: 1 round. Avvisi: ciclo di import client.ts -> queryPersistence.ts -> api/gym.ts -> client.ts sicuro solo finché nessun binding è usato a livello di modulo (nessun TDZ oggi, build ok); il 401 non svuota le query in memoria: decidere in T7/T8 (queryClient.clear) per evitare che un nuovo login riscriva dati vecchi su file.
 T5 — DONE — review: 1 round. MINOR da chiudere in T10: web/src/api/savedWeeks.ts:69 `retry: false` esplicito batte retryNative, offline mostra "Settimana non trovata." sopra la cache (usare `isNative() ? retryNative : false`). Avvisi: tra T5 e T7 AuthGuard nativo offline a freddo va a /login (["me"] pending+paused), chiuso da T7; useLiveMutation (gym.ts:394) ritenta 2 volte gli errori di rete, offline fallisce dopo ~3 s senza coda (T10); i test nativi di T7/T9 usano createQueryClient(true), non il singleton, e client.mount().
+T6 — DONE — review: 1 round. MINOR: boot.ts:12-21 se loadNativeSession rifiuta (Preferences) il token resta null e la cache su file viene cancellata; accettato (in quella sessione si va comunque al login). Nota: `npm test` impiega ~2 min, lanciarlo in background.
