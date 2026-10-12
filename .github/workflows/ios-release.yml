@@ -1,0 +1,98 @@
+name: iOS release
+
+# Build an unsigned IPA on a GitHub macOS runner, publish it as a GitHub
+# release and copy it to the Gitea release of the same tag.
+# Trigger: push a tag like v0.1.0 (or run manually with a tag name).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GITEA_URL: https://git.septimilleso.uk
+  GITEA_REPO: septimilleso/yourfitnesspal
+  WEB_DIR: web
+  IOS_DIR: web/ios/App
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check iOS project exists
+        run: |
+          if [ ! -d "$IOS_DIR" ]; then
+            echo "::error::$IOS_DIR missing. Run 'npx cap add ios' in $WEB_DIR and commit it."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web and sync Capacitor
+        working-directory: ${{ env.WEB_DIR }}
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+
+      - name: Build unsigned app
+        working-directory: ${{ env.IOS_DIR }}
+        run: |
+          if [ -d App.xcworkspace ]; then TARGET=(-workspace App.xcworkspace); else TARGET=(-project App.xcodeproj); fi
+          xcodebuild "${TARGET[@]}" -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          APP=$(find "$IOS_DIR/build/Build/Products" -maxdepth 2 -name '*.app' | head -n 1)
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          (cd out && zip -qr "yourfitnesspal-$TAG.ipa" Payload)
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: out/*.ipa
+
+      - name: GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          files: out/*.ipa
+          generate_release_notes: true
+
+      - name: Gitea release
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          API="$GITEA_URL/api/v1/repos/$GITEA_REPO"
+          AUTH="Authorization: token $GITEA_TOKEN"
+          # reuse release if tag already has one, else create it
+          CODE=$(curl -s -o rel.json -w '%{http_code}' -H "$AUTH" "$API/releases/tags/$TAG")
+          if [ "$CODE" != "200" ]; then
+            curl -sf -H "$AUTH" -H 'Content-Type: application/json' \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"target_commitish\":\"$GITHUB_SHA\"}" \
+              "$API/releases" -o rel.json
+          fi
+          ID=$(python3 -c 'import json;print(json.load(open("rel.json"))["id"])')
+          for f in out/*.ipa; do
+            curl -sf -H "$AUTH" -F "attachment=@$f" "$API/releases/$ID/assets?name=$(basename "$f")"
+          done
