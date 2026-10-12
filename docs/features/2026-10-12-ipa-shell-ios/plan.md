@@ -94,7 +94,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Procedura R con `tests/test_auth_bearer.py tests/test_auth.py tests/test_auth_sessions.py tests/test_oauth_router.py`.
 - Verifica: in locale `py_compile` e `ruff` sui file toccati senza errori. Sul remoto i quattro file di test sono tutti verdi.
 
-### [ ] T4. Backend: challenge di login senza cookie e token nel body per il client nativo
+### [x] T4. Backend: challenge di login senza cookie e token nel body per il client nativo
 
 - Copre: C9, C20
 - Rischio: alto
@@ -366,3 +366,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T1 — DONE — review: saltata (rischio basso)
 - T2 — DONE — review: saltata (rischio basso); test DB da eseguire sul remoto con T3-T5 (rischio: password di test 'a brand new passphrase' in setup/complete)
 - T3 — DONE — review: 1 round, APPROVED. MINOR: manca test cookie non valido + Bearer valido => 401; manca test auth_version superata con Bearer (api/tests/test_auth_bearer.py). Test DB da eseguire sul remoto dopo T5.
+- T4 — DONE — review: 1 round, APPROVED. MINOR: X-YFP-Challenge accettato anche senza X-YFP-Client (sessions.py:104, innocuo, scelta da confermare); fixture session duplicata in test_auth_native.py; manca test totp con recovery_code via header. Test DB da eseguire sul remoto dopo T5.
