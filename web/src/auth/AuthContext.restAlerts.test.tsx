@@ -56,8 +56,9 @@ describe("useLogout cancels the rest notification", () => {
       await runLogout();
     });
 
-    expect(cancelMock).toHaveBeenCalledOnce();
+    expect(cancelMock).toHaveBeenCalledTimes(2);
     expect(cancelMock.mock.invocationCallOrder[0]).toBeLessThan(logoutMock.mock.invocationCallOrder[0]);
+    expect(cancelMock.mock.invocationCallOrder[1]).toBeGreaterThan(logoutMock.mock.invocationCallOrder[0]);
   });
 
   it("still logs out when the cancel rejects", async () => {

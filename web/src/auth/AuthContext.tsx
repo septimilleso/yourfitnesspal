@@ -6,6 +6,7 @@ import type { Permission } from "../lib/permissions";
 import { unsubscribeDeviceOnLogout } from "../lib/push";
 import { retryOnlyNetwork } from "../lib/queryClient";
 import { isNative } from "../native/platform";
+import { clearPersistedQueryCache } from "../native/queryPersistence";
 import { cancelRestNotification } from "../native/restNotifications";
 import { clearToken } from "../native/session";
 
@@ -50,11 +51,18 @@ export function useLogout() {
       } catch {
         // Continue with logout even if the server cannot be reached
       }
-      await clearToken();
+      // Il token va rimosso prima del file: una scrittura in mezzo non deve ricreare il file con la sessione vecchia.
+      await clearToken().catch(() => undefined);
+      await clearPersistedQueryCache().catch(() => undefined);
     } else {
       await logout();
     }
     clearClientCaches(queryClient);
+    if (isNative()) {
+      // Una notifica programmata durante il logout, dopo la prima cancellazione, non deve suonare.
+      await cancelRestNotification().catch(() => undefined);
+    }
+    // Ultima istruzione: NativeGuard legge getToken() nel render e non reagisce al cambio di token.
     navigate("/login", { replace: true });
   };
 }
