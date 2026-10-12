@@ -37,7 +37,7 @@ In locale si eseguono `api/.venv/Scripts/python.exe -m py_compile <file>`, `api/
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [ ] T1. Caratterizzazione web: client HTTP, API auth e build PWA
+### [x] T1. Caratterizzazione web: client HTTP, API auth e build PWA
 
 - Copre: C20, C7 (baseline PWA), C25
 - Rischio: basso
@@ -362,3 +362,5 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 ## Registro di esecuzione
 
 Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
+- T1 punto 4: `npm run build` ok; in `dist/` ci sono `sw.js`, `registerSW.js`, `manifest.webmanifest`, `workbox-efbd304a.js`; `dist/index.html` referenzia `registerSW.js`.
+- T1 — DONE — review: saltata (rischio basso)
