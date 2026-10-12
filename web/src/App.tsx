@@ -6,6 +6,7 @@ import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
 import PermissionGuard from "./auth/PermissionGuard";
 import AppShell from "./components/AppShell";
+import OfflineBar from "./components/OfflineBar";
 import { queryClient } from "./lib/queryClient";
 import NativeBridge from "./native/NativeBridge";
 import AccountPage from "./pages/AccountPage";
@@ -38,6 +39,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
         <NativeBridge />
+        <OfflineBar />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/connect" element={<ConnectPage />} />
