@@ -1,4 +1,10 @@
-const BASE_PATH = "/api";
+import { isNative } from "../native/platform";
+import { clearToken, getChallenge, getToken } from "../native/session";
+
+// Nella build nativa VITE_API_BASE_URL è un URL assoluto; nella PWA resta /api (stesso origin).
+function basePath(): string {
+  return import.meta.env.VITE_API_BASE_URL || "/api";
+}
 
 export class ApiError extends Error {
   status: number;
@@ -19,18 +25,30 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
 
+  const native = isNative();
+  const token = getToken();
+  const challenge = getChallenge();
+  const nativeHeaders: Record<string, string> = native
+    ? {
+        "X-YFP-Client": "native",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(challenge && path.startsWith("/auth/") ? { "X-YFP-Challenge": challenge } : {}),
+      }
+    : {};
+
   const init: RequestInit = {
     ...rest,
-    credentials: "include",
+    credentials: native ? "omit" : "include",
     headers: {
       "X-Requested-With": "yfp",
+      ...nativeHeaders,
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   };
 
-  const response = await fetch(`${BASE_PATH}${path}`, init);
+  const response = await fetch(`${basePath()}${path}`, init);
 
   if (!response.ok) {
     let parsedBody: unknown = null;
@@ -38,6 +56,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       parsedBody = await response.json();
     } catch {
       // Response had no JSON body; leave parsedBody as null.
+    }
+    if (native && response.status === 401 && (parsedBody as { detail?: unknown } | null)?.detail === "unauthorized") {
+      // Token scaduto o revocato. Un errore di rimozione non deve nascondere il 401.
+      await clearToken().catch(() => undefined);
     }
     const message =
       (parsedBody && typeof parsedBody === "object" && "detail" in parsedBody

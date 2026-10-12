@@ -156,7 +156,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `ls web/ios/App` mostra il progetto.
   - `cd web && npm test` è verde.
 
-### [ ] T7. Client web: URL base configurabile e sessione Bearer nativa
+### [x] T7. Client web: URL base configurabile e sessione Bearer nativa
 
 - Copre: C1, C2, C7 (URL assoluto nel bundle), C20
 - Rischio: alto
@@ -373,3 +373,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - Verifica remota T2-T5 (server, DB isolato yfp_test, riportata dall'utente 2026-10-12): 77 passed, 3 failed su test_config.py::test_push_disabled_without_vapid_settings, test_mcp_http.py::test_metadata_documents, test_oauth_router.py::test_me_exposes_mcp_url, tutti preesistenti e dipendenti dall'ambiente del server (VAPID e PUBLIC_BASE_URL reali). Rilanciati con le variabili forzate (PUBLIC_BASE_URL=http://localhost:6500, VAPID vuote): 26 passed. Tutti i test nuovi di T2-T5 verdi. Resta la suite intera in T14.
 - T6 scelta Capacitor: major 7 (`@capacitor/core`, `@capacitor/ios` e `@capacitor/cli` 7.6.9), perché Capacitor 8 richiede Xcode 26 e il default di macos-15 è Xcode 16.4 (Capacitor 7 richiede Xcode 16.0+).
 - T6 — DONE — review: 1 round, APPROVED. Deviazione: `npx cap add ios --packagemanager SPM` è uscito con exit 1 (ENOENT Podfile) per un bug della CLI 7.6.9 (`getPackageManager` confronta "spm" con 'SPM' in @capacitor/cli/dist/index.js:193, quindi l'add chiama `updatePodfile`); il progetto SPM era già generato e `npx cap sync ios` lo ha completato (exit 0). Regola: in CI si usa solo `cap sync`, mai `cap add`. MINOR da verificare in T15: assenza di `xcshareddata/xcschemes` in App.xcodeproj; se xcodebuild non trova lo schema `App`, va generato e condiviso. npm audit segnala vulnerabilità non analizzate (non verificato se nuove).
+- T7 — DONE — review: 1 round, APPROVED. MINOR: (1) web/ios/App/CapApp-SPM/Package.swift:15 contiene path con backslash scritti da cap sync su Windows: file rigenerato da `npx cap sync ios` su macOS in CI prima di xcodebuild, vale anche per T9 e T11 (verificare in T15; non committare a mano); (2) client.ts:62 race su 401 tardivo che cancella un token nuovo (clearToken solo se getToken() === token inviato); (3) VITE_API_BASE_URL senza normalizzazione dello slash finale (documentare in T13: senza slash finale); (4) manca test: nessun challenge inviato a /auth/* se non impostato.
