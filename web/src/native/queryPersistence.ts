@@ -121,6 +121,8 @@ export function startQueryPersistence(queryClient: QueryClient): () => void {
 }
 
 // Al logout o dopo un 401 di sessione: annulla la scrittura pendente e cancella il file in coda.
+// Vincolo per i chiamanti: chiamare clearToken() PRIMA di questa funzione. Se il token è ancora presente,
+// una scrittura o un visibilitychange tra le due chiamate ricreerebbe il file con la vecchia sessione.
 export function clearPersistedQueryCache(): Promise<void> {
   if (!isNative()) return Promise.resolve();
   cancelPendingWrite();

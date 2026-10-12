@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isOffline, reportNetworkFailure, resetConnectivityForTests } from "../native/connectivity";
+import { clearPersistedQueryCache } from "../native/queryPersistence";
 import { clearToken, getToken, setChallenge, setToken } from "../native/session";
 import { ApiError, client, NetworkError } from "./client";
 
@@ -12,6 +13,9 @@ const preferences = vi.hoisted(() => ({
 
 vi.mock("@capacitor/preferences", () => ({ Preferences: preferences }));
 vi.mock("../native/platform", () => ({ isNative: () => true }));
+vi.mock("../native/queryPersistence", () => ({
+  clearPersistedQueryCache: vi.fn().mockResolvedValue(undefined),
+}));
 
 beforeEach(async () => {
   preferences.get.mockResolvedValue({ value: null });
@@ -80,5 +84,58 @@ describe("api client errors on the native platform", () => {
     expect(error).toMatchObject({ status: 502, message: "Request failed with status 502" });
     expect(preferences.remove).not.toHaveBeenCalled();
     expect(getToken()).toBe("tok-a");
+  });
+
+  it("does not clear the session when the token changed while the request was in flight (C10)", async () => {
+    await setToken("tok-a");
+    let resolveFetch: (value: unknown) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+      ),
+    );
+
+    const request = client.get("/gym/active").catch((e: unknown) => e);
+    await setToken("tok-b");
+    resolveFetch(jsonResponse(401, { detail: "unauthorized" }));
+    const error = await request;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 401 });
+    expect(getToken()).toBe("tok-b");
+    expect(preferences.remove).not.toHaveBeenCalled();
+    expect(clearPersistedQueryCache).not.toHaveBeenCalled();
+  });
+
+  it("clears the token and the persisted cache on a session 401 with the current token (C4)", async () => {
+    await setToken("tok-a");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, { detail: "unauthorized" })));
+
+    const error = await client.get("/gym/active").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 401 });
+    expect(getToken()).toBeNull();
+    expect(clearPersistedQueryCache).toHaveBeenCalledTimes(1);
+    // Il token va rimosso prima della cache: una scrittura in mezzo ricreerebbe il file.
+    expect(preferences.remove.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(clearPersistedQueryCache).mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not clear the persisted cache on a 401 with another detail", async () => {
+    await setToken("tok-a");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, { detail: "invalid credentials" })));
+
+    const error = await client.get("/gym/active").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 401, message: "invalid credentials" });
+    expect(getToken()).toBe("tok-a");
+    expect(preferences.remove).not.toHaveBeenCalled();
+    expect(clearPersistedQueryCache).not.toHaveBeenCalled();
   });
 });

@@ -135,7 +135,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - sul web nessuna chiamata a `Filesystem`.
 - Verifica: `cd web && npx vitest run src/native/queryPersistence.test.ts && npx tsc -b`, risultato atteso: verdi, nessun errore di tipo. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T4. Client: 401 di sessione solo per il token corrente e cancellazione della cache
+### [x] T4. Client: 401 di sessione solo per il token corrente e cancellazione della cache
 
 - Copre: C4, C10, C22, C26
 - Rischio: alto
@@ -354,3 +354,4 @@ Partenza: 2e18773b0374f2a1605b278f283e3f98f152af93 su main
 T1 — DONE — review: saltata
 T2 — DONE — review: 1 round. Avvisi: client.ts fetchNative tratta AbortError come errore di rete (nessun chiamante usa signal); errore a metà body resta TypeError generico, da tenere presente in T5/T10.
 T3 — DONE — review: 1 round. MINOR: queryPersistence.ts:89 restore non rifiltra status success né svuota mutations; mancano test (scrittura in coda dopo clear, chiavi foods/admin al ripristino, writeFile che rifiuta). Vincolo per T4/T8: clearToken() prima di clearPersistedQueryCache(). Avviso: dopo 401 la cache in memoria resta piena, un nuovo login riscrive i dati vecchi su file (verificare in T4/T7); debounce si riarma a ogni evento.
+T4 — DONE — review: 1 round. Avvisi: ciclo di import client.ts -> queryPersistence.ts -> api/gym.ts -> client.ts sicuro solo finché nessun binding è usato a livello di modulo (nessun TDZ oggi, build ok); il 401 non svuota le query in memoria: decidere in T7/T8 (queryClient.clear) per evitare che un nuovo login riscriva dati vecchi su file.

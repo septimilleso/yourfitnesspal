@@ -1,5 +1,6 @@
 import { reportNetworkFailure, reportNetworkSuccess } from "../native/connectivity";
 import { isNative } from "../native/platform";
+import { clearPersistedQueryCache } from "../native/queryPersistence";
 import { clearToken, getChallenge, getToken } from "../native/session";
 
 // Nella build nativa VITE_API_BASE_URL è un URL assoluto; nella PWA resta /api (stesso origin).
@@ -81,9 +82,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch {
       // Response had no JSON body; leave parsedBody as null.
     }
-    if (native && response.status === 401 && (parsedBody as { detail?: unknown } | null)?.detail === "unauthorized") {
+    if (
+      native &&
+      response.status === 401 &&
+      (parsedBody as { detail?: unknown } | null)?.detail === "unauthorized" &&
+      getToken() === token
+    ) {
       // Token scaduto o revocato. Un errore di rimozione non deve nascondere il 401.
+      // Se nel frattempo è arrivato un token nuovo, il 401 riguarda quello vecchio: non si tocca nulla.
       await clearToken().catch(() => undefined);
+      await clearPersistedQueryCache().catch(() => undefined);
     }
     const message =
       (parsedBody && typeof parsedBody === "object" && "detail" in parsedBody
