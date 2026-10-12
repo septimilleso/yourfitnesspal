@@ -283,7 +283,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Lasciare invariati gli step di release GitHub e Gitea.
 - Verifica: il file YAML è valido (`npx --yes yaml-lint .github/workflows/ios-release.yml`, oppure `python -c "import yaml,sys;yaml.safe_load(open(sys.argv[1]))" .github/workflows/ios-release.yml` senza errori). La verifica reale è in T15.
 
-### [ ] T13. Documentazione: rilascio IPA, SideStore e configurazione
+### [x] T13. Documentazione: rilascio IPA, SideStore e configurazione
 
 - Copre: C12 (procedura), C13 (prerequisiti)
 - Rischio: basso
@@ -379,3 +379,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T10 — DONE — review: 1 round, APPROVED. MINOR: NativeRestAlertSetting.tsx:61-65 se setRestAlertsEnabled(true) riesce ma syncRestNotification lancia, il toggle resta spento con Preferences già abilitato (stato incoerente); simmetrico in disattivazione (:52-54); mancano test dei percorsi di errore (requestPermissions, setRestAlertsEnabled, syncRestNotification, checkPermissions).
 - T11 — DONE — review: 1 round, APPROVED. MINOR: RestTimerBar.native.test.tsx:45-60 non verifica che l'haptic avvenga insieme a beep() e vibrate() (aggiungere expect su beep e vibrate). Aggiunto fuori elenco file: SetRow.native.test.tsx. Haptic reale su iPhone da verificare in C18.
 - T12 — DONE — review: saltata (rischio basso); diff del workflow letto dall'orchestratore. Aggiunto step diagnostico 'xcodebuild -list' (|| true) per il caso schema App non condiviso. Verifica reale in T15.
+- T13 — DONE — review: saltata (rischio basso). README: sezione 'iOS app (IPA)', CORS_ALLOWED_ORIGINS, Bearer nativo. Impostazioni esterne (mirror, Actions, secret) descritte, non verificate dall'agent.
