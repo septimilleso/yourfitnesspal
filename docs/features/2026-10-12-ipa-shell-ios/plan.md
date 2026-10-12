@@ -134,7 +134,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Procedura R con `tests/test_cors.py tests/test_config.py tests/test_mcp_http.py tests/test_oauth_router.py`.
 - Verifica: `api/.venv/Scripts/python.exe -m pytest api/tests/test_cors.py api/tests/test_config.py -q` è verde in locale (se `test_config.py` ha test DB, lanciare solo i test senza DB con `-k`). Sul remoto i quattro file sono tutti verdi.
 
-### [ ] T6. Build nativa e progetto Capacitor iOS
+### [x] T6. Build nativa e progetto Capacitor iOS
 
 - Copre: C7, C23 (build PWA invariata)
 - Rischio: alto
@@ -370,3 +370,6 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T5 — DONE — review: 2 round (1° CHANGES_REQUESTED MAJOR: CORS globale rompeva le preflight OAuth/MCP; corretto con ApiCORSMiddleware solo su /api/; 2° APPROVED). Test DB da eseguire sul remoto.
 - Ambiente CI (verificato 2026-10-12, repo GitHub septimilleso/yourfitnesspal): mirror Gitea→GitHub ok, tag inoltrati e cancellazioni propagate (prova con tag `mirror-test`), workflow "iOS release" attivo, Actions abilitato, trigger solo tag `v*` (0 tag finora, per questo 0 run). DA FARE dall'utente prima di T15: variable `API_BASE_URL=https://pal.septimilleso.uk/api` e secret `GITEA_TOKEN` su GitHub (non verificabili senza credenziali).
 - Ambiente CI: l'utente conferma di aver creato su GitHub la variable API_BASE_URL e il secret GITEA_TOKEN (non verificabile da qui).
+- Verifica remota T2-T5 (server, DB isolato yfp_test, riportata dall'utente 2026-10-12): 77 passed, 3 failed su test_config.py::test_push_disabled_without_vapid_settings, test_mcp_http.py::test_metadata_documents, test_oauth_router.py::test_me_exposes_mcp_url, tutti preesistenti e dipendenti dall'ambiente del server (VAPID e PUBLIC_BASE_URL reali). Rilanciati con le variabili forzate (PUBLIC_BASE_URL=http://localhost:6500, VAPID vuote): 26 passed. Tutti i test nuovi di T2-T5 verdi. Resta la suite intera in T14.
+- T6 scelta Capacitor: major 7 (`@capacitor/core`, `@capacitor/ios` e `@capacitor/cli` 7.6.9), perché Capacitor 8 richiede Xcode 26 e il default di macos-15 è Xcode 16.4 (Capacitor 7 richiede Xcode 16.0+).
+- T6 — DONE — review: 1 round, APPROVED. Deviazione: `npx cap add ios --packagemanager SPM` è uscito con exit 1 (ENOENT Podfile) per un bug della CLI 7.6.9 (`getPackageManager` confronta "spm" con 'SPM' in @capacitor/cli/dist/index.js:193, quindi l'add chiama `updatePodfile`); il progetto SPM era già generato e `npx cap sync ios` lo ha completato (exit 0). Regola: in CI si usa solo `cap sync`, mai `cap add`. MINOR da verificare in T15: assenza di `xcshareddata/xcschemes` in App.xcodeproj; se xcodebuild non trova lo schema `App`, va generato e condiviso. npm audit segnala vulnerabilità non analizzate (non verificato se nuove).
