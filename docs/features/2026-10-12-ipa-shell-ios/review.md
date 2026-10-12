@@ -25,7 +25,7 @@
 | C13 | OK (riportato) | Secondo tentativo verde, con controllo versione e release GitHub e Gitea. Asset Gitea confermato dall'utente, non verificabile da qui. |
 | C14 | OK (riportato) | Utente: "funziona tutto"; manca il dettaglio. |
 | C15 | OK (riportato) | Come sopra, senza esito punto per punto. |
-| C16 | OK (riportato) | Notifiche funzionanti; il suono usato non è annotato. |
+| C16 | OK (riportato) | Notifiche funzionanti; suono usato: suono di sistema (confermato dall utente), non la campanella rest-bell.wav. Accettato da C16, ma vedi Note. |
 | C17 | OK (riportato) | Generico; non annotato se Salta, fine, annullamento e +15 s siano stati provati singolarmente. |
 | C18 | OK (riportato) | Haptics funzionanti. |
 | C19 | OK (riportato) | Modalità aereo: "Impossibile contattare il server", come da spec. L'offline vero è rimandato. |
@@ -77,3 +77,7 @@ La feature è completa e non rompe nulla di dichiarato. Debito lasciato:
 - Offline: la sessione si apre dal bundle ma `AuthGuard` chiama `/auth/me` e mostra l'errore. L'apertura offline con dati in cache è il primo obiettivo della prossima feature.
 - Icona app: resta il placeholder Capacitor. Da includere nella prossima feature.
 - Isolamento dei test pytest: i 24 fallimenti del DB condiviso restano un follow-up già noto.
+
+### Aggiornamento 2026-10-12 (evidenza C16)
+
+L'utente conferma che la notifica di fine riposo sull'iPhone suona con il **suono di sistema**, non con `rest-bell.wav`. C16 lo ammette (ripiego previsto da R9), quindi non è un KO. Resta un follow-up per la prossima feature: capire perché iOS non usa il file (copia in `Library/Sounds` da `installNotificationSound`, nome con estensione, formato/durata del wav, momento della copia rispetto alla prima `schedule`) e farlo suonare, oppure accettare il suono di sistema.
