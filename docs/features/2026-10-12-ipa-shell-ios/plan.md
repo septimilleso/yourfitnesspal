@@ -231,7 +231,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - in `NativeBridge`, `setQueryData(gymKeys.active, ...)` provoca la sync e il tap naviga a `/gym/workout`;
   - sul web nessun plugin viene chiamato.
 
-### [ ] T10. Toggle "Avviso fine riposo" nativo in Impostazioni
+### [x] T10. Toggle "Avviso fine riposo" nativo in Impostazioni
 
 - Copre: C5, C21 (test web invariati)
 - Rischio: alto
@@ -376,3 +376,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T7 — DONE — review: 1 round, APPROVED. MINOR: (1) web/ios/App/CapApp-SPM/Package.swift:15 contiene path con backslash scritti da cap sync su Windows: file rigenerato da `npx cap sync ios` su macOS in CI prima di xcodebuild, vale anche per T9 e T11 (verificare in T15; non committare a mano); (2) client.ts:62 race su 401 tardivo che cancella un token nuovo (clearToken solo se getToken() === token inviato); (3) VITE_API_BASE_URL senza normalizzazione dello slash finale (documentare in T13: senza slash finale); (4) manca test: nessun challenge inviato a /auth/* se non impostato.
 - T8 — DONE — review: 1 round, APPROVED. MINOR: (1) AuthContext.tsx:49 se Preferences.remove fallisce clearToken() rifiuta e useLogout non svuota cache né naviga (fix: `await clearToken().catch(() => undefined)`); (2) api/auth.ts:13-15 keepNativeSession: se Preferences.set fallisce verifyTotp/setupComplete rifiutano a sessione server già creata (fix: intercettare l'errore di persistenza e proseguire col token in memoria). Challenge non azzerato sui fallimenti: giudicato corretto (serve a riprovare il TOTP entro 300 s).
 - T9 — DONE — review: 1 round, APPROVED. MINOR: (1) NativeBridge.tsx:32-33 naviga a extra.url senza validare (usare safeNext o accettare solo /gym/workout); (2) AuthContext.tsx:44-45 cancel al logout prima di logout()/clearClientCaches: un refetch di gymKeys.active in quella finestra può riprogrammare la notifica (richiamare cancelRestNotification dopo clearClientCaches); (3) commento errato in restNotifications.test.ts:29 (il server è avanti di 5 s). Suono rest-bell.wav come suono di notifica da verificare su iPhone (C16). npm audit: 16 vulnerabilità non analizzate.
+- T10 — DONE — review: 1 round, APPROVED. MINOR: NativeRestAlertSetting.tsx:61-65 se setRestAlertsEnabled(true) riesce ma syncRestNotification lancia, il toggle resta spento con Preferences già abilitato (stato incoerente); simmetrico in disattivazione (:52-54); mancano test dei percorsi di errore (requestPermissions, setRestAlertsEnabled, syncRestNotification, checkPermissions).
