@@ -113,7 +113,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Procedura R con `tests/test_auth_native.py tests/test_auth.py tests/test_auth_sessions.py`.
 - Verifica: in locale `py_compile` e `ruff` senza errori. Sul remoto i tre file sono tutti verdi.
 
-### [ ] T5. Backend: CORS con allowlist
+### [x] T5. Backend: CORS con allowlist
 
 - Copre: C11
 - Rischio: alto
@@ -367,3 +367,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T2 — DONE — review: saltata (rischio basso); test DB da eseguire sul remoto con T3-T5 (rischio: password di test 'a brand new passphrase' in setup/complete)
 - T3 — DONE — review: 1 round, APPROVED. MINOR: manca test cookie non valido + Bearer valido => 401; manca test auth_version superata con Bearer (api/tests/test_auth_bearer.py). Test DB da eseguire sul remoto dopo T5.
 - T4 — DONE — review: 1 round, APPROVED. MINOR: X-YFP-Challenge accettato anche senza X-YFP-Client (sessions.py:104, innocuo, scelta da confermare); fixture session duplicata in test_auth_native.py; manca test totp con recovery_code via header. Test DB da eseguire sul remoto dopo T5.
+- T5 — DONE — review: 2 round (1° CHANGES_REQUESTED MAJOR: CORS globale rompeva le preflight OAuth/MCP; corretto con ApiCORSMiddleware solo su /api/; 2° APPROVED). Test DB da eseguire sul remoto.

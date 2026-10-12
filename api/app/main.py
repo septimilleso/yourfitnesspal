@@ -2,11 +2,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.auth.deps import get_current_user, require_admin
 from app.auth.rate_limit import client_ip, consume
+from app.config import settings
 from app.mcp.context import set_off_client
 from app.mcp.server import mcp_http_app, mcp_server
 from app.routers import (
@@ -107,6 +110,41 @@ async def oauth_rate_limit(request: Request, call_next):
     ):
         return JSONResponse(status_code=429, content={"error": "slow_down"})
     return await call_next(request)
+
+
+class ApiCORSMiddleware:
+    """CORS allowlist for the /api/ routes only.
+
+    The MCP SDK answers CORS on its OAuth routes (/token, /register, ...) with
+    its own policy, so requests outside /api/ pass through untouched. Pure ASGI
+    and added last, so it is the outermost layer: the csrf 403 under /api/
+    still carries the CORS headers.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.cors = CORSMiddleware(
+            app,
+            allow_origins=settings.cors_allowed_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+            allow_headers=[
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "X-YFP-Client",
+                "X-YFP-Challenge",
+            ],
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"].startswith("/api/"):
+            await self.cors(scope, receive, send)
+        else:
+            await self.app(scope, receive, send)
+
+
+app.add_middleware(ApiCORSMiddleware)
 
 
 @app.get("/api/health")

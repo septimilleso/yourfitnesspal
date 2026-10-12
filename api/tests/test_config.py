@@ -16,6 +16,17 @@ def test_new_settings_defaults() -> None:
     assert settings.oauth_refresh_token_days == 30
 
 
+def test_cors_allowed_origins_default() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.cors_allowed_origins == ["capacitor://localhost"]
+
+
+def test_cors_allowed_origins_from_env_json_list(monkeypatch) -> None:
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", '["https://a.example", "capacitor://localhost"]')
+    settings = Settings(_env_file=None)
+    assert settings.cors_allowed_origins == ["https://a.example", "capacitor://localhost"]
+
+
 def test_push_disabled_without_vapid_settings() -> None:
     settings = Settings(_env_file=None)
     assert settings.vapid_public_key == ""

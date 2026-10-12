@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # production). It is the OAuth issuer and the base of the MCP resource URL,
     # so it must match what MCP clients are given, scheme included.
     public_base_url: str = "http://localhost:6500"
+    # Origins allowed to call the API cross-origin, i.e. the native app's WebView.
+    # Set CORS_ALLOWED_ORIGINS as a JSON list. The default admits only the app.
+    cors_allowed_origins: list[str] = ["capacitor://localhost"]
     # Timezone used by the MCP tools to resolve "today" for the user.
     app_timezone: str = "Europe/Rome"
     oauth_access_token_minutes: int = 60
