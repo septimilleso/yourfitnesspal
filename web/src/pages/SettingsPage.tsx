@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 
 import { useHasPermission, useMe } from "../auth/AuthContext";
 import ModeSwitch from "../components/ModeSwitch";
+import NativeRestAlertSetting from "../components/NativeRestAlertSetting";
 import RestAlertSetting from "../components/RestAlertSetting";
+import { isNative } from "../native/platform";
 
 /** Settings page, opened from the header gear: account and admin links. */
 function SettingsPage() {
@@ -23,7 +25,7 @@ function SettingsPage() {
           <Link className="row flex justify-between" to="/account"><span>Account</span><span className="text-slate-500">{me?.username} ›</span></Link>
           {me?.role === "admin" && <Link className="row flex justify-between" to="/admin/users"><span>Gestione utenti</span><span>›</span></Link>}
         </section>
-        {canUseWorkouts && <RestAlertSetting />}
+        {canUseWorkouts && (isNative() ? <NativeRestAlertSetting /> : <RestAlertSetting />)}
       </div>
     </div>
   );

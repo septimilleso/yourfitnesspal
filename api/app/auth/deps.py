@@ -12,10 +12,20 @@ from app.models.user import Role, User
 from app.permissions import Permission, effective_permissions
 
 
+def _bearer_token(request: Request) -> str | None:
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+    return token.strip() or None
+
+
 async def get_current_user(
     request: Request, db: Annotated[AsyncSession, Depends(get_session)]
 ) -> User:
+    # Cookie first, as before: a present but invalid cookie is not retried with the Bearer header.
     token = request.cookies.get("session")
+    if token is None:
+        token = _bearer_token(request)
     resolved = await resolve_session(db, token) if token else None
     if resolved is None:
         raise HTTPException(status_code=401, detail="unauthorized")

@@ -119,6 +119,12 @@ budget, so several devices behind one NAT don't lock each other out.
 This is enough for a personal instance on a private network or behind an authenticating tunnel.
 It is **not** multi-tenant: anyone with the key sees the same diary.
 
+**Native app (Bearer).** The iOS app logs in the same way: password, then TOTP. It declares itself
+with the header `X-YFP-Client: native`. For such clients, the response that completes the login
+includes a session token, and the app sends it on every call as `Authorization: Bearer <token>`.
+It is an ordinary session, so it is revoked the same way as a cookie session: from Account →
+Sessioni attive, or by logging out. Browsers keep receiving only the `HttpOnly` cookie.
+
 ## Connecting an AI assistant (MCP)
 
 1. Set `PUBLIC_BASE_URL` to the public HTTPS origin (the tunnel hostname) and restart `api`.
@@ -289,6 +295,94 @@ For a named tunnel, add an `ingress` entry pointing at `http://localhost:6500`.
 here, so anyone who reaches the hostname and knows (or brute-forces past the 5/min limiter) the key
 gets the diary.
 
+## iOS app (IPA)
+
+The repository builds an unsigned iOS app, `yourfitnesspal-<tag>.ipa`. It wraps the same web UI in a
+Capacitor shell and talks to the public API over HTTPS with a Bearer token. It is installed by hand
+with [SideStore](https://sidestore.io) on a personal iPhone and a free Apple account. There is no
+App Store or TestFlight build, and no SideStore source JSON in this version.
+
+### Prerequisites
+
+- **Gitea → GitHub push mirror that includes tags.** The release is built by GitHub Actions, so the
+  mirror must forward tags, not only branches.
+- **GitHub Actions enabled** on the GitHub repository that mirrors this one.
+- **Secret `GITEA_TOKEN`** on the GitHub repository (Settings → Secrets and variables → Actions): a
+  Gitea access token with write permission on the releases of `septimilleso/yourfitnesspal`. The
+  workflow uses it to attach the IPA to the Gitea release.
+- **Variable `API_BASE_URL`** on the GitHub repository (same page, Variables tab), set to
+  `https://pal.septimilleso.uk/api`. No trailing slash. The workflow fails if it is empty.
+
+### Releasing
+
+1. Choose a tag in the form `vX.Y.Z`, numbers only (for example `v0.1.0`). The workflow rejects any
+   other form, because the app version (`CFBundleShortVersionString`) accepts only numbers.
+2. Create and push the tag to `origin` (Gitea) only:
+
+   ```sh
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+
+   Never push the tag to GitHub directly: the push mirror is the only path from Gitea to GitHub.
+3. Release one tag at a time. GitHub creates no push events for tags when more than three arrive in
+   a single push, so a batch can silently skip the workflow.
+4. The mirror forwards the tag and GitHub starts the **iOS release** workflow. If it does not start,
+   open the **Actions** tab on GitHub, choose **iOS release**, run it with **Run workflow** and enter
+   the tag name (for example `v0.1.0`).
+
+The workflow builds the web bundle with `API_BASE_URL`, runs `npx cap sync ios`, builds an unsigned
+Release app and packages it as `Payload/App.app`. It checks that `CFBundleShortVersionString` equals
+the tag without the `v`, then publishes the IPA to the GitHub release and to the Gitea release of the
+same tag.
+
+### Where to find the IPA
+
+Download `yourfitnesspal-<tag>.ipa` from the Releases page of either:
+
+- the GitHub repository, or
+- the Gitea repository `septimilleso/yourfitnesspal`.
+
+### Installing and updating with SideStore
+
+1. Install SideStore on the iPhone and sign in with a free Apple account.
+2. Open `yourfitnesspal-<tag>.ipa` with SideStore and install it.
+3. Launch the app. It opens on the login screen, which is the same as the web login.
+
+To update, install the new IPA the same way. Things to know about a free account:
+
+- **Signatures expire every 7 days.** SideStore's automatic refresh renews them. If a refresh lapses,
+  install the IPA again.
+- **App ID limit.** Free accounts allow only a small number of App IDs per week. The IPA uses a
+  single App ID and has no extensions, so do not add any.
+
+### Notes on this version
+
+- **No Web Push.** The IPA cannot receive Web Push, because it has no APNs entitlement under a free
+  account. The end-of-rest alert is a **local notification** scheduled on the phone, with no server
+  push involved.
+- **Native haptics** are used when a set is completed and when the rest ends.
+- **The UI is inside the IPA.** Server changes reach the app as soon as the API is deployed, but any
+  UI change needs a new tag and a new IPA.
+- **Network required.** The app needs a connection to sync. Full offline use is planned for a later
+  feature.
+
+### Local builds and CI
+
+The local build differs from the CI build. Build from `web/`:
+
+```sh
+cd web
+VITE_API_BASE_URL=https://pal.septimilleso.uk/api npm run build:native
+npx cap sync ios
+```
+
+- The Capacitor project in `web/ios` was generated with Capacitor 7 and Swift Package Manager
+  (`web/ios/App/CapApp-SPM`). Run `npx cap sync ios` to update it. Never run `npx cap add ios` again.
+- `npm run build:native` requires `VITE_API_BASE_URL` and fails without it.
+- CI runs on a macOS runner and builds without code signing. Signing is done by SideStore on the
+  phone.
+
 ## Environment variables
 
 | Variable            | Default                                                        | Notes                                                                     |
@@ -298,6 +392,7 @@ gets the diary.
 | `OFF_CONTACT_EMAIL` | `example@example.com`                                           | Sent to OpenFoodFacts as required by their policy.                        |
 | `COOKIE_SECURE`     | `true`                                                          | Set `false` only for temporary plain-HTTP testing.                        |
 | `PUBLIC_BASE_URL`   | `http://localhost:6500`                                         | Public HTTPS origin (Cloudflare Tunnel hostname), OAuth issuer and base for the MCP URL users paste into Claude; must match the browser origin exactly. |
+| `CORS_ALLOWED_ORIGINS` | `["capacitor://localhost"]` | JSON list of origins allowed to call `/api/` cross-origin (the native app's WebView). CORS applies only to `/api/`; credentials are never allowed cross-origin. |
 | `APP_TIMEZONE`      | `Europe/Rome`                                                   | Timezone the MCP tools use to decide what "today" is.                    |
 | `OAUTH_ACCESS_TOKEN_MINUTES` | `60`                                                    | Lifetime of MCP access tokens.                                            |
 | `OAUTH_REFRESH_TOKEN_DAYS`   | `30`                                                    | Lifetime of MCP refresh tokens.                                           |

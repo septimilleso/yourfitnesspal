@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { SetValues, Tracking, WorkoutSet } from "../../api/gym";
 import { FIELD_META, formatSet, setFields, setGridColumns } from "../../lib/gym";
+import { hapticSetComplete } from "../../native/haptics";
 import ActionMenu from "./ActionMenu";
 import NumberInput from "./NumberInput";
 
@@ -85,6 +86,7 @@ function SetRow({ index, tracking, set, onSave, onComplete, onUncomplete, onDele
       clearTimeout(timer.current);
       timer.current = null;
     }
+    hapticSetComplete();
     onComplete(latest.current);
   }
 

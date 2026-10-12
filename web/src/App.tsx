@@ -7,6 +7,7 @@ import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
 import PermissionGuard from "./auth/PermissionGuard";
 import AppShell from "./components/AppShell";
+import NativeBridge from "./native/NativeBridge";
 import AccountPage from "./pages/AccountPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
@@ -53,6 +54,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+        <NativeBridge />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/connect" element={<ConnectPage />} />

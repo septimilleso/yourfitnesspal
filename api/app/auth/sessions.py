@@ -100,7 +100,8 @@ def clear_challenge_cookie(response: Response) -> None:
 
 
 def read_challenge(request: Request) -> dict | None:
-    token = request.cookies.get("login_challenge")
+    # The native client has no cookie jar (ITP), so it sends the same signed value in a header.
+    token = request.cookies.get("login_challenge") or request.headers.get("x-yfp-challenge")
     if not token:
         return None
     try:

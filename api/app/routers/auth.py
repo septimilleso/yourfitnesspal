@@ -33,6 +33,7 @@ from app.auth.sessions import (
     revoke_session,
     set_challenge_cookie,
     set_session_cookie,
+    sign_challenge,
 )
 from app.auth.totp import (
     decrypt_secret,
@@ -63,6 +64,10 @@ Current = Annotated[User, Depends(get_current_user)]
 
 def _invalid_credentials() -> HTTPException:
     return HTTPException(401, "credenziali non valide")
+
+
+def _is_native(request: Request) -> bool:
+    return request.headers.get("x-yfp-client", "").strip().lower() == "native"
 
 
 async def _challenge_user(request: Request, db: AsyncSession, stage: str) -> User:
@@ -98,7 +103,10 @@ async def login(payload: LoginRequest, request: Request, response: Response, db:
         await db.commit()
     stage = "totp" if user.totp_enabled else "setup"
     set_challenge_cookie(response, user, stage)
-    return {"status": f"{stage}_required", "must_change_password": user.must_change_password}
+    body = {"status": f"{stage}_required", "must_change_password": user.must_change_password}
+    if _is_native(request):
+        body["challenge"] = sign_challenge(user, stage)
+    return body
 
 
 @router.post("/totp")
@@ -132,6 +140,8 @@ async def totp(payload: TotpRequest, request: Request, response: Response, db: D
     token = await create_session(db, user, request)
     set_session_cookie(response, token)
     clear_challenge_cookie(response)
+    if _is_native(request):
+        return {"status": "ok", "token": token}
     return {"status": "ok"}
 
 
@@ -179,6 +189,8 @@ async def setup_complete(payload: SetupCompleteRequest, request: Request, respon
     token = await create_session(db, user, request)
     set_session_cookie(response, token)
     clear_challenge_cookie(response)
+    if _is_native(request):
+        return {"status": "ok", "recovery_codes": codes, "token": token}
     return {"status": "ok", "recovery_codes": codes}
 
 
