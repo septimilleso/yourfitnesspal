@@ -335,7 +335,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Alla fine rilancia `npm run build` per lasciare `dist/` della PWA.
 
-### [ ] T14. Verifica in CI e sul dispositivo
+### [!] T14. Verifica in CI e sul dispositivo
 
 - Copre: C14, C15, C16, C17, C18, C19, C20, C25
 - Rischio: basso
@@ -364,3 +364,4 @@ T10 — DONE — review: 1 round. Incluso MINOR di T5: useSavedWeek con retry na
 T11 — DONE — review: saltata. Icona 1024x1024 RGB opaca, rigenerabile e deterministica (sha256 uguale), web/public invariato. Il ritaglio a piena area è stretto (cappello e cucchiaio tagliati ai bordi, come il maskable PWA): giudizio visivo su dispositivo in C16. File 875 KB (era 110 KB).
 T12 — DONE — review: saltata. Deviazione: VITE_BUILD_ID = tag (env.TAG) invece di github.sha (con workflow_dispatch lo sha è quello del branch, non del tag); il testo del piano parla ancora di sha. Workflow non eseguito in CI (verifica statica + YAML valido).
 T13 — DONE — review: saltata. npm test 86 file / 550 test verdi; build PWA ok (sw.js, registerSW.js); build nativa ok senza sw, con URL assoluto; senza VITE_API_BASE_URL fallisce col messaggio atteso; 12 test protetti non modificati. Commento di queryPersistence.ts allineato (buster = tag). PROBLEMA PREESISTENTE CONFERMATO (anche web, fuori scope, follow-up): AuthProvider sopra Routes, dopo queryClient.clear() (logout o finish() del login) il suo observer di ["me"] resta sulla query rimossa; test di prova: logout admin poi login user, useIsAdmin()=true e useHasPermission("diary.copy")=true con valori dell admin, anche se getQueryData(["me"]) è user B.
+T14 — IN ATTESA (manuale) — richiede merge su main, tag pushato solo su Gitea, run CI e prove sull iPhone: azioni dell utente, non eseguibili dall orchestratore. Esito da annotare punto per punto per C14-C20 e C25. Da verificare in particolare sul dispositivo: C16 icona (ritaglio stretto), barra offline che può coprire ~20 px di header, barra assente se all apertura offline nessuna fetch fallisce.
