@@ -206,7 +206,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - il challenge viene rimandato nella chiamata successiva;
   - il logout rimuove il token anche se `logout()` rifiuta.
 
-### [ ] T9. Notifiche locali di fine riposo
+### [x] T9. Notifiche locali di fine riposo
 
 - Copre: C4
 - Rischio: alto
@@ -375,3 +375,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T6 — DONE — review: 1 round, APPROVED. Deviazione: `npx cap add ios --packagemanager SPM` è uscito con exit 1 (ENOENT Podfile) per un bug della CLI 7.6.9 (`getPackageManager` confronta "spm" con 'SPM' in @capacitor/cli/dist/index.js:193, quindi l'add chiama `updatePodfile`); il progetto SPM era già generato e `npx cap sync ios` lo ha completato (exit 0). Regola: in CI si usa solo `cap sync`, mai `cap add`. MINOR da verificare in T15: assenza di `xcshareddata/xcschemes` in App.xcodeproj; se xcodebuild non trova lo schema `App`, va generato e condiviso. npm audit segnala vulnerabilità non analizzate (non verificato se nuove).
 - T7 — DONE — review: 1 round, APPROVED. MINOR: (1) web/ios/App/CapApp-SPM/Package.swift:15 contiene path con backslash scritti da cap sync su Windows: file rigenerato da `npx cap sync ios` su macOS in CI prima di xcodebuild, vale anche per T9 e T11 (verificare in T15; non committare a mano); (2) client.ts:62 race su 401 tardivo che cancella un token nuovo (clearToken solo se getToken() === token inviato); (3) VITE_API_BASE_URL senza normalizzazione dello slash finale (documentare in T13: senza slash finale); (4) manca test: nessun challenge inviato a /auth/* se non impostato.
 - T8 — DONE — review: 1 round, APPROVED. MINOR: (1) AuthContext.tsx:49 se Preferences.remove fallisce clearToken() rifiuta e useLogout non svuota cache né naviga (fix: `await clearToken().catch(() => undefined)`); (2) api/auth.ts:13-15 keepNativeSession: se Preferences.set fallisce verifyTotp/setupComplete rifiutano a sessione server già creata (fix: intercettare l'errore di persistenza e proseguire col token in memoria). Challenge non azzerato sui fallimenti: giudicato corretto (serve a riprovare il TOTP entro 300 s).
+- T9 — DONE — review: 1 round, APPROVED. MINOR: (1) NativeBridge.tsx:32-33 naviga a extra.url senza validare (usare safeNext o accettare solo /gym/workout); (2) AuthContext.tsx:44-45 cancel al logout prima di logout()/clearClientCaches: un refetch di gymKeys.active in quella finestra può riprogrammare la notifica (richiamare cancelRestNotification dopo clearClientCaches); (3) commento errato in restNotifications.test.ts:29 (il server è avanti di 5 s). Suono rest-bell.wav come suono di notifica da verificare su iPhone (C16). npm audit: 16 vulnerabilità non analizzate.

@@ -5,6 +5,7 @@ import { getMe, logout, type Me } from "../api/auth";
 import type { Permission } from "../lib/permissions";
 import { unsubscribeDeviceOnLogout } from "../lib/push";
 import { isNative } from "../native/platform";
+import { cancelRestNotification } from "../native/restNotifications";
 import { clearToken } from "../native/session";
 
 const AuthContext = createContext<Me | null | undefined>(undefined);
@@ -40,6 +41,8 @@ export function useLogout() {
       // Continue with logout even if unsubscribe fails
     }
     if (isNative()) {
+      // La notifica di riposo pendente non deve suonare dopo l'uscita.
+      await cancelRestNotification().catch(() => undefined);
       // Nell'IPA un errore di rete non deve bloccare l'uscita: il token va rimosso comunque.
       try {
         await logout();
