@@ -2,7 +2,7 @@
 
 - Data: 2026-10-12
 - Tipo: feature
-- Stato: approvato
+- Stato: completato
 - Brainstorm: [brainstorm.md](../2026-10-12-app-ios-offline/brainstorm.md)
 
 ## Obiettivo

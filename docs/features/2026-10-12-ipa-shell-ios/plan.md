@@ -1,7 +1,7 @@
 # Piano: IPA shell iOS
 
 - Data: 2026-10-12
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/ipa-shell-ios
@@ -384,3 +384,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T15 — run GitHub 38302333605 (tag v0.0.1 pushato solo su Gitea, mirror ok): attempt 1 fallito allo step 'Build web and sync Capacitor' per variable API_BASE_URL assente (il controllo ha funzionato); attempt 2 dopo correzione della variable (re-run): tutti gli step success, compresi 'Build unsigned app' (xcodebuild con schema App, nessun problema di schema condiviso né di Package.swift rigenerato), 'Check app version matches tag', 'GitHub release' e 'Gitea release'. Release GitHub v0.0.1 con yourfitnesspal-v0.0.1.ipa (3197210 byte). Release Gitea non verificabile senza credenziali (repo privato): conferma dell'utente richiesta. C12 ok, C13 ok lato GitHub.
 - T14 — DONE: deploy del branch sul server; prima del rebuild di api la preflight rispondeva 404 senza header CORS (container vecchio, app 'Impossibile contattare il server'); dopo `docker compose up -d --build api`, curl su pal.septimilleso.uk (2026-10-12): preflight da capacitor://localhost 200 con access-control-allow-origin: capacitor://localhost e header consentiti (Authorization, Content-Type, X-Requested-With, X-YFP-Challenge, X-YFP-Client); origin https://evil.example 400 senza ACAO; GET /api/auth/me con Origin nativo 401 con ACAO; preflight OAuth /token da altro origin invariata (200, ACAO *). Cloudflare non altera le risposte. C11 ok sul dominio reale.
 - T16 — DONE (riportato dall'utente 2026-10-12, iPhone con SideStore, deploy attivo): "funziona tutto" per i passi di T16 eseguiti (installazione, login, notifiche locali, haptics, PWA), senza esito dettagliato punto per punto né annotazione del suono usato dalla notifica. In modalità aereo l'IPA mostra 'Impossibile contattare il server' (C19, come da spec); l'utente si aspettava l'apertura offline con dati in cache: rimandata alla prossima feature.
+Review 1 — APPROVED (0 BLOCKER, 0 MAJOR, 4 MINOR da correggere nella prossima feature, 6 MINOR accettati; 2 avvisi nuovi: evidenza C14-C18, C26 non letterale)
