@@ -17,7 +17,7 @@ interface PersistedCache {
   state: DehydratedState;
 }
 
-// Un IPA nuova scarta la cache di quella precedente: VITE_BUILD_ID è il SHA del commit in CI.
+// Un IPA nuova scarta la cache di quella precedente: VITE_BUILD_ID è il tag della release in CI.
 function cacheBuster(): string {
   return `${CACHE_SCHEMA_VERSION}|${import.meta.env.VITE_BUILD_ID ?? "dev"}`;
 }

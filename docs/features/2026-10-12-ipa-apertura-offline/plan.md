@@ -317,7 +317,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. In "Releasing", punto 4, precisa che "Run workflow" costruisce il commit del tag indicato e che il tag deve essere già arrivato su GitHub tramite il mirror. Altrimenti il run fallisce al checkout e non crea il tag.
 - Verifica: `grep -n "ref: \${{ env.TAG }}" .github/workflows/ios-release.yml`, risultato atteso: una riga sotto `actions/checkout@v4`. `grep -c "Network required" README.md`, risultato atteso: `0`. `grep -n "Offline" README.md` mostra il nuovo punto.
 
-### [ ] T13. Non regressione e build
+### [x] T13. Non regressione e build
 
 - Copre: C21, C22, C23, C24, C26
 - Rischio: basso
@@ -363,3 +363,4 @@ T9 — DONE — review: 1 round. MINOR: OfflineBar.test.tsx:119-124 C5 non prova
 T10 — DONE — review: 1 round. Incluso MINOR di T5: useSavedWeek con retry nativo (retryNative spostato in lib/retry.ts). MINOR: queryPersistence.restore.native.test.tsx:84-85 le asserzioni su schedule/cancel non sono discriminanti (vale getQueryData(gymKeys.active) undefined); WorkoutPage.tsx:86 `!workout` vale anche per null (204), meglio `workout === undefined`. Nota: useLiveMutation (gym.ts:394) ritenta 2 volte gli errori di rete, offline fallisce dopo ~3 s senza coda (R7 ok).
 T11 — DONE — review: saltata. Icona 1024x1024 RGB opaca, rigenerabile e deterministica (sha256 uguale), web/public invariato. Il ritaglio a piena area è stretto (cappello e cucchiaio tagliati ai bordi, come il maskable PWA): giudizio visivo su dispositivo in C16. File 875 KB (era 110 KB).
 T12 — DONE — review: saltata. Deviazione: VITE_BUILD_ID = tag (env.TAG) invece di github.sha (con workflow_dispatch lo sha è quello del branch, non del tag); il testo del piano parla ancora di sha. Workflow non eseguito in CI (verifica statica + YAML valido).
+T13 — DONE — review: saltata. npm test 86 file / 550 test verdi; build PWA ok (sw.js, registerSW.js); build nativa ok senza sw, con URL assoluto; senza VITE_API_BASE_URL fallisce col messaggio atteso; 12 test protetti non modificati. Commento di queryPersistence.ts allineato (buster = tag). PROBLEMA PREESISTENTE CONFERMATO (anche web, fuori scope, follow-up): AuthProvider sopra Routes, dopo queryClient.clear() (logout o finish() del login) il suo observer di ["me"] resta sulla query rimossa; test di prova: logout admin poi login user, useIsAdmin()=true e useHasPermission("diary.copy")=true con valori dell admin, anche se getQueryData(["me"]) è user B.
