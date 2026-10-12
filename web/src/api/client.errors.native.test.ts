@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { isOffline, reportNetworkFailure, resetConnectivityForTests } from "../native/connectivity";
 import { clearToken, getToken, setChallenge, setToken } from "../native/session";
-import { ApiError, client } from "./client";
+import { ApiError, client, NetworkError } from "./client";
 
 const preferences = vi.hoisted(() => ({
   get: vi.fn(),
@@ -24,6 +25,7 @@ beforeEach(async () => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetConnectivityForTests();
 });
 
 function jsonResponse(status: number, body: unknown) {
@@ -31,24 +33,32 @@ function jsonResponse(status: number, body: unknown) {
 }
 
 describe("api client errors on the native platform", () => {
-  it("rejects on a network failure and keeps the token", async () => {
+  it("rejects with NetworkError on a network failure and keeps the token", async () => {
     await setToken("tok-a");
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const rejection = new TypeError("Failed to fetch");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(rejection));
 
-    await expect(client.get("/gym/active")).rejects.toThrow("Failed to fetch");
+    const error = await client.get("/gym/active").catch((e: unknown) => e);
 
+    expect(error).toBeInstanceOf(NetworkError);
+    expect(error).toMatchObject({ name: "NetworkError" });
+    expect((error as NetworkError).cause).toBe(rejection);
+    expect(isOffline()).toBe(true);
     expect(preferences.remove).not.toHaveBeenCalled();
     expect(getToken()).toBe("tok-a");
   });
 
-  it("rejects with ApiError on a 500 and keeps the token", async () => {
+  it("rejects with ApiError on a 500, keeps the token and leaves offline mode", async () => {
     await setToken("tok-a");
+    reportNetworkFailure();
+    expect(isOffline()).toBe(true);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(500, { detail: "boom" })));
 
     const error = await client.get("/gym/active").catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 500, message: "boom" });
+    expect(isOffline()).toBe(false);
     expect(preferences.remove).not.toHaveBeenCalled();
     expect(getToken()).toBe("tok-a");
   });

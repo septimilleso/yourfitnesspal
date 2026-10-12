@@ -1,3 +1,4 @@
+import { reportNetworkFailure, reportNetworkSuccess } from "../native/connectivity";
 import { isNative } from "../native/platform";
 import { clearToken, getChallenge, getToken } from "../native/session";
 
@@ -16,6 +17,27 @@ export class ApiError extends Error {
     this.status = status;
     this.body = body;
   }
+}
+
+// Errore di rete: fetch non ha ricevuto nessuna risposta. Non è un ApiError.
+export class NetworkError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "NetworkError";
+  }
+}
+
+// Nativo: un rifiuto di fetch è un errore di rete; ogni risposta, qualunque sia lo status, dice che la rete c'è.
+async function fetchNative(url: string, init: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    reportNetworkFailure();
+    throw new NetworkError("network", { cause: error });
+  }
+  reportNetworkSuccess();
+  return response;
 }
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -48,7 +70,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   };
 
-  const response = await fetch(`${basePath()}${path}`, init);
+  const response = native
+    ? await fetchNative(`${basePath()}${path}`, init)
+    : await fetch(`${basePath()}${path}`, init);
 
   if (!response.ok) {
     let parsedBody: unknown = null;

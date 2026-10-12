@@ -70,7 +70,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. `AuthContext.logout.native.test.tsx`: oltre ai mock di `AuthContext.native.test.tsx`, mocka `../native/restNotifications` con `cancelRestNotification: vi.fn().mockResolvedValue(undefined)`. Verifica che `cancelRestNotification` venga chiamata prima di `logout()` (con `invocationCallOrder`) e che alla fine `navigate` riceva `("/login", { replace: true })`.
 - Verifica: `cd web && npx vitest run src/auth/AuthGuard.offline.test.tsx src/api/client.errors.native.test.ts src/auth/AuthContext.logout.native.test.tsx`, risultato atteso: tutti verdi sul codice attuale. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T2. `NetworkError` nel client e modulo di connettività
+### [x] T2. `NetworkError` nel client e modulo di connettività
 
 - Copre: C3, C26
 - Rischio: alto
@@ -352,3 +352,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 Partenza: 2e18773b0374f2a1605b278f283e3f98f152af93 su main
 
 T1 — DONE — review: saltata
+T2 — DONE — review: 1 round. Avvisi: client.ts fetchNative tratta AbortError come errore di rete (nessun chiamante usa signal); errore a metà body resta TypeError generico, da tenere presente in T5/T10.
