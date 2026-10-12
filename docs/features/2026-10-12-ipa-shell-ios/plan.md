@@ -266,7 +266,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - una chiamata al completamento di una serie e nessuna allo "scompletamento";
   - sul web nessuna chiamata al plugin.
 
-### [ ] T12. Workflow CI per la build nativa e la versione dal tag
+### [x] T12. Workflow CI per la build nativa e la versione dal tag
 
 - Copre: C13
 - Rischio: basso
@@ -378,3 +378,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T9 — DONE — review: 1 round, APPROVED. MINOR: (1) NativeBridge.tsx:32-33 naviga a extra.url senza validare (usare safeNext o accettare solo /gym/workout); (2) AuthContext.tsx:44-45 cancel al logout prima di logout()/clearClientCaches: un refetch di gymKeys.active in quella finestra può riprogrammare la notifica (richiamare cancelRestNotification dopo clearClientCaches); (3) commento errato in restNotifications.test.ts:29 (il server è avanti di 5 s). Suono rest-bell.wav come suono di notifica da verificare su iPhone (C16). npm audit: 16 vulnerabilità non analizzate.
 - T10 — DONE — review: 1 round, APPROVED. MINOR: NativeRestAlertSetting.tsx:61-65 se setRestAlertsEnabled(true) riesce ma syncRestNotification lancia, il toggle resta spento con Preferences già abilitato (stato incoerente); simmetrico in disattivazione (:52-54); mancano test dei percorsi di errore (requestPermissions, setRestAlertsEnabled, syncRestNotification, checkPermissions).
 - T11 — DONE — review: 1 round, APPROVED. MINOR: RestTimerBar.native.test.tsx:45-60 non verifica che l'haptic avvenga insieme a beep() e vibrate() (aggiungere expect su beep e vibrate). Aggiunto fuori elenco file: SetRow.native.test.tsx. Haptic reale su iPhone da verificare in C18.
+- T12 — DONE — review: saltata (rischio basso); diff del workflow letto dall'orchestratore. Aggiunto step diagnostico 'xcodebuild -list' (|| true) per il caso schema App non condiviso. Verifica reale in T15.

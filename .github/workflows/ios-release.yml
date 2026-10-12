@@ -1,7 +1,9 @@
 name: iOS release
 
-# Build an unsigned IPA on a GitHub macOS runner, publish it as a GitHub
-# release and copy it to the Gitea release of the same tag.
+# Build the native web bundle (API URL from the GitHub variable API_BASE_URL)
+# and an unsigned IPA on a GitHub macOS runner. The app version is the tag
+# without the "v" (v0.1.0 -> 0.1.0). Publish the IPA as a GitHub release and
+# copy it to the Gitea release of the same tag.
 # Trigger: push a tag like v0.1.0 (or run manually with a tag name).
 
 on:
@@ -27,6 +29,15 @@ jobs:
   build:
     runs-on: macos-15
     steps:
+      - name: Check tag and derive version
+        run: |
+          # CFBundleShortVersionString accepts only numbers, so the tag must be vX.Y.Z
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' non valido: serve la forma vX.Y.Z (solo numeri)"
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - name: Check iOS project exists
@@ -44,19 +55,35 @@ jobs:
 
       - name: Build web and sync Capacitor
         working-directory: ${{ env.WEB_DIR }}
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
         run: |
+          if [ -z "$VITE_API_BASE_URL" ]; then
+            echo "::error::La variable GitHub API_BASE_URL è vuota (es. https://pal.septimilleso.uk/api). Impostala in Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
           npm ci
-          npm run build
+          npm run build:native
           npx cap sync ios
+
+      - name: List Xcode schemes
+        working-directory: ${{ env.IOS_DIR }}
+        run: |
+          # Diagnostic only: shows the schemes if the build below cannot find "App"
+          if [ -d App.xcworkspace ]; then TARGET=(-workspace App.xcworkspace); else TARGET=(-project App.xcodeproj); fi
+          xcodebuild "${TARGET[@]}" -list || true
 
       - name: Build unsigned app
         working-directory: ${{ env.IOS_DIR }}
         run: |
+          # Default Xcode of macos-15 (16.4) is enough for Capacitor 7: no xcode-select needed
+          xcodebuild -version
           if [ -d App.xcworkspace ]; then TARGET=(-workspace App.xcworkspace); else TARGET=(-project App.xcodeproj); fi
           xcodebuild "${TARGET[@]}" -scheme App -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION=$VERSION CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             build
 
       - name: Package IPA
@@ -66,6 +93,16 @@ jobs:
           cp -R "$APP" out/Payload/
           (cd out && zip -qr "yourfitnesspal-$TAG.ipa" Payload)
           ls -l out
+
+      - name: Check app version matches tag
+        run: |
+          # Checks the staged Payload that was zipped into the IPA
+          ACTUAL=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" out/Payload/App.app/Info.plist)
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::CFBundleShortVersionString è '$ACTUAL', atteso '$VERSION' (dal tag $TAG)"
+            exit 1
+          fi
+          echo "CFBundleShortVersionString = $ACTUAL"
 
       - uses: actions/upload-artifact@v4
         with:
