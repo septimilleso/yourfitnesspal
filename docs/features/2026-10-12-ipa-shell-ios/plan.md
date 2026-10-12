@@ -74,7 +74,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Procedura R con `tests/test_auth_sessions.py tests/test_auth.py`.
 - Verifica: in locale, `api/.venv/Scripts/python.exe -m py_compile api/tests/test_auth_sessions.py` e `api/.venv/Scripts/ruff.exe check api/tests/test_auth_sessions.py` senza errori. Sul remoto, i test di `test_auth_sessions.py` e `test_auth.py` sono tutti verdi sul codice non ancora modificato. Se un test fallisce, si corregge il test e non il codice.
 
-### [ ] T3. Backend: sessione da Bearer in `get_current_user`
+### [x] T3. Backend: sessione da Bearer in `get_current_user`
 
 - Copre: C8, C10, C24
 - Rischio: alto
@@ -365,3 +365,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T1 punto 4: `npm run build` ok; in `dist/` ci sono `sw.js`, `registerSW.js`, `manifest.webmanifest`, `workbox-efbd304a.js`; `dist/index.html` referenzia `registerSW.js`.
 - T1 — DONE — review: saltata (rischio basso)
 - T2 — DONE — review: saltata (rischio basso); test DB da eseguire sul remoto con T3-T5 (rischio: password di test 'a brand new passphrase' in setup/complete)
+- T3 — DONE — review: 1 round, APPROVED. MINOR: manca test cookie non valido + Bearer valido => 401; manca test auth_version superata con Bearer (api/tests/test_auth_bearer.py). Test DB da eseguire sul remoto dopo T5.
