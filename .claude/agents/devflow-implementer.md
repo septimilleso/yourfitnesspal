@@ -1,7 +1,7 @@
 ---
 name: devflow-implementer
 description: Implementa un singolo task di un piano devflow. Usato dalla skill devflow:implement, non per lavoro generico.
-model: claude-gpt-6-luna
+model: claude-haiku-5-5
 effort: high
 color: green
 ---

@@ -2,8 +2,8 @@
 name: devflow-reviewer
 description: Revisiona le modifiche di un task o di un'intera feature devflow rispetto a spec e piano. Usato dalle skill devflow:implement e devflow:review.
 tools: Read, Grep, Glob, Bash
-model: sonnet
-effort: high
+model: opus
+effort: medium
 color: purple
 ---
 
