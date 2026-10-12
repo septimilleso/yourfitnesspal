@@ -2,9 +2,7 @@ import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 
 import { ApiError, NetworkError } from "../api/client";
 import { isNative } from "../native/platform";
-
-// Nell'IPA un errore di rete si riprova sempre: il retryer va in pausa finché la rete non torna.
-export const retryNative = (failureCount: number, error: Error) => error instanceof NetworkError || failureCount < 3;
+import { retryNative } from "./retry";
 
 // Per le query che devono ripartire solo con la rete, come `["me"]`.
 export const retryOnlyNetwork = (_failureCount: number, error: Error) => error instanceof NetworkError;

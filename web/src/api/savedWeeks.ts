@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { retryNative } from "../lib/retry";
+import { isNative } from "../native/platform";
 import { client } from "./client";
 import type { CopyDaysResponse, Meal, Nutriments } from "./queries";
 
@@ -66,7 +68,7 @@ export function useSavedWeek(id: number) {
   return useQuery({
     queryKey: savedWeekKeys.detail(id),
     queryFn: () => client.get<SavedWeekDetail>(`/saved-weeks/${id}`),
-    retry: false,
+    retry: isNative() ? retryNative : false,
   });
 }
 
