@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, logout, type Me } from "../api/auth";
 import type { Permission } from "../lib/permissions";
 import { unsubscribeDeviceOnLogout } from "../lib/push";
+import { isNative } from "../native/platform";
+import { clearToken } from "../native/session";
 
 const AuthContext = createContext<Me | null | undefined>(undefined);
 
@@ -37,7 +39,17 @@ export function useLogout() {
     } catch {
       // Continue with logout even if unsubscribe fails
     }
-    await logout();
+    if (isNative()) {
+      // Nell'IPA un errore di rete non deve bloccare l'uscita: il token va rimosso comunque.
+      try {
+        await logout();
+      } catch {
+        // Continue with logout even if the server cannot be reached
+      }
+      await clearToken();
+    } else {
+      await logout();
+    }
     clearClientCaches(queryClient);
     navigate("/login", { replace: true });
   };

@@ -184,7 +184,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - nessun `Authorization` sul web.
   `cd web && VITE_API_BASE_URL=https://pal.septimilleso.uk/api npm run build:native && grep -rq "pal.septimilleso.uk/api" dist/assets && echo OK` stampa `OK`. Dopo, `npm run build` ripristina `dist/` della PWA.
 
-### [ ] T8. Login e logout nativi
+### [x] T8. Login e logout nativi
 
 - Copre: C3, C20
 - Rischio: alto
@@ -374,3 +374,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T6 scelta Capacitor: major 7 (`@capacitor/core`, `@capacitor/ios` e `@capacitor/cli` 7.6.9), perché Capacitor 8 richiede Xcode 26 e il default di macos-15 è Xcode 16.4 (Capacitor 7 richiede Xcode 16.0+).
 - T6 — DONE — review: 1 round, APPROVED. Deviazione: `npx cap add ios --packagemanager SPM` è uscito con exit 1 (ENOENT Podfile) per un bug della CLI 7.6.9 (`getPackageManager` confronta "spm" con 'SPM' in @capacitor/cli/dist/index.js:193, quindi l'add chiama `updatePodfile`); il progetto SPM era già generato e `npx cap sync ios` lo ha completato (exit 0). Regola: in CI si usa solo `cap sync`, mai `cap add`. MINOR da verificare in T15: assenza di `xcshareddata/xcschemes` in App.xcodeproj; se xcodebuild non trova lo schema `App`, va generato e condiviso. npm audit segnala vulnerabilità non analizzate (non verificato se nuove).
 - T7 — DONE — review: 1 round, APPROVED. MINOR: (1) web/ios/App/CapApp-SPM/Package.swift:15 contiene path con backslash scritti da cap sync su Windows: file rigenerato da `npx cap sync ios` su macOS in CI prima di xcodebuild, vale anche per T9 e T11 (verificare in T15; non committare a mano); (2) client.ts:62 race su 401 tardivo che cancella un token nuovo (clearToken solo se getToken() === token inviato); (3) VITE_API_BASE_URL senza normalizzazione dello slash finale (documentare in T13: senza slash finale); (4) manca test: nessun challenge inviato a /auth/* se non impostato.
+- T8 — DONE — review: 1 round, APPROVED. MINOR: (1) AuthContext.tsx:49 se Preferences.remove fallisce clearToken() rifiuta e useLogout non svuota cache né naviga (fix: `await clearToken().catch(() => undefined)`); (2) api/auth.ts:13-15 keepNativeSession: se Preferences.set fallisce verifyTotp/setupComplete rifiutano a sessione server già creata (fix: intercettare l'errore di persistenza e proseguire col token in memoria). Challenge non azzerato sui fallimenti: giudicato corretto (serve a riprovare il TOTP entro 300 s).
