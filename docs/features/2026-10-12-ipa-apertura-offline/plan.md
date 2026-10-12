@@ -299,7 +299,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Esegui lo script da root: `python web/scripts/build-art.py`.
 - Verifica: `file web/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png`, risultato atteso: `PNG image data, 1024 x 1024, 8-bit/color RGB`. Apri l'immagine: deve essere il gatto chef su fondo salvia, a piena area e senza angoli trasparenti. `git status --porcelain web/public` deve risultare vuoto (icone PWA e art invariate). Rieseguendo lo script, `git status --porcelain web/ios` non mostra nuove differenze rispetto alla prima esecuzione. Se `web/public` cambia per una diversa versione di Pillow, ripristina quei file con `git checkout -- web/public` e annotalo nel registro.
 
-### [ ] T12. Workflow iOS e README
+### [x] T12. Workflow iOS e README
 
 - Copre: C12, C13
 - Rischio: basso
@@ -362,3 +362,4 @@ T8 — DONE — review: 1 round (prima PARTIAL: asserzione restAlerts "cancel un
 T9 — DONE — review: 1 round. MINOR: OfflineBar.test.tsx:119-124 C5 non prova che la ripresa avvenga a 20 s e non prima; OfflineBar.tsx:29-32 subscribe non avvolto in notifyManager.batchCalls. Da verificare su dispositivo (T14): la barra fixed top-0 z-50 può coprire ~20 px di header/tap target sotto la status bar; la barra compare solo dopo una fetch fallita (apertura offline a freddo con tutti i dati freschi potrebbe non mostrarla); sparisce alla prima risposta HTTP riuscita.
 T10 — DONE — review: 1 round. Incluso MINOR di T5: useSavedWeek con retry nativo (retryNative spostato in lib/retry.ts). MINOR: queryPersistence.restore.native.test.tsx:84-85 le asserzioni su schedule/cancel non sono discriminanti (vale getQueryData(gymKeys.active) undefined); WorkoutPage.tsx:86 `!workout` vale anche per null (204), meglio `workout === undefined`. Nota: useLiveMutation (gym.ts:394) ritenta 2 volte gli errori di rete, offline fallisce dopo ~3 s senza coda (R7 ok).
 T11 — DONE — review: saltata. Icona 1024x1024 RGB opaca, rigenerabile e deterministica (sha256 uguale), web/public invariato. Il ritaglio a piena area è stretto (cappello e cucchiaio tagliati ai bordi, come il maskable PWA): giudizio visivo su dispositivo in C16. File 875 KB (era 110 KB).
+T12 — DONE — review: saltata. Deviazione: VITE_BUILD_ID = tag (env.TAG) invece di github.sha (con workflow_dispatch lo sha è quello del branch, non del tag); il testo del piano parla ancora di sha. Workflow non eseguito in CI (verifica statica + YAML valido).
