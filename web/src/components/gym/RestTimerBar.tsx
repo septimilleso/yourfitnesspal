@@ -4,6 +4,7 @@ import type { Workout } from "../../api/gym";
 import { formatDuration } from "../../lib/gym";
 import { beep, clockOffsetMs, remainingSeconds, vibrate } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
+import { hapticRestEnd } from "../../native/haptics";
 
 interface RestTimerBarProps {
   workout: Workout;
@@ -36,6 +37,7 @@ function RestTimerBar({ workout, onAdjust, onSkip }: RestTimerBarProps) {
       if (late <= LATE_ALERT_MS) {
         beep();
         vibrate();
+        hapticRestEnd();
       }
     }
   }, [offset, remaining, workout.rest_ends_at]);

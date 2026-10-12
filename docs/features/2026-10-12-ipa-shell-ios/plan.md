@@ -251,7 +251,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - l'assenza di "Installa YFP nella schermata Home";
   - la cancellazione alla disattivazione.
 
-### [ ] T11. Haptics nativi su serie completata e fine riposo
+### [x] T11. Haptics nativi su serie completata e fine riposo
 
 - Copre: C6, C22
 - Rischio: alto
@@ -377,3 +377,4 @@ Partenza: 424522cebccd82d6062ec328549c42acbb1653ef su main
 - T8 — DONE — review: 1 round, APPROVED. MINOR: (1) AuthContext.tsx:49 se Preferences.remove fallisce clearToken() rifiuta e useLogout non svuota cache né naviga (fix: `await clearToken().catch(() => undefined)`); (2) api/auth.ts:13-15 keepNativeSession: se Preferences.set fallisce verifyTotp/setupComplete rifiutano a sessione server già creata (fix: intercettare l'errore di persistenza e proseguire col token in memoria). Challenge non azzerato sui fallimenti: giudicato corretto (serve a riprovare il TOTP entro 300 s).
 - T9 — DONE — review: 1 round, APPROVED. MINOR: (1) NativeBridge.tsx:32-33 naviga a extra.url senza validare (usare safeNext o accettare solo /gym/workout); (2) AuthContext.tsx:44-45 cancel al logout prima di logout()/clearClientCaches: un refetch di gymKeys.active in quella finestra può riprogrammare la notifica (richiamare cancelRestNotification dopo clearClientCaches); (3) commento errato in restNotifications.test.ts:29 (il server è avanti di 5 s). Suono rest-bell.wav come suono di notifica da verificare su iPhone (C16). npm audit: 16 vulnerabilità non analizzate.
 - T10 — DONE — review: 1 round, APPROVED. MINOR: NativeRestAlertSetting.tsx:61-65 se setRestAlertsEnabled(true) riesce ma syncRestNotification lancia, il toggle resta spento con Preferences già abilitato (stato incoerente); simmetrico in disattivazione (:52-54); mancano test dei percorsi di errore (requestPermissions, setRestAlertsEnabled, syncRestNotification, checkPermissions).
+- T11 — DONE — review: 1 round, APPROVED. MINOR: RestTimerBar.native.test.tsx:45-60 non verifica che l'haptic avvenga insieme a beep() e vibrate() (aggiungere expect su beep e vibrate). Aggiunto fuori elenco file: SetRow.native.test.tsx. Haptic reale su iPhone da verificare in C18.
