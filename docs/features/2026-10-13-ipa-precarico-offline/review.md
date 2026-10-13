@@ -1,9 +1,10 @@
 # Review: IPA, precarico offline, puntino discreto e messaggio "Non disponibile offline"
 
 - Data: 2026-10-13
-- Round: 1
-- Verdetto: CHANGES_REQUESTED
-- Diff: `d3e58d6..feature/ipa-precarico-offline` (esclusi `docs/` e `.claude/`)
+- Round: 2
+- Verdetto: APPROVED
+- Diff: `d3e58d6..feature/ipa-precarico-offline` (T1-T23, esclusi `docs/` e `.claude/`)
+- Round 1 (CHANGES_REQUESTED): 1 MAJOR (puntino mancante in "Aggiungi alimento") e 2 MINOR (throttle non legato alla sessione, pulizia di query vuote o in fetch), chiusi dai task T22 e T23 e verificati al round 2.
 - Reviewer: devflow-reviewer (opus/medium)
 
 ## Criteri di accettazione
@@ -41,7 +42,7 @@
 
 ## Test
 
-`cd web && npm test`: 108 file, 788 test passati, 0 falliti.
+`cd web && npm test`: 108 file, 794 test passati, 0 falliti (round 2).
 `cd web && npx tsc -b`: nessun errore.
 
 ## Problemi
@@ -50,11 +51,10 @@
 - Nessuno
 
 ### MAJOR
-- `web/src/pages/SearchPage.tsx:97` — "Aggiungi alimento" è una schermata autenticata con header ma non ha il puntino (non usa `ModeSwitch`, non ha `OfflineIndicator`). R1 chiede il puntino in ogni schermata autenticata con un header; il piano esclude esplicitamente solo `TemplateEditorPage` e `AdminUsersPage`. Nella v0.0.2 la barra compariva anche qui: rottura non dichiarata. Offline la scheda Recenti mostra sempre "Non disponibile offline". Correzione: `h1` e `<OfflineIndicator className="relative -my-2.5 inline-flex shrink-0" />` in un `flex items-center gap-1`, come in `SettingsPage`, e un caso in `ModeSwitch.native.test.tsx`.
+- Nessuno (il MAJOR del round 1, puntino mancante in `SearchPage`, è chiuso da T22).
 
 ### MINOR
-- `web/src/native/prefetchScheduler.ts:44` — `lastCompletedAt` non dipende dalla sessione: dopo logout o 401 e nuovo login entro 15 minuti dall'ultimo giro, la cache svuotata non viene precaricata finché non passano 15 minuti e arriva un ritorno in primo piano o della rete. Correzione: salvare il token del giro completato e trattare `lastCompletedAt` come `null` se `getToken()` è diverso. Merita un task piccolo.
-- `web/src/native/cachePrune.ts:48` — (già annotato in T5) viene rimossa anche una query senza dati (`dataUpdatedAt` 0) e senza osservatori, compresa una in `fetching`. Correzione di una riga: `if (dataUpdatedAt === 0 || fetchStatus === "fetching") continue;` da accorpare al task del MINOR precedente.
+- Chiusi dal round 1: throttle legato alla sessione e pulizia più prudente (T23).
 - `web/src/native/prefetchScheduler.ts:35-46` — R6 vieta il precarico sulle pagine non autenticate (login, `/connect`) ma non c'è un controllo di route; su `/login` manca il token, su `/connect` con token e `me` il giro può partire. Nell'IPA `/connect` è praticamente irraggiungibile: documentare come accettato.
 - `web/src/native/prefetch.ts:163-177` — con la coda vuota un lavoratore esce anche se l'altro sta producendo figli: sulle code finali la concorrenza scende a 1 (solo più lento, al più gli ultimi 10 dettagli). Nessun task.
 - `web/src/components/ModeSwitch.tsx:48-51` — il puntino nel flusso sposta di ~16 px il gruppo Dieta/Palestra quando compare: al limite di R1. Da giudicare in C17 sull'iPhone; se percepibile, un segnaposto invisibile della stessa larghezza a sinistra.
@@ -63,7 +63,7 @@
 
 ## Note
 
-La feature è completa; il verdetto dipende dal puntino mancante in Cerca. Avvisi nuovi (non bloccanti):
+La feature è completa. Su iPhone controllare anche "Aggiungi alimento" (C17): il puntino accanto al titolo non deve spostare il pulsante di scansione né allungare la riga; a 320 px il titolo più puntino può andare su due righe. Avvisi (non bloccanti):
 - avviso nuovo: corsa tra precarico e scritture della pagina (`prefetch.ts:62-69`). Il giro non passa da `fetchQuery`, quindi `invalidateQueries` non annulla le sue richieste: una GET del precarico partita prima di una mutazione e arrivata dopo il refetch dell'invalidazione sovrascrive il dato nuovo con quello vecchio fino al prossimo refetch o giro. Finestra stretta (rete lenta). Si potrebbe saltare `set` se la query è in `fetching` o `dataUpdatedAt` è successivo all'inizio della richiesta.
 - avviso nuovo: peso del file stimato 300-700 KB, sbilanciato verso le settimane salvate (10 dettagli da 7 giorni); riscritto intero con `JSON.stringify` sul thread principale, anche a ogni tentativo offline ogni 20 s. In C19 annotare il peso con e senza `diary.copy`.
 - avviso nuovo: `useOfflineUnavailable` in `WorkoutPage` dipende da `isOffline()`; se WKWebView non emette `offline` e nessuna fetch fallisce ancora, si vede "Caricamento..." finché la richiesta non fallisce. Da guardare in C16/C17.

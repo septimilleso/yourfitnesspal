@@ -2,7 +2,7 @@
 
 - Data: 2026-10-13
 - Tipo: feature
-- Stato: approvato
+- Stato: completato
 - Brainstorm: saltato
 - Branch: `feature/ipa-precarico-offline`, da `main` (`d3e58d6`, dopo il tag `v0.0.2`)
 

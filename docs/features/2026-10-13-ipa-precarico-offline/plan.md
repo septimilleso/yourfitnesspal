@@ -1,7 +1,7 @@
 # Piano: IPA, precarico delle schermate per l'offline, indicatore offline discreto e messaggio "non disponibile offline"
 
 - Data: 2026-10-13
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: `feature/ipa-precarico-offline`
@@ -707,3 +707,4 @@ T21 — IN ATTESA (manuale) — verifica sul dispositivo (C16-C19, C24, C25) dop
 Review 1 — CHANGES_REQUESTED (1 MAJOR: puntino mancante in SearchPage, R1; 7 MINOR; 3 avvisi nuovi). Aggiunti T22 (puntino in Cerca) e T23 (precarico legato alla sessione + pulizia prudente).
 T22 — DONE — review: 1 round. Tutte le altre schermate autenticate con header hanno ModeSwitch o OfflineIndicator (escluse solo TemplateEditorPage e AdminUsersPage). Avviso: a 320 px il titolo "Aggiungi alimento" più puntino potrebbe andare su due righe (non supportato sotto 360 px: da guardare su iPhone solo se serve).
 T23 — DONE — review: per-task saltata, coperta dalla review finale round 2. Throttle legato al token del giro completato; pulizia salta query senza dati o in fetching; 5 test nuovi (solo aggiunte).
+Review 2 — APPROVED (MAJOR del round 1 chiuso da T22; MINOR del throttle e della pulizia chiusi da T23; npm test 794/794; T21 verifica sul dispositivo in attesa)
