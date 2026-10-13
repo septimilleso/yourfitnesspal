@@ -136,7 +136,7 @@ Precarico (solo IPA):
   - senza un utente in cache (`["me"]` assente o `null`);
   - sulle pagine non autenticate (login, `/connect`).
 - **R7**: Il precarico deve essere silenzioso: nessun messaggio d'errore, nessuna navigazione, nessun "Caricamento..." in più nelle pagine. Gli esiti delle sue richieste si trattano così:
-  - **errore di rete:** interrompe il giro senza lasciare richieste del precarico in pausa e senza ritentarle. Lo stato offline e il puntino seguono le regole di oggi;
+  - **errore di rete:** interrompe il giro (nessuna nuova richiesta parte; quella già in volo finisce e il suo risultato non entra in cache) senza lasciare richieste del precarico in pausa e senza ritentarle. Lo stato offline e il puntino seguono le regole di oggi;
   - **altro errore non 401** (4xx, 5xx, JSON non valido): viene ignorato. La query interessata conserva i dati che aveva e non resta in uno stato d'errore che una pagina mostrerebbe dopo. Il giro prosegue con le altre query;
   - **401 di sessione:** si comporta come oggi (token rimosso, file cancellato, login) e chiude il giro.
 
@@ -219,7 +219,7 @@ Verificabili con test automatici in locale (`cd web && npm test`):
   - Dato un giro in cui la terza richiesta rifiuta per rete, allora nessuna richiesta successiva parte, nessuna query del precarico resta con `fetchStatus` `paused`, e nessun errore viene lanciato o mostrato.
   - Dato un giro in cui `/stats/streak` risponde 500, allora le altre query vengono caricate, `["streak"]` conserva i dati che aveva prima, e una `StreakCard` montata dopo non mostra "Impossibile caricare la serie." a causa del precarico.
   - Ogni URL viene chiamata al più una volta per giro.
-- **C7** (R7, R8): Dato un giro in cui una richiesta risponde 401 `unauthorized`, allora il token è rimosso, `clearPersistedQueryCache` è chiamato, e nessuna altra richiesta del giro parte. Dato un giro in cui il token cambia da A a B a metà, allora nessuna richiesta parte più con A e le risposte arrivate dopo il cambio non compaiono nella `QueryCache`.
+- **C7** (R7, R8): Dato un giro in cui una richiesta risponde 401 `unauthorized`, allora il token è rimosso, `clearPersistedQueryCache` è chiamato, e nessuna nuova richiesta del giro parte dopo l'errore (la richiesta già in volo sull'altro lavoratore finisce ma il suo risultato non entra in cache). Dato un giro in cui il token cambia da A a B a metà, allora nessuna richiesta parte più con A e le risposte arrivate dopo il cambio non compaiono nella `QueryCache`.
 - **C8** (R9): Con `<NativeBridge />` montato e `@capacitor/local-notifications` e `@capacitor/haptics` mockati, quando un giro completo finisce, allora `LocalNotifications.schedule`, `LocalNotifications.cancel` e le funzioni aptiche non vengono chiamati, `getQueryData(["gym","workout","active"])` è `undefined`, e nessuna `invalidateQueries` con prefisso `["gym","workout"]` viene eseguita.
 - **C9** (R10):
   - Dato in cache `["gym","workout",7]` con dati, quando un giro trova l'allenamento 7 nella prima pagina, allora `/workouts/7` non viene chiamato.

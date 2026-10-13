@@ -1,11 +1,11 @@
-import type { InfiniteData, QueryClient } from "@tanstack/react-query";
+import { type InfiniteData, type QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HistoryPage } from "../api/gym";
 import { EMPTY_FILTERS, gymKeys } from "../api/gym";
 import { createQueryClient } from "../lib/queryClient";
 import { PRESETS, presetPeriod } from "../lib/stats";
-import { meWith, routeFetch, WORKOUT_IDS, workoutFixture } from "../test/prefetchFixtures";
+import { historyPage, meWith, routeFetch, WORKOUT_IDS, workoutFixture } from "../test/prefetchFixtures";
 import { runPrefetchRound } from "./prefetch";
 import { flushQueryPersistenceForTests, startQueryPersistence } from "./queryPersistence";
 import { clearToken, setToken } from "./session";
@@ -185,6 +185,15 @@ describe("runPrefetchRound: permessi (C5)", () => {
     expect(routed.urls).toContain("/templates");
   });
 
+  it("admin senza permessi chiama la palestra e le settimane salvate", async () => {
+    queryClient.setQueryData(["me"], meWith([], "admin"));
+
+    await runRound();
+
+    expect(routed.urls).toContain("/templates");
+    expect(routed.urls).toContain("/saved-weeks");
+  });
+
   it("senza utente in cache non fa richieste", async () => {
     queryClient.setQueryData(["me"], null);
 
@@ -196,14 +205,34 @@ describe("runPrefetchRound: permessi (C5)", () => {
 });
 
 describe("runPrefetchRound: dettagli saltati e pulizia (C9)", () => {
-  it("non riscarica un allenamento già in cache, e lo tiene", async () => {
+  it("non riscarica un allenamento già in cache, e lo tiene anche se è vecchio", async () => {
     const cached = workoutFixture(7);
-    queryClient.setQueryData(gymKeys.workout(7), cached);
+    queryClient.setQueryData(gymKeys.workout(7), cached, { updatedAt: Date.now() - 20 * DAY_MS });
 
     await runRound();
 
     expect(routed.urls).not.toContain("/workouts/7");
     expect(queryClient.getQueryData(gymKeys.workout(7))).toBe(cached);
+  });
+
+  it("con lo storico aperto lascia le pagine e scarica comunque i dettagli", async () => {
+    const initial: InfiniteData<HistoryPage> = {
+      pages: [historyPage(null), historyPage("2026-10-01T10:00:00.000Z")],
+      pageParams: [null, "2026-10-01T10:00:00.000Z"],
+    };
+    queryClient.setQueryData(gymKeys.history, initial);
+    // Una HistoryPage aperta: la query ha un osservatore.
+    const observer = new QueryObserver(queryClient, { queryKey: gymKeys.history, enabled: false });
+    const unsubscribe = observer.subscribe(() => undefined);
+
+    await runRound();
+    unsubscribe();
+
+    expect(queryClient.getQueryData(gymKeys.history)).toBe(initial);
+    expect(queryClient.getQueryData<InfiniteData<HistoryPage>>(gymKeys.history)?.pages).toHaveLength(2);
+    expect(sortedJson(routed.urls.filter((url) => url.startsWith("/workouts/")))).toEqual(
+      sortedJson(LAST_20_IDS.map((id) => `/workouts/${id}`)),
+    );
   });
 
   it("rimuove a fine giro una query con data di 20 giorni prima, e tiene quella recente", async () => {

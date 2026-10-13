@@ -1,6 +1,7 @@
 import { hashKey, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
 import type { Me } from "../api/auth";
+import { ApiError, NetworkError } from "../api/client";
 import {
   EMPTY_FILTERS,
   fetchExerciseProgress,
@@ -21,11 +22,12 @@ import { shiftIsoDate, startOfWeek, todayIso } from "../lib/date";
 import { PRESETS, presetPeriod } from "../lib/stats";
 import { pruneStaleQueries } from "./cachePrune";
 import { holdQueryPersistence } from "./queryPersistence";
+import { getToken } from "./session";
 
 // Tetti di R10: il peso della cache resta limitato anche con molti modelli o settimane salvate.
 export const MAX_TEMPLATE_DETAILS = 30;
 export const MAX_SAVED_WEEK_DETAILS = 10;
-// Richieste contemporanee del giro (R11): la coda di T7 le userà.
+// Richieste contemporanee del giro (R11): due lavoratori pescano dalla stessa coda.
 export const MAX_CONCURRENT = 2;
 
 export type PrefetchOutcome = "completed" | "aborted";
@@ -33,22 +35,13 @@ export type PrefetchOutcome = "completed" | "aborted";
 // Un compito scarica una query, la scrive in cache e restituisce i compiti figli (per esempio i dettagli di un elenco).
 type Task = () => Promise<Task[]>;
 
-// I compiti girano in sequenza, e un errore di un compito non ferma il giro.
-async function runSequentially(tasks: Task[]): Promise<void> {
-  const queue = [...tasks];
-  for (let task = queue.shift(); task !== undefined; task = queue.shift()) {
-    try {
-      queue.push(...(await task()));
-    } catch {
-      // Errore ignorato: T7 ne gestisce gli esiti.
-    }
-  }
-}
-
 // Un giro di precarico: scarica le query di R4, le scrive in cache e poi pulisce le query vecchie.
+// Non rifiuta mai: ogni esito è "completed" o "aborted".
 export async function runPrefetchRound(queryClient: QueryClient): Promise<PrefetchOutcome> {
+  // Il giro vive nella sessione di questo token: se cambia, o se manca, non parte.
+  const token = getToken();
   const me = queryClient.getQueryData<Me | null>(["me"]);
-  if (!me) return "aborted";
+  if (token === null || !me || !Array.isArray(me.permissions)) return "aborted";
   const canGym = me.role === "admin" || me.permissions.includes("workouts.use");
   const canCopy = me.role === "admin" || me.permissions.includes("diary.copy");
 
@@ -57,12 +50,20 @@ export async function runPrefetchRound(queryClient: QueryClient): Promise<Prefet
   const monday = startOfWeek(today);
   const periods = PRESETS.map((days) => presetPeriod(days, today));
 
+  // Stato del giro: `aborted` è irreversibile, e il giro non scrive più dopo che è vero.
+  let aborted = false;
+  const alive = () => !aborted && getToken() === token;
+
   // Hash delle chiavi del giro, anche dei dettagli saltati perché già in cache: la pulizia non le tocca.
   const roundHashes = new Set<string>();
   const keep = (key: QueryKey) => {
     roundHashes.add(hashKey(key));
   };
   const set = (key: QueryKey, data: unknown) => {
+    if (!alive()) {
+      aborted = true;
+      return;
+    }
     queryClient.setQueryData(key, data);
     keep(key);
   };
@@ -138,10 +139,49 @@ export async function runPrefetchRound(queryClient: QueryClient): Promise<Prefet
     ...(canCopy ? copyTasks : []),
   ];
 
+  // Errore di un compito. La rete assente e la sessione scaduta fermano il giro; gli altri errori no.
+  const failTask = (error: unknown) => {
+    if (error instanceof NetworkError) {
+      // Il client ha già segnalato la rete assente: il giro si chiude senza altre richieste.
+      aborted = true;
+      return;
+    }
+    if (error instanceof ApiError && error.status === 401) {
+      aborted = true;
+      // Il client ha già tolto token e file, se il token era ancora questo. Un token nuovo (o nessuno) non si tocca.
+      const current = getToken();
+      if (current === null || current === token) {
+        queryClient.setQueryData(["me"], null);
+        void queryClient.invalidateQueries({ queryKey: ["me"] });
+      }
+    }
+    // Altri errori: il compito non scrive nulla e il giro prosegue.
+  };
+
+  // Coda condivisa: un lavoratore esce quando la coda è vuota. Se un altro sta ancora producendo figli, li esegue lui.
+  const queue: Task[] = [...tasks];
+  const worker = async (): Promise<void> => {
+    while (!aborted) {
+      const task = queue.shift();
+      if (task === undefined) return;
+      if (!alive()) {
+        aborted = true;
+        return;
+      }
+      try {
+        queue.push(...(await task()));
+      } catch (error) {
+        failTask(error);
+      }
+    }
+  };
+
   // Sospensione delle scritture per tutto il giro: il rilascio nel finally vale anche se il giro si interrompe.
   const release = holdQueryPersistence();
   try {
-    await runSequentially(tasks);
+    await Promise.all(Array.from({ length: MAX_CONCURRENT }, () => worker()));
+    // Un giro interrotto non pulisce: la pulizia sta solo a fine di un giro completato.
+    if (!alive()) return "aborted";
     pruneStaleQueries(queryClient, roundHashes, Date.now());
     return "completed";
   } finally {

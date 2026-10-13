@@ -80,7 +80,7 @@ function weightFixture(start: string, end: string): WeightHistory {
   return { start, end, days: [], weeks: [] };
 }
 
-function historyPage(before: string | null): HistoryPage {
+export function historyPage(before: string | null): HistoryPage {
   const pageIds = before === null ? WORKOUT_IDS.slice(0, FIRST_PAGE_SIZE) : WORKOUT_IDS.slice(FIRST_PAGE_SIZE);
   return {
     items: pageIds.map((id) => ({
