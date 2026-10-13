@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useApplyToTemplate, useDeleteWorkout, useSaveAsTemplate, useWorkout } from "../../api/gym";
+import OfflineUnavailable from "../../components/OfflineUnavailable";
 import ActionMenu from "../../components/gym/ActionMenu";
 import { durationLabel, formatSet, workoutDateLabel } from "../../lib/gym";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 
 /** A finished workout. With `?summary=1` (right after "Termina") it is the
  * end-of-workout summary: if the sets differ from the template it offers to
@@ -14,7 +16,9 @@ function WorkoutDetailPage() {
   const [params] = useSearchParams();
   const summary = params.get("summary") === "1";
   const navigate = useNavigate();
-  const { data: workout, isLoading, isError } = useWorkout(workoutId);
+  const workoutQuery = useWorkout(workoutId);
+  const { data: workout, isLoading, isError } = workoutQuery;
+  const unavailable = useOfflineUnavailable(workoutQuery);
   const apply = useApplyToTemplate();
   const saveAs = useSaveAsTemplate();
   const remove = useDeleteWorkout();
@@ -54,8 +58,11 @@ function WorkoutDetailPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
-        {isError && <p className="card px-4 py-3 text-center text-sm text-red-600">Allenamento non trovato.</p>}
+        {unavailable && <OfflineUnavailable />}
+        {!unavailable && isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
+        {!unavailable && isError && (
+          <p className="card px-4 py-3 text-center text-sm text-red-600">Allenamento non trovato.</p>
+        )}
 
         {workout && (
           <>

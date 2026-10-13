@@ -422,7 +422,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. `DietStatsPage.test.tsx`, `StreakCard.test.tsx` e `WeightSection.test.tsx` (T1) non si modificano.
 - Verifica: `cd web && npx vitest run src/pages/offline.dietStats.native.test.tsx src/pages/DietStatsPage.test.tsx src/components/StreakCard.test.tsx src/components/stats/`, risultato atteso: verdi.
 
-### [ ] T12. Messaggio offline: modelli, storico, dettaglio allenamento
+### [x] T12. Messaggio offline: modelli, storico, dettaglio allenamento
 
 - Copre: C11, C12, C28
 - Rischio: alto
@@ -672,3 +672,4 @@ T8 — DONE — review: 1 round (3 MINOR chiusi dall implementer: refreshStaleMe
 T9 — DONE — review: 1 round. Nota: l hook non è mai provato con useInfiniteQuery (tipo compatibile per deduzione, lo verificherà tsc nei task T10-T14).
 T10 — DONE — review: 1 round. MINOR (test): offline.diary.native.test.tsx:139 con rete presente verificare anche "Caricamento..." con retryingQuery; :118 verificare header/frecce/link visibili con il messaggio.
 T11 — DONE — review: 1 round. MINOR (test): manca il caso WeightSection enabled=false offline (periodo personalizzato non valido). Nota: la modifica a StreakCard vale anche per GymStatsPage (stessa card), coerente con R12.
+T12 — DONE — review: 1 round. MINOR: offline.gym.native.test.tsx:80 verificare anche che "Inizia allenamento" sia disabilitato in pausa; HistoryPage.tsx:84 la guardia !historyUnavailable sul riquadro vuoto è superflua (innocua).

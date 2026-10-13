@@ -4,15 +4,18 @@ import { Link } from "react-router-dom";
 import type { HistoryItem } from "../../api/gym";
 import { useDeleteWorkout, useHistory } from "../../api/gym";
 import ModeSwitch from "../../components/ModeSwitch";
+import OfflineUnavailable from "../../components/OfflineUnavailable";
 import SwipeableCard from "../../components/gym/SwipeableCard";
 import { durationLabel, monthLabel, workoutDateLabel } from "../../lib/gym";
 import { mascot } from "../../lib/art";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 
 const SHOWN_EXERCISES = 4;
 
 /** Finished workouts, newest first, grouped by month. */
 function HistoryPage() {
   const history = useHistory();
+  const historyUnavailable = useOfflineUnavailable(history);
   const removeWorkout = useDeleteWorkout();
   const [openId, setOpenId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState(false);
@@ -71,11 +74,14 @@ function HistoryPage() {
         </div>
       </header>
       <div className="mx-auto max-w-2xl space-y-5 p-4">
-        {history.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
-        {history.isError && (
+        {historyUnavailable && <OfflineUnavailable />}
+        {!historyUnavailable && history.isLoading && (
+          <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>
+        )}
+        {!historyUnavailable && history.isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">Errore nel caricamento dello storico.</p>
         )}
-        {history.data && items.length === 0 && (
+        {!historyUnavailable && history.data && items.length === 0 && (
           <div className="card px-4 py-6 text-center">
             <img
               src={mascot("gym")}
