@@ -356,7 +356,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. In `OfflineBar` il calcolo dell'ora esclude la query `["me"]`: usa il minimo `dataUpdatedAt` tra le altre query osservate con dati; se non ce ne sono, usa `["me"]`. Test: con `["me"]` più vecchia di un'altra query osservata, l'ora mostrata è quella dell'altra query; con la sola `["me"]`, l'ora di `["me"]`.
 - Verifica: `cd web && npx vitest run src/native/connectivity.test.ts src/components/OfflineBar.test.tsx && npx tsc -b`, verdi. Poi `cd web && npm test`.
 
-### [ ] T17. Ricerche fuori dalla cache (MINOR 4 della review 1)
+### [x] T17. Ricerche fuori dalla cache (MINOR 4 della review 1)
 
 - Copre: C26 (NFR Prestazioni)
 - Rischio: alto
@@ -400,3 +400,4 @@ T14 — IN ATTESA (manuale) — richiede merge su main, tag pushato solo su Gite
 Review 1 — CHANGES_REQUESTED (1 MAJOR: persistenza esclude query in errore 5xx, viola R4; 4 MINOR; 7 avvisi nuovi)
 T15 — DONE — review: 1 round. MINOR: test non verifica che la query viva resti in error dopo la scrittura; mancano test per fetchStatus paused/fetching scritto come idle e per mutations non vuote al ripristino. Avviso: lo stato scritto conserva fetchFailureReason/fetchFailureCount/errorUpdatedAt (un ApiError serializzato può portare il body della risposta nel file): azzerarli in asSuccessfulQuery, da fare in T17.
 T16 — DONE — review: 1 round. Avviso (da confermare in C17 su dispositivo): evento `offline` senza fetch fallite, poi `online` con solo query fresche (es. solo ["me"] dentro lo staleTime): nessuna fetch riparte e la barra resta finché una navigazione non ne fa partire una; eventuale correzione: invalidateQueries(["me"]) in onOnline quando isOffline().
+T17 — DONE — review: 1 round. Deviazione motivata dal piano: escluse dalla persistenza solo le ricerche esercizi con q non vuoto (non tutta la chiave ["gym","exercises"]), il catalogo senza filtri resta persistito. Aggiunti: azzeramento di fetchFailureCount/fetchFailureReason/errorUpdatedAt nel file e 3 test di regressione di T15. MINOR: queryClient.test.ts:68 manca un controllo che retry di foods resti retryNative e che sul web getQueryDefaults(["foods"]) sia vuoto. Avviso: una ricerca esercizi con q resta in memoria con gcTime Infinity per la vita del processo (follow-up: gcTime dentro useExercises).

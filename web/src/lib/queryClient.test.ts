@@ -65,6 +65,13 @@ describe("createQueryClient nativo", () => {
     expect(options.mutations?.networkMode).toBe("always");
   });
 
+  it("le ricerche cibo escono dalla cache dopo 5 minuti, le altre query restano senza scadenza", () => {
+    const client = createQueryClient(true);
+
+    expect(client.defaultQueryOptions({ queryKey: ["foods", "search", "pasta"] }).gcTime).toBe(5 * 60_000);
+    expect(client.defaultQueryOptions({ queryKey: ["diary"] }).gcTime).toBe(Infinity);
+  });
+
   it("una query con dati offline resta in success e va in pausa", async () => {
     const client = track(createQueryClient(true));
     client.setQueryData(["diary"], "vecchi");

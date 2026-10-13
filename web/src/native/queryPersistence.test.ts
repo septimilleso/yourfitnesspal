@@ -2,7 +2,7 @@ import { dehydrate, QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../api/client";
-import { gymKeys, type Workout } from "../api/gym";
+import { EMPTY_FILTERS, gymKeys, type Workout } from "../api/gym";
 
 const preferences = vi.hoisted(() => ({
   get: vi.fn(),
@@ -197,18 +197,125 @@ describe("query persistence on the native platform", () => {
     stop();
     vi.useRealTimers();
 
-    const payload = JSON.parse(writtenPayload());
+    const raw = writtenPayload();
+    expect(raw).not.toContain("<html>");
+    const payload = JSON.parse(raw);
     const me = payload.state.queries.find(
       (query: { queryKey: unknown[] }) => JSON.stringify(query.queryKey) === JSON.stringify(["me"]),
     );
     expect(me).toBeDefined();
-    expect(me.state).toMatchObject({ status: "success", fetchStatus: "idle", error: null, data: ME });
+    expect(me.state).toMatchObject({
+      status: "success",
+      fetchStatus: "idle",
+      error: null,
+      fetchFailureCount: 0,
+      fetchFailureReason: null,
+      errorUpdatedAt: 0,
+      data: ME,
+    });
 
-    filesystem.readFile.mockResolvedValue({ data: writtenPayload() });
+    filesystem.readFile.mockResolvedValue({ data: raw });
     const restored = new QueryClient();
     await persistence.restoreQueryCache(restored);
     expect(restored.getQueryState(["me"])?.status).toBe("success");
     expect(restored.getQueryData(["me"])).toEqual(ME);
+  });
+
+  it("leaves the live query in error after writing the cache", async () => {
+    const { session, persistence } = await loadModules();
+    await session.loadNativeSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["me"], ME);
+    await queryClient
+      .fetchQuery({
+        queryKey: ["me"],
+        queryFn: () => Promise.reject(new ApiError(502, "Bad Gateway", "<html>")),
+        retry: false,
+      })
+      .catch(() => undefined);
+
+    vi.useFakeTimers();
+    const stop = persistence.startQueryPersistence(queryClient);
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    vi.advanceTimersByTime(1000);
+    await persistence.flushQueryPersistenceForTests();
+    stop();
+    vi.useRealTimers();
+
+    expect(filesystem.writeFile).toHaveBeenCalledTimes(1);
+    const live = queryClient.getQueryState(["me"]);
+    expect(live).toMatchObject({ status: "error", fetchStatus: "idle" });
+    expect(live?.error).toBeInstanceOf(ApiError);
+    expect(live?.fetchFailureReason).toBeInstanceOf(ApiError);
+    expect(queryClient.getQueryData(["me"])).toEqual(ME);
+  });
+
+  it("writes a query with data and fetchStatus paused as idle", async () => {
+    const { session, persistence } = await loadModules();
+    await session.loadNativeSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["me"], ME);
+    queryClient.getQueryCache().find({ queryKey: ["me"] })!.setState({ fetchStatus: "paused" });
+
+    vi.useFakeTimers();
+    const stop = persistence.startQueryPersistence(queryClient);
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    vi.advanceTimersByTime(1000);
+    await persistence.flushQueryPersistenceForTests();
+    stop();
+    vi.useRealTimers();
+
+    const me = JSON.parse(writtenPayload()).state.queries.find(
+      (query: { queryKey: unknown[] }) => JSON.stringify(query.queryKey) === JSON.stringify(["me"]),
+    );
+    expect(me.state).toMatchObject({ status: "success", fetchStatus: "idle", data: ME });
+  });
+
+  it("keeps the unfiltered exercise catalog but not an exercise search, on write and on restore", async () => {
+    const { session, persistence } = await loadModules();
+    await session.loadNativeSession();
+    const queryClient = await populatedClient();
+    queryClient.setQueryData(gymKeys.exercises(EMPTY_FILTERS), { items: [] });
+    queryClient.setQueryData(gymKeys.exercises({ ...EMPTY_FILTERS, q: "panca" }), { items: [] });
+
+    vi.useFakeTimers();
+    const stop = persistence.startQueryPersistence(queryClient);
+    queryClient.setQueryData(["me"], ME);
+    vi.advanceTimersByTime(1000);
+    await persistence.flushQueryPersistenceForTests();
+    stop();
+    vi.useRealTimers();
+
+    const keys = JSON.parse(writtenPayload()).state.queries.map((query: { queryKey: unknown[] }) =>
+      JSON.stringify(query.queryKey),
+    );
+    expect(keys).toContain(JSON.stringify(gymKeys.exercises(EMPTY_FILTERS)));
+    expect(keys).not.toContain(JSON.stringify(gymKeys.exercises({ ...EMPTY_FILTERS, q: "panca" })));
+
+    const state = dehydrate(queryClient, { shouldDehydrateQuery: () => true });
+    filesystem.readFile.mockResolvedValue({
+      data: JSON.stringify({ buster: "1|build-a", savedAt: Date.now(), state }),
+    });
+    const restored = new QueryClient();
+    await persistence.restoreQueryCache(restored);
+    expect(restored.getQueryData(gymKeys.exercises(EMPTY_FILTERS))).toEqual({ items: [] });
+    expect(restored.getQueryState(gymKeys.exercises({ ...EMPTY_FILTERS, q: "panca" }))).toBeUndefined();
+  });
+
+  it("ignores the mutations in the file on restore", async () => {
+    const { persistence } = await loadModules();
+    const source = await populatedClient();
+    const state = dehydrate(source, { shouldDehydrateQuery: () => true, shouldDehydrateMutation: () => true });
+    expect(state.mutations.length).toBeGreaterThan(0);
+    filesystem.readFile.mockResolvedValue({
+      data: JSON.stringify({ buster: "1|build-a", savedAt: Date.now(), state }),
+    });
+
+    const queryClient = new QueryClient();
+    await persistence.restoreQueryCache(queryClient);
+
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+    expect(queryClient.getQueryData(["me"])).toEqual(ME);
   });
 
   it("does not write a query that is in error without data", async () => {

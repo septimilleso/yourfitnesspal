@@ -34,6 +34,10 @@ export function createQueryClient(native: boolean): QueryClient {
         }
       : {}),
   });
+  if (native) {
+    // Le ricerche cibo cambiano a ogni tasto: senza scadenza resterebbero in memoria per tutta la vita del processo.
+    queryClient.setQueryDefaults(["foods"], { gcTime: 5 * 60_000 });
+  }
   return queryClient;
 }
 

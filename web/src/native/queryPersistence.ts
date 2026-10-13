@@ -1,7 +1,7 @@
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { type DehydratedState, dehydrate, hydrate, type Query, type QueryClient } from "@tanstack/react-query";
 
-import { gymKeys } from "../api/gym";
+import { type ExerciseFilters, gymKeys } from "../api/gym";
 import { isNative } from "./platform";
 import { getToken } from "./session";
 
@@ -22,9 +22,18 @@ function cacheBuster(): string {
   return `${CACHE_SCHEMA_VERSION}|${import.meta.env.VITE_BUILD_ID ?? "dev"}`;
 }
 
-// Stato locale dell'allenamento (ADR 0004), ricerca cibo e pannello admin restano fuori dalla cache.
+// Una ricerca esercizi con `q` cambia a ogni tasto e può pesare fino a 200 voci: resta fuori.
+// Il catalogo senza filtri sì, lo usano la pagina esercizi e il picker anche offline.
+function isExerciseSearch(queryKey: readonly unknown[]): boolean {
+  if (queryKey[0] !== "gym" || queryKey[1] !== "exercises") return false;
+  const filters = queryKey[2] as Partial<ExerciseFilters> | undefined;
+  return (filters?.q ?? "").trim() !== "";
+}
+
+// Stato locale dell'allenamento (ADR 0004), ricerca cibo, ricerche esercizi e pannello admin restano fuori dalla cache.
 function isPersistableKey(queryKey: readonly unknown[]): boolean {
   if (JSON.stringify(queryKey) === JSON.stringify(gymKeys.active)) return false;
+  if (isExerciseSearch(queryKey)) return false;
   return queryKey[0] !== "foods" && queryKey[0] !== "admin";
 }
 
@@ -38,8 +47,20 @@ function shouldPersistQuery(query: Query): boolean {
 }
 
 // Il file descrive una query riuscita: l'errore non si ripristina, il dato sì.
+// Anche i campi del fallimento si azzerano: un ApiError serializzato può portare il body della risposta.
 function asSuccessfulQuery(query: DehydratedState["queries"][number]): DehydratedState["queries"][number] {
-  return { ...query, state: { ...query.state, status: "success", error: null, fetchStatus: "idle" } };
+  return {
+    ...query,
+    state: {
+      ...query.state,
+      status: "success",
+      error: null,
+      fetchStatus: "idle",
+      fetchFailureCount: 0,
+      fetchFailureReason: null,
+      errorUpdatedAt: 0,
+    },
+  };
 }
 
 // Le scritture e le cancellazioni si susseguono in ordine: una scrittura non deve sovrascrivere una cancellazione.
