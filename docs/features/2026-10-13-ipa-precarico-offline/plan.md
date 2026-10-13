@@ -659,4 +659,5 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 ## Registro di esecuzione
 
-Nessuna voce ancora.
+Partenza: d3e58d69bf7c9d41e1ad1c310f8fe18e0c27e71e su main
+
