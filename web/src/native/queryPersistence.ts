@@ -66,6 +66,10 @@ function asSuccessfulQuery(query: DehydratedState["queries"][number]): Dehydrate
 // Le scritture e le cancellazioni si susseguono in ordine: una scrittura non deve sovrascrivere una cancellazione.
 let queue: Promise<void> = Promise.resolve();
 let timer: ReturnType<typeof setTimeout> | undefined;
+// Sospensioni attive (holdQueryPersistence) e scrittura saltata mentre ce n'è almeno una.
+let holds = 0;
+let writeDeferred = false;
+let scheduleWriteRef: (() => void) | null = null;
 
 function enqueue(task: () => Promise<void>): Promise<void> {
   const next = queue.then(task).catch(() => undefined);
@@ -133,17 +137,24 @@ export function startQueryPersistence(queryClient: QueryClient): () => void {
   if (!isNative()) return () => undefined;
 
   const scheduleWrite = () => {
+    if (holds > 0) {
+      writeDeferred = true;
+      return;
+    }
     cancelPendingWrite();
     timer = setTimeout(() => {
       timer = undefined;
       void enqueue(() => writeCache(queryClient));
     }, WRITE_DELAY_MS);
   };
+  scheduleWriteRef = scheduleWrite;
 
   // Andando in background l'app può essere chiusa dal multitasking: si scrive subito.
   const onVisibilityChange = () => {
     if (document.visibilityState !== "hidden") return;
     cancelPendingWrite();
+    // La scrittura che parte ora include anche le modifiche rinviate: il rilascio non ne programma un'altra.
+    writeDeferred = false;
     void enqueue(() => writeCache(queryClient));
   };
 
@@ -154,6 +165,7 @@ export function startQueryPersistence(queryClient: QueryClient): () => void {
     unsubscribe();
     document.removeEventListener("visibilitychange", onVisibilityChange);
     cancelPendingWrite();
+    scheduleWriteRef = null;
   };
 }
 
@@ -163,7 +175,41 @@ export function startQueryPersistence(queryClient: QueryClient): () => void {
 export function clearPersistedQueryCache(): Promise<void> {
   if (!isNative()) return Promise.resolve();
   cancelPendingWrite();
+  writeDeferred = false;
   return enqueue(deleteCacheFile);
+}
+
+// Sospende le scritture della cache finché il giro di precarico non finisce: il file si riscrive una o due volte, non a ogni risposta.
+// Restituisce `release`, idempotente: alla fine dell'ultima sospensione, se c'è stata una scrittura saltata, ne programma una sola.
+export function holdQueryPersistence(): () => void {
+  if (!isNative()) return () => undefined;
+  // Un timer già programmato prima della sospensione scatterebbe durante il giro: si rinvia anche quello.
+  if (holds === 0 && timer !== undefined) {
+    cancelPendingWrite();
+    writeDeferred = true;
+  }
+  holds++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    holds--;
+    if (holds === 0 && writeDeferred) {
+      writeDeferred = false;
+      scheduleWriteRef?.();
+    }
+  };
+}
+
+// Per la riga diagnostica in Impostazioni: peso e ora del file, senza leggerne il contenuto.
+export async function getPersistedCacheInfo(): Promise<{ sizeBytes: number; savedAt: number } | null> {
+  if (!isNative()) return null;
+  try {
+    const { size, mtime } = await Filesystem.stat({ path: CACHE_PATH, directory: Directory.Library });
+    return { sizeBytes: size, savedAt: mtime };
+  } catch {
+    return null;
+  }
 }
 
 // Solo per i test: attende le scritture e le cancellazioni in coda.

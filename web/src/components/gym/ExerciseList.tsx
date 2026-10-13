@@ -1,6 +1,8 @@
 import type { Exercise, useExercises } from "../../api/gym";
 import { exerciseSubtitle } from "../../lib/gym";
 import { mascot } from "../../lib/art";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import OfflineUnavailable from "../OfflineUnavailable";
 
 interface ExerciseListProps {
   query: ReturnType<typeof useExercises>;
@@ -10,6 +12,8 @@ interface ExerciseListProps {
 }
 
 function ExerciseList({ query, selectedIds, onSelect }: ExerciseListProps) {
+  const unavailable = useOfflineUnavailable(query);
+  if (unavailable) return <OfflineUnavailable />;
   if (query.isLoading) return <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>;
   if (query.isError) {
     return <p className="card px-4 py-3 text-center text-sm text-red-600">Errore nel caricamento.</p>;

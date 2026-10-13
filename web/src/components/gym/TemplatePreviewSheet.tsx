@@ -1,4 +1,6 @@
 import { useTemplate } from "../../api/gym";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import OfflineUnavailable from "../OfflineUnavailable";
 import Sheet from "./Sheet";
 
 interface TemplatePreviewSheetProps {
@@ -10,7 +12,9 @@ interface TemplatePreviewSheetProps {
 }
 
 function TemplatePreviewSheet({ templateId, starting, onStart, onEdit, onClose }: TemplatePreviewSheetProps) {
-  const { data, isLoading } = useTemplate(templateId);
+  const template = useTemplate(templateId);
+  const { data, isLoading } = template;
+  const unavailable = useOfflineUnavailable(template);
   return (
     <Sheet
       title={data?.name ?? "Modello"}
@@ -31,7 +35,8 @@ function TemplatePreviewSheet({ templateId, starting, onStart, onEdit, onClose }
         </button>
       }
     >
-      {isLoading && <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>}
+      {unavailable && <OfflineUnavailable compact />}
+      {!unavailable && isLoading && <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>}
       {data && (
         <ul className="card divide-y divide-slate-100">
           {data.exercises.map((item) => (

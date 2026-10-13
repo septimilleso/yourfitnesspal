@@ -1,13 +1,19 @@
 import { useStreak } from "../api/queries";
 import BadgeGrid from "./BadgeGrid";
+import OfflineUnavailable from "./OfflineUnavailable";
 import type { AppMode } from "../lib/appMode";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 /** "N giorni di fila" card at the top of both stats pages. */
 function StreakCard({ mode }: { mode: AppMode }) {
-  const { data, isLoading, isError } = useStreak();
+  const streak = useStreak();
+  const { data, isLoading, isError } = streak;
+  const unavailable = useOfflineUnavailable(streak);
 
   let body: React.ReactNode;
-  if (isError) {
+  if (unavailable) {
+    body = <OfflineUnavailable compact />;
+  } else if (isError) {
     body = <p className="text-sm text-red-600">Impossibile caricare la serie.</p>;
   } else if (isLoading || !data) {
     body = <p className="text-sm text-slate-500">Caricamento...</p>;

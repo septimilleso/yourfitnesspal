@@ -6,9 +6,9 @@ import AdminGuard from "./auth/AdminGuard";
 import AuthGuard from "./auth/AuthGuard";
 import PermissionGuard from "./auth/PermissionGuard";
 import AppShell from "./components/AppShell";
-import OfflineBar from "./components/OfflineBar";
 import { queryClient } from "./lib/queryClient";
 import NativeBridge from "./native/NativeBridge";
+import NativeOfflineServices from "./native/NativeOfflineServices";
 import AccountPage from "./pages/AccountPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import DayPage from "./pages/DayPage";
@@ -39,7 +39,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
         <NativeBridge />
-        <OfflineBar />
+        <NativeOfflineServices />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/connect" element={<ConnectPage />} />

@@ -227,10 +227,14 @@ function exercisesPath(filters: ExerciseFilters): string {
 
 // ---- exercises ----
 
+export function fetchExercises(filters: ExerciseFilters) {
+  return client.get<ExerciseList>(exercisesPath(filters));
+}
+
 export function useExercises(filters: ExerciseFilters) {
   return useQuery({
     queryKey: gymKeys.exercises(filters),
-    queryFn: () => client.get<ExerciseList>(exercisesPath(filters)),
+    queryFn: () => fetchExercises(filters),
     placeholderData: (previous) => previous,
   });
 }
@@ -273,17 +277,25 @@ export function useArchiveExercise() {
 
 // ---- templates and folders ----
 
+export function fetchTemplates() {
+  return client.get<TemplatesResponse>("/templates");
+}
+
+export function fetchTemplate(id: number) {
+  return client.get<Template>(`/templates/${id}`);
+}
+
 export function useTemplates() {
   return useQuery({
     queryKey: gymKeys.templates,
-    queryFn: () => client.get<TemplatesResponse>("/templates"),
+    queryFn: () => fetchTemplates(),
   });
 }
 
 export function useTemplate(id: number | null) {
   return useQuery({
     queryKey: gymKeys.template(id ?? 0),
-    queryFn: () => client.get<Template>(`/templates/${id}`),
+    queryFn: () => fetchTemplate(id ?? 0),
     enabled: id !== null,
   });
 }
@@ -341,10 +353,14 @@ export function useActiveWorkout(enabled = true) {
   });
 }
 
+export function fetchWorkout(id: number) {
+  return client.get<Workout>(`/workouts/${id}`);
+}
+
 export function useWorkout(id: number) {
   return useQuery({
     queryKey: gymKeys.workout(id),
-    queryFn: () => client.get<Workout>(`/workouts/${id}`),
+    queryFn: () => fetchWorkout(id),
   });
 }
 
@@ -436,48 +452,66 @@ export function useCancelWorkout() {
   });
 }
 
+/** One page of finished workouts; `before` is the `next_before` of the previous page. */
+export function fetchHistoryPage(before: string | null) {
+  return client.get<HistoryPage>(
+    `/workouts?limit=20${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+  );
+}
+
 export function useHistory() {
   return useInfiniteQuery({
     queryKey: gymKeys.history,
-    queryFn: ({ pageParam }) =>
-      client.get<HistoryPage>(
-        `/workouts?limit=20${pageParam ? `&before=${encodeURIComponent(pageParam)}` : ""}`,
-      ),
+    queryFn: ({ pageParam }) => fetchHistoryPage(pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_before,
   });
 }
 
+export function fetchGymCount() {
+  return client.get<GymCount>("/stats/gym/count");
+}
+
 export function useGymCount() {
   return useQuery({
     queryKey: gymKeys.statsCount,
-    queryFn: () => client.get<GymCount>("/stats/gym/count"),
+    queryFn: () => fetchGymCount(),
   });
+}
+
+export function fetchGymStats(start: string, end: string) {
+  return client.get<GymStats>(`/stats/gym?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
 }
 
 export function useGymStats(start: string, end: string, enabled = true) {
   return useQuery({
     queryKey: gymKeys.stats(start, end),
-    queryFn: () =>
-      client.get<GymStats>(`/stats/gym?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
+    queryFn: () => fetchGymStats(start, end),
     enabled,
   });
+}
+
+export function fetchPerformedExercises() {
+  return client.get<PerformedExercise[]>("/stats/gym/exercises");
 }
 
 export function usePerformedExercises() {
   return useQuery({
     queryKey: gymKeys.statsExercises,
-    queryFn: () => client.get<PerformedExercise[]>("/stats/gym/exercises"),
+    queryFn: () => fetchPerformedExercises(),
   });
+}
+
+export function fetchExerciseProgress(id: number, start: string, end: string) {
+  return client.get<ExerciseProgress>(
+    `/stats/gym/exercises/${id}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+  );
 }
 
 export function useExerciseProgress(id: number, start: string, end: string, enabled = true) {
   return useQuery({
     queryKey: gymKeys.progress(id, start, end),
-    queryFn: () =>
-      client.get<ExerciseProgress>(
-        `/stats/gym/exercises/${id}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
-      ),
+    queryFn: () => fetchExerciseProgress(id, start, end),
     enabled,
   });
 }

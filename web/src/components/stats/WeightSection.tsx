@@ -5,11 +5,14 @@ import { useDeleteWeight, useWeightHistory } from "../../api/weights";
 import { formatIsoDateLong } from "../../lib/date";
 import { formatKg } from "../../lib/gym";
 import type { Period } from "../../lib/stats";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import OfflineUnavailable from "../OfflineUnavailable";
 import WeightChart from "./WeightChart";
 
 /** Weight history and chart for the selected diary-statistics period. */
 function WeightSection({ period, enabled }: { period: Period; enabled: boolean }) {
   const history = useWeightHistory(period.start, period.end, enabled);
+  const unavailable = useOfflineUnavailable(history);
   const deleteWeight = useDeleteWeight();
   const [deleteError, setDeleteError] = useState(false);
   const weighIns = (history.data?.days ?? [])
@@ -24,7 +27,9 @@ function WeightSection({ period, enabled }: { period: Period; enabled: boolean }
       {deleteError && (
         <p role="alert" className="text-sm text-red-600">Impossibile eliminare la pesata.</p>
       )}
-      {history.isError ? (
+      {unavailable ? (
+        <OfflineUnavailable compact />
+      ) : history.isError ? (
         <p role="alert" className="text-sm text-red-600">Impossibile caricare il peso.</p>
       ) : history.isLoading ? (
         <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>

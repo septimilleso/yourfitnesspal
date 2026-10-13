@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import { useArchiveExercise, useExercise } from "../../api/gym";
 import { equipmentLabel, muscleLabel, TRACKING_LABELS } from "../../lib/gym";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import OfflineUnavailable from "../OfflineUnavailable";
 import CustomExerciseForm from "./CustomExerciseForm";
 import Sheet from "./Sheet";
 
@@ -11,7 +13,9 @@ interface ExerciseDetailSheetProps {
 }
 
 function ExerciseDetailSheet({ exerciseId, onClose }: ExerciseDetailSheetProps) {
-  const { data, isLoading, isError } = useExercise(exerciseId);
+  const exercise = useExercise(exerciseId);
+  const { data, isLoading, isError } = exercise;
+  const unavailable = useOfflineUnavailable(exercise);
   const archive = useArchiveExercise();
   const [editing, setEditing] = useState(false);
 
@@ -22,8 +26,14 @@ function ExerciseDetailSheet({ exerciseId, onClose }: ExerciseDetailSheetProps) 
 
   return (
     <Sheet title={data?.name ?? "Esercizio"} onClose={onClose}>
-      {isLoading && <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>}
-      {isError && <p className="text-sm text-red-600">Errore nel caricamento.</p>}
+      {unavailable ? (
+        <OfflineUnavailable compact />
+      ) : (
+        <>
+          {isLoading && <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>}
+          {isError && <p className="text-sm text-red-600">Errore nel caricamento.</p>}
+        </>
+      )}
       {data && (
         <div className="space-y-4 text-[15px] text-slate-800">
           <dl className="card divide-y divide-slate-100">

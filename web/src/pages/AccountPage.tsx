@@ -11,7 +11,9 @@ import {
 import { useHasPermission, useLogout, useMe } from "../auth/AuthContext";
 import McpConnectionsSection from "../components/McpConnectionsSection";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import { formatDateTime } from "../lib/format";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -56,6 +58,7 @@ function AccountPage() {
   const logout = useLogout();
   const canUseMcp = useHasPermission("mcp.access");
   const sessions = useQuery({ queryKey: ["auth", "sessions"], queryFn: listSessions });
+  const sessionsUnavailable = useOfflineUnavailable(sessions);
   const password = useMutation({
     mutationFn: changePassword,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] }),
@@ -118,7 +121,7 @@ function AccountPage() {
         </div></section>
 
         {canUseMcp && me?.mcp_url && <McpConnectionsSection mcpUrl={me.mcp_url} />}
-        <section className="space-y-2"><h2 className="section-label">Sessioni attive</h2><div className="card divide-y divide-slate-100 overflow-hidden">{sessions.isLoading && <p className="p-4 text-sm text-slate-500">Caricamento...</p>}{sessions.isError && <p role="alert" className="p-4 text-sm text-red-700">Impossibile caricare le sessioni.</p>}{sessions.data?.map((session: Session) => <div className="flex items-center gap-3 p-4" key={session.id}><div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-800">{shortUserAgent(session.user_agent)}</p><p className="text-xs text-slate-500">Ultimo accesso: {formatDateTime(session.last_seen_at)}</p></div>{session.current ? <span className="shrink-0 rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700">Questa sessione</span> : <button type="button" className="btn-ghost shrink-0 text-sm" onClick={() => revoke.mutate(session.id)} disabled={revoke.isPending}>Disconnetti</button>}</div>)}</div></section>
+        <section className="space-y-2"><h2 className="section-label">Sessioni attive</h2><div className="card divide-y divide-slate-100 overflow-hidden">{sessionsUnavailable ? <OfflineUnavailable compact /> : sessions.isLoading && <p className="p-4 text-sm text-slate-500">Caricamento...</p>}{sessions.isError && <p role="alert" className="p-4 text-sm text-red-700">Impossibile caricare le sessioni.</p>}{sessions.data?.map((session: Session) => <div className="flex items-center gap-3 p-4" key={session.id}><div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-800">{shortUserAgent(session.user_agent)}</p><p className="text-xs text-slate-500">Ultimo accesso: {formatDateTime(session.last_seen_at)}</p></div>{session.current ? <span className="shrink-0 rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700">Questa sessione</span> : <button type="button" className="btn-ghost shrink-0 text-sm" onClick={() => revoke.mutate(session.id)} disabled={revoke.isPending}>Disconnetti</button>}</div>)}</div></section>
         <button type="button" className="btn-secondary w-full text-red-700" onClick={() => void logout()}>Esci</button>
       </main>
       {codes && <RecoveryCodesDialog codes={codes} onClose={() => setCodes(null)} />}

@@ -1,13 +1,19 @@
 import { useGymCount } from "../api/gym";
 import { artIcon } from "../lib/art";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 import BadgeGrid from "./BadgeGrid";
+import OfflineUnavailable from "./OfflineUnavailable";
 
 /** Finished workout count and gym badge progress at the top of gym stats. */
 function WorkoutCountCard() {
-  const { data, isLoading, isError } = useGymCount();
+  const count = useGymCount();
+  const { data, isLoading, isError } = count;
+  const unavailable = useOfflineUnavailable(count);
 
   let body: React.ReactNode;
-  if (isError) {
+  if (unavailable) {
+    body = <OfflineUnavailable compact />;
+  } else if (isError) {
     body = <p className="text-sm text-red-600">Impossibile caricare gli allenamenti.</p>;
   } else if (isLoading || !data) {
     body = <p className="text-sm text-slate-500">Caricamento...</p>;

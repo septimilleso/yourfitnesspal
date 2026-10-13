@@ -1,6 +1,7 @@
 import { useDiaryRange, useGoal } from "../api/queries";
 import GoalForm from "../components/GoalForm";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import StreakCard from "../components/StreakCard";
 import KcalChart from "../components/stats/KcalChart";
 import MacroChart from "../components/stats/MacroChart";
@@ -8,6 +9,7 @@ import MacroSplitBars from "../components/stats/MacroSplitBars";
 import PeriodPicker from "../components/stats/PeriodPicker";
 import SummaryTable from "../components/stats/SummaryTable";
 import WeightSection from "../components/stats/WeightSection";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 import { usePeriodParams } from "../lib/usePeriodParams";
 import { chartPoints, macroSplit, summarize } from "../lib/stats";
 
@@ -16,6 +18,7 @@ function DietStatsPage() {
   const { choice, today, error, period, setPreset, openCustom, setDates } = usePeriodParams();
 
   const range = useDiaryRange(period.start, period.end, error === null);
+  const rangeUnavailable = useOfflineUnavailable(range);
   const { data: goal } = useGoal();
   const activeGoal = goal ?? null;
 
@@ -43,7 +46,7 @@ function DietStatsPage() {
           onCustom={openCustom}
           onDates={setDates}
         />
-        {error !== null ? null : range.isError ? (
+        {error !== null ? null : rangeUnavailable ? <OfflineUnavailable /> : range.isError ? (
           <p role="alert" className="card px-4 py-3 text-sm text-red-600">
             Impossibile caricare le statistiche.
           </p>

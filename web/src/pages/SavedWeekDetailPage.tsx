@@ -11,7 +11,9 @@ import { MEALS } from "../api/queries";
 import ApplySavedWeekDialog from "../components/ApplySavedWeekDialog";
 import ActionMenu from "../components/gym/ActionMenu";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import { MEAL_LABELS } from "../lib/meals";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -20,6 +22,7 @@ function SavedWeekDetailPage() {
   const savedWeekId = Number(id);
   const navigate = useNavigate();
   const week = useSavedWeek(savedWeekId);
+  const unavailable = useOfflineUnavailable(week);
   const rename = useRenameSavedWeek();
   const remove = useDeleteSavedWeek();
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -80,8 +83,9 @@ function SavedWeekDetailPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {week.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
-        {week.isError && (
+        {unavailable && <OfflineUnavailable />}
+        {!unavailable && week.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
+        {!unavailable && week.isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">Settimana non trovata.</p>
         )}
 

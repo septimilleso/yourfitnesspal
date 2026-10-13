@@ -6,7 +6,9 @@ import DaySummary from "../components/DaySummary";
 import EditEntrySheet from "../components/EditEntrySheet";
 import MealSection from "../components/MealSection";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import { formatIsoDateLong, relativeDayLabel, shiftIsoDate, todayIso } from "../lib/date";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 /** Day diary: date header with prev/next navigation (date lives in the
  * `?date=` search param), calorie/macro summary, and one `MealSection` per
@@ -17,7 +19,9 @@ function DayPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const date = searchParams.get("date") ?? todayIso();
 
-  const { data, isLoading, isError } = useDayDiary(date);
+  const diary = useDayDiary(date);
+  const { data, isLoading, isError } = diary;
+  const unavailable = useOfflineUnavailable(diary);
   const deleteEntry = useDeleteEntry();
   const [editingId, setEditingId] = useState<number | null>(null);
   const editing = data
@@ -90,10 +94,11 @@ function DayPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {isLoading && (
+        {unavailable && <OfflineUnavailable />}
+        {!unavailable && isLoading && (
           <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>
         )}
-        {isError && (
+        {!unavailable && isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">
             Errore nel caricamento del diario.
           </p>

@@ -14,11 +14,13 @@ import {
   useTemplates,
 } from "../../api/gym";
 import ModeSwitch from "../../components/ModeSwitch";
+import OfflineUnavailable from "../../components/OfflineUnavailable";
 import ActionMenu from "../../components/gym/ActionMenu";
 import MoveToFolderSheet from "../../components/gym/MoveToFolderSheet";
 import TemplateCard from "../../components/gym/TemplateCard";
 import TemplatePreviewSheet from "../../components/gym/TemplatePreviewSheet";
 import { mascot } from "../../lib/art";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 
 const folderIcon = (
   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
@@ -31,6 +33,7 @@ const folderIcon = (
 function GymStartPage() {
   const navigate = useNavigate();
   const templates = useTemplates();
+  const templatesUnavailable = useOfflineUnavailable(templates);
   const active = useActiveWorkout();
   const start = useStartWorkout();
   const createFolder = useCreateFolder();
@@ -130,8 +133,11 @@ function GymStartPage() {
           </div>
         </div>
 
-        {templates.isLoading && <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>}
-        {templates.isError && (
+        {templatesUnavailable && <OfflineUnavailable />}
+        {!templatesUnavailable && templates.isLoading && (
+          <p className="py-6 text-center text-sm text-slate-500">Caricamento...</p>
+        )}
+        {!templatesUnavailable && templates.isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">Errore nel caricamento dei modelli.</p>
         )}
 

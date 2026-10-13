@@ -57,17 +57,25 @@ export const savedWeekKeys = {
   detail: (id: number) => ["saved-weeks", "detail", id] as const,
 };
 
+export function fetchSavedWeeks() {
+  return client.get<SavedWeekSummary[]>("/saved-weeks");
+}
+
+export function fetchSavedWeek(id: number) {
+  return client.get<SavedWeekDetail>(`/saved-weeks/${id}`);
+}
+
 export function useSavedWeeks() {
   return useQuery({
     queryKey: savedWeekKeys.list,
-    queryFn: () => client.get<SavedWeekSummary[]>("/saved-weeks"),
+    queryFn: () => fetchSavedWeeks(),
   });
 }
 
 export function useSavedWeek(id: number) {
   return useQuery({
     queryKey: savedWeekKeys.detail(id),
-    queryFn: () => client.get<SavedWeekDetail>(`/saved-weeks/${id}`),
+    queryFn: () => fetchSavedWeek(id),
     retry: isNative() ? retryNative : false,
   });
 }

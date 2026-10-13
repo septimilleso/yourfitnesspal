@@ -4,13 +4,16 @@ import GymSummaryCard from "../../components/stats/GymSummaryCard";
 import PeriodPicker from "../../components/stats/PeriodPicker";
 import WeeklyFrequencyChart from "../../components/stats/WeeklyFrequencyChart";
 import ModeSwitch from "../../components/ModeSwitch";
+import OfflineUnavailable from "../../components/OfflineUnavailable";
 import WorkoutCountCard from "../../components/WorkoutCountCard";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 import { usePeriodParams } from "../../lib/usePeriodParams";
 
 /** Gym statistics and workout count. */
 function GymStatsPage() {
   const { choice, today, error, period, setPreset, openCustom, setDates } = usePeriodParams();
   const stats = useGymStats(period.start, period.end, error === null);
+  const statsUnavailable = useOfflineUnavailable(stats);
 
   return (
     <div>
@@ -30,7 +33,9 @@ function GymStatsPage() {
           onCustom={openCustom}
           onDates={setDates}
         />
-        {error !== null ? null : stats.isError ? (
+        {error !== null ? null : statsUnavailable ? (
+          <OfflineUnavailable />
+        ) : stats.isError ? (
           <p role="alert" className="card px-4 py-3 text-sm text-red-600">
             Impossibile caricare le statistiche.
           </p>
