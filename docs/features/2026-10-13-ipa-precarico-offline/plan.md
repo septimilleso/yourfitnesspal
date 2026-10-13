@@ -624,7 +624,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   5. Aggiungi la riga "Dati offline" in Impostazioni.
 - Verifica: `grep -n "Non disponibile offline" README.md`, risultato atteso: almeno una riga nella sezione iOS. `grep -n "15 minutes\|15 minuti" README.md` trova il throttle. Il punto "Offline, read-only" non nomina più una barra (`grep -n "Offline, dati delle" README.md` trova al più la descrizione del testo del puntino).
 
-### [ ] T20. Non regressione e build
+### [x] T20. Non regressione e build
 
 - Copre: C15, C20, C21, C22, C23, C24, C25, C27, C28
 - Rischio: basso
@@ -645,7 +645,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npm run build && ls dist/sw.js dist/registerSW.js`: entrambi presenti;
   - `cd web && VITE_API_BASE_URL=https://pal.septimilleso.uk/api npm run build:native`: termina senza errori. Alla fine rilancia `npm run build` per lasciare in `dist/` la build della PWA.
 
-### [ ] T21. Verifica sul dispositivo
+### [!] T21. Verifica sul dispositivo
 
 - Copre: C16, C17, C18, C19, C24, C25
 - Rischio: basso
@@ -680,3 +680,5 @@ T16 — DONE — review: 1 round. MINOR (test): NativeOfflineServices.test.tsx:1
 T17 — DONE — review: 2 round. Deviazioni: puntino nel flusso (flex, shrink-0) invece di absolute, concordato con l utente; fumetto absolute con clamp dentro lo schermo (modifica minima a OfflineIndicator.tsx); test di T12 offline.gym.native.test.tsx avvolto in QueryClientProvider. Round 1: MAJOR spostamento verticale ~18 px in SettingsPage e 4 px in ModeSwitch, chiuso con margini negativi (-my-2.5 / -my-1). Da verificare su iPhone: spostamento ORIZZONTALE residuo di ~16 px del gruppo Dieta/Palestra, del titolo (WorkoutDetailPage) e del tempo (WorkoutPage) quando appare il puntino; a 360 px la riga Dieta/Palestra con puntino è al limite (3-5 px dall ingranaggio, stima); fumetto vicino al bordo destro.
 T18 — DONE — review: 1 round. MINOR: SettingsPage.native.test.tsx:84-90 il caso web controlla l assenza subito dopo render (attendere le microtask con await act); OfflineCacheInfo.tsx:34 sotto 512 byte mostra "circa 0 KB" (poco realistico). La riga si legge al mount di Impostazioni e non si aggiorna mentre la pagina è aperta.
 T19 — DONE — review: saltata. README aggiornato (puntino, precarico con trigger apertura/primo piano/ritorno rete, "Non disponibile offline", limite dati legati alla data, riga Dati offline).
+T20 — DONE — review: saltata. npm test 108 file / 788 test verdi; tsc ok; test protetti non modificati; build PWA ok (sw.js, registerSW.js); build nativa ok, senza VITE_API_BASE_URL fallisce col messaggio atteso; OfflineBar non più presente. Bundle index-*.js 434188 B (era 424558 B).
+T21 — IN ATTESA (manuale) — verifica sul dispositivo (C16-C19, C24, C25) dopo merge e tag: azioni dell utente. Da guardare in particolare: spostamento orizzontale ~16 px quando appare il puntino, riga Dieta/Palestra a 360 px, fumetto vicino al bordo destro, messaggi multipli in GymStatsPage, tab Recenti sempre "Non disponibile offline", peso del file e ora in Impostazioni.
