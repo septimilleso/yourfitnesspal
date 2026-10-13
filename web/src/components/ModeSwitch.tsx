@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
+import OfflineIndicator from "./OfflineIndicator";
 import SettingsButton from "./SettingsButton";
 import WeightButton from "./WeightButton";
 import { type AppMode, currentMode, lastPath } from "../lib/appMode";
@@ -20,28 +21,34 @@ function ModeSwitch() {
   return (
     <div className="relative mx-auto flex min-h-[48px] max-w-2xl items-center justify-center px-14 pt-2">
       <WeightButton />
-      {canGym && (
-        <div role="group" aria-label="Sezione" className="inline-flex rounded-lg bg-slate-200/70 p-0.5">
-          {MODES.map((item) => (
-            <Link
-              key={item.mode}
-              to={item.mode === mode ? pathname + search : lastPath(item.mode)}
-              aria-current={item.mode === mode ? "page" : undefined}
-              className={`rounded-md px-5 py-1 text-[13px] font-semibold transition ${
-                item.mode === mode ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-              }`}
-            >
-              <img
-                src={artIcon(item.mode, "cat")}
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                className="mr-1 inline-block h-5 w-5 align-middle"
-              />
-              {item.label}
-            </Link>
-          ))}
+      {canGym ? (
+        <div className="flex items-center gap-1">
+          <div role="group" aria-label="Sezione" className="inline-flex rounded-lg bg-slate-200/70 p-0.5">
+            {MODES.map((item) => (
+              <Link
+                key={item.mode}
+                to={item.mode === mode ? pathname + search : lastPath(item.mode)}
+                aria-current={item.mode === mode ? "page" : undefined}
+                className={`rounded-md px-5 py-1 text-[13px] font-semibold transition ${
+                  item.mode === mode ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                }`}
+              >
+                <img
+                  src={artIcon(item.mode, "cat")}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className="mr-1 inline-block h-5 w-5 align-middle"
+                />
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          {/* Margine negativo: il pulsante da 44 px non allunga la riga (min-h 48 con pt-2). */}
+          <OfflineIndicator className="relative -my-1 inline-flex shrink-0" />
         </div>
+      ) : (
+        <OfflineIndicator className="relative -my-1 inline-flex shrink-0" />
       )}
       <SettingsButton />
     </div>

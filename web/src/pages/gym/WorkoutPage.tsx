@@ -9,6 +9,7 @@ import {
   useFinishWorkout,
   useLiveMutation,
 } from "../../api/gym";
+import OfflineIndicator from "../../components/OfflineIndicator";
 import type { Action } from "../../components/gym/ActionMenu";
 import ExerciseDetailSheet from "../../components/gym/ExerciseDetailSheet";
 import ExercisePicker from "../../components/gym/ExercisePicker";
@@ -209,8 +210,11 @@ function WorkoutSession() {
               </svg>
             </button>
           </div>
-          <span className="text-[15px] font-semibold tabular-nums text-slate-600">
-            {elapsedLabel(workout.started_at, now)}
+          <span className="flex items-center gap-1">
+            <span className="text-[15px] font-semibold tabular-nums text-slate-600">
+              {elapsedLabel(workout.started_at, now)}
+            </span>
+            <OfflineIndicator className="relative inline-flex shrink-0" />
           </span>
           <button type="button" className="btn-primary px-5" onClick={handleFinish} disabled={finish.isPending}>
             Termina

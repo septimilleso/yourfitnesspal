@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useApplyToTemplate, useDeleteWorkout, useSaveAsTemplate, useWorkout } from "../../api/gym";
+import OfflineIndicator from "../../components/OfflineIndicator";
 import OfflineUnavailable from "../../components/OfflineUnavailable";
 import ActionMenu from "../../components/gym/ActionMenu";
 import { durationLabel, formatSet, workoutDateLabel } from "../../lib/gym";
@@ -44,9 +45,12 @@ function WorkoutDetailPage() {
           <button type="button" className="btn-ghost" onClick={() => navigate(summary ? "/gym" : "/gym/history")}>
             {summary ? "Chiudi" : "‹ Storico"}
           </button>
-          <h1 className="truncate text-[17px] font-semibold text-slate-900">
-            {summary ? "Allenamento completato" : (workout?.name ?? "Allenamento")}
-          </h1>
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className="min-w-0 truncate text-[17px] font-semibold text-slate-900">
+              {summary ? "Allenamento completato" : (workout?.name ?? "Allenamento")}
+            </h1>
+            <OfflineIndicator className="relative inline-flex shrink-0" />
+          </div>
           <ActionMenu
             label="Azioni allenamento"
             actions={[

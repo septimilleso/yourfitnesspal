@@ -1,3 +1,4 @@
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -21,6 +22,7 @@ import {
   useWorkout,
 } from "../../api/gym";
 import TemplatePreviewSheet from "../../components/gym/TemplatePreviewSheet";
+import { createQueryClient } from "../../lib/queryClient";
 import { reportNetworkFailure, reportNetworkSuccess, resetConnectivityForTests } from "../../native/connectivity";
 import { pausedQuery, retryingQuery } from "../../test/offlineQuery";
 import GymStartPage from "./GymStartPage";
@@ -51,13 +53,18 @@ vi.mock("../../api/gym", async () => {
 });
 vi.mock("../../components/ModeSwitch", () => ({ default: () => <div data-testid="mode-switch" /> }));
 
+let queryClient: QueryClient;
+
+// Il client serve all'indicatore offline degli header (T17), che legge la QueryClient nativa.
 function renderAt(path: string, route: string, element: ReactElement) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path={route} element={element} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path={route} element={element} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -106,6 +113,8 @@ const pages = [
 ];
 
 beforeEach(() => {
+  queryClient = createQueryClient(true);
+  queryClient.mount();
   reportNetworkFailure();
   const mutation = { mutate: vi.fn(), isPending: false, isSuccess: false };
   vi.mocked(useActiveWorkout).mockReturnValue({ data: undefined, isLoading: false, isError: false } as unknown as ReturnType<typeof useActiveWorkout>);
@@ -122,6 +131,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  queryClient.unmount();
+  queryClient.clear();
   resetConnectivityForTests();
 });
 

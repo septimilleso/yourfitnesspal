@@ -1,11 +1,12 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { offlineTimeParts } from "../lib/offlineTime";
 import { isOffline, subscribeConnectivity } from "../native/connectivity";
 import { isNative } from "../native/platform";
 
 const BUBBLE_MS = 4000;
+const SCREEN_MARGIN = 8;
 
 // La query ["me"] è sempre osservata da AuthProvider, quindi la sua età non dice cosa è in vista.
 function isMeQuery(queryKey: readonly unknown[]): boolean {
@@ -49,6 +50,9 @@ function NativeOfflineIndicator({ className }: OfflineIndicatorProps) {
   );
   const shownAt = useSyncExternalStore(subscribeQueries, () => oldestShownUpdatedAt(queryClient));
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLSpanElement>(null);
+  const [bubbleShift, setBubbleShift] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -56,12 +60,28 @@ function NativeOfflineIndicator({ className }: OfflineIndicatorProps) {
     return () => clearTimeout(timer);
   }, [open]);
 
+  // Il fumetto è centrato sul puntino: se uscirebbe dallo schermo, si sposta dentro i bordi.
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current?.getBoundingClientRect();
+    const bubble = bubbleRef.current?.getBoundingClientRect();
+    if (!anchor || !bubble) {
+      setBubbleShift(0);
+      return;
+    }
+    const centered = anchor.left + anchor.width / 2 - bubble.width / 2;
+    const fitted = Math.min(
+      Math.max(centered, SCREEN_MARGIN),
+      window.innerWidth - SCREEN_MARGIN - bubble.width,
+    );
+    setBubbleShift(fitted - centered);
+  }, [open, offline, shownAt]);
+
   if (!offline || shownAt === null) return null;
 
   const text = shownText(shownAt, new Date());
 
   return (
-    <span className={className ?? "relative inline-flex"}>
+    <span ref={anchorRef} className={className ?? "relative inline-flex"}>
       <button
         type="button"
         aria-label={text}
@@ -73,8 +93,10 @@ function NativeOfflineIndicator({ className }: OfflineIndicatorProps) {
       </button>
       {open && (
         <span
+          ref={bubbleRef}
           role="status"
-          className="absolute right-1/2 top-full z-50 translate-x-1/2 whitespace-nowrap rounded-lg bg-amber-100 px-2 py-1 text-xs text-amber-900 shadow"
+          style={{ marginLeft: bubbleShift }}
+          className="absolute left-1/2 top-full z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-amber-100 px-2 py-1 text-xs text-amber-900 shadow"
         >
           {text}
         </span>
