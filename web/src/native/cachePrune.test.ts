@@ -137,3 +137,26 @@ describe("pruneStaleQueries", () => {
     expect(queryClient.getQueryCache().getAll()).toHaveLength(4);
   });
 });
+
+describe("pruneStaleQueries: query senza dati o in fetch", () => {
+  it("tiene una query vuota (mai caricata) anche con chiave vecchia e senza osservatori", () => {
+    const queryClient = createQueryClient(true);
+    queryClient.getQueryCache().build(queryClient, { queryKey: OLD_DAY });
+
+    expect(pruneStaleQueries(queryClient, new Set(), NOW)).toBe(0);
+    expect(queryClient.getQueryCache().find({ queryKey: OLD_DAY })).toBeDefined();
+  });
+
+  it("tiene una query vecchia in fetch, anche se i dati in cache sono vecchi", () => {
+    const queryClient = createQueryClient(true);
+    seed(queryClient, OLD_DAY, OLD);
+    // Se la query viene rimossa, la promessa del fetch viene annullata: il rifiuto è atteso e non va propagato.
+    queryClient
+      .fetchQuery({ queryKey: OLD_DAY, queryFn: () => new Promise<never>(() => undefined) })
+      .catch(() => undefined);
+    expect(queryClient.getQueryState(OLD_DAY)?.fetchStatus).toBe("fetching");
+
+    expect(pruneStaleQueries(queryClient, new Set(), NOW)).toBe(0);
+    expect(queryClient.getQueryData(OLD_DAY)).toBeDefined();
+  });
+});

@@ -656,7 +656,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. `SearchPage.test.tsx` non si modifica.
 - Verifica: `cd web && npx vitest run src/pages/SearchPage.test.tsx src/components/ModeSwitch.native.test.tsx && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`.
 
-### [ ] T23. Precarico legato alla sessione e pulizia più prudente (MINOR della review 1)
+### [x] T23. Precarico legato alla sessione e pulizia più prudente (MINOR della review 1)
 
 - Copre: C4, C9, C28
 - Rischio: alto
@@ -706,3 +706,4 @@ T20 — DONE — review: saltata. npm test 108 file / 788 test verdi; tsc ok; te
 T21 — IN ATTESA (manuale) — verifica sul dispositivo (C16-C19, C24, C25) dopo merge e tag: azioni dell utente. Da guardare in particolare: spostamento orizzontale ~16 px quando appare il puntino, riga Dieta/Palestra a 360 px, fumetto vicino al bordo destro, messaggi multipli in GymStatsPage, tab Recenti sempre "Non disponibile offline", peso del file e ora in Impostazioni.
 Review 1 — CHANGES_REQUESTED (1 MAJOR: puntino mancante in SearchPage, R1; 7 MINOR; 3 avvisi nuovi). Aggiunti T22 (puntino in Cerca) e T23 (precarico legato alla sessione + pulizia prudente).
 T22 — DONE — review: 1 round. Tutte le altre schermate autenticate con header hanno ModeSwitch o OfflineIndicator (escluse solo TemplateEditorPage e AdminUsersPage). Avviso: a 320 px il titolo "Aggiungi alimento" più puntino potrebbe andare su due righe (non supportato sotto 360 px: da guardare su iPhone solo se serve).
+T23 — DONE — review: per-task saltata, coperta dalla review finale round 2. Throttle legato al token del giro completato; pulizia salta query senza dati o in fetching; 5 test nuovi (solo aggiunte).

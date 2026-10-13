@@ -18,6 +18,8 @@ type Phase = "idle" | "scheduled" | "running";
 // Stato di modulo: vive solo in memoria, quindi un nuovo processo parte sempre con un giro.
 let startedAt = 0;
 let lastCompletedAt: number | null = null;
+// Token letto all'inizio del giro completato: se la sessione cambia, il throttle non vale più.
+let lastCompletedToken: string | null = null;
 let phase: Phase = "idle";
 let cancelScheduledRound: (() => void) | null = null;
 
@@ -41,7 +43,9 @@ function canStart(queryClient: QueryClient): boolean {
   const user = me?.state.data;
   if (me === undefined || user === null || user === undefined) return false;
   if (me.state.dataUpdatedAt < startedAt) return false;
-  if (lastCompletedAt !== null && Date.now() - lastCompletedAt < PREFETCH_INTERVAL_MS) return false;
+  // Il throttle vale solo per la stessa sessione: dopo logout o nuovo login `lastCompletedAt` è come `null`.
+  const sameSession = lastCompletedToken === getToken();
+  if (lastCompletedAt !== null && sameSession && Date.now() - lastCompletedAt < PREFETCH_INTERVAL_MS) return false;
   return true;
 }
 
@@ -51,9 +55,13 @@ function canPrefetch(queryClient: QueryClient): boolean {
 
 async function runRound(queryClient: QueryClient): Promise<void> {
   phase = "running";
+  const token = getToken();
   try {
     const outcome = await runPrefetchRound(queryClient);
-    if (outcome === "completed") lastCompletedAt = Date.now();
+    if (outcome === "completed") {
+      lastCompletedAt = Date.now();
+      lastCompletedToken = token;
+    }
   } catch {
     // Il giro non dovrebbe rifiutare; se succede, lo scheduler resta utilizzabile.
   } finally {
@@ -132,5 +140,6 @@ export function resetPrefetchSchedulerForTests(): void {
   cancelScheduledRound = null;
   startedAt = 0;
   lastCompletedAt = null;
+  lastCompletedToken = null;
   phase = "idle";
 }

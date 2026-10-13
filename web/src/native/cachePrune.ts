@@ -44,6 +44,8 @@ export function pruneStaleQueries(queryClient: QueryClient, keepHashes: Readonly
   let removed = 0;
   for (const query of cache.getAll()) {
     if (!isPrunableKey(query.queryKey)) continue;
+    // Una query mai caricata o in fetch non si tocca: la sua data non dice nulla sulla sua età.
+    if (query.state.dataUpdatedAt === 0 || query.state.fetchStatus === "fetching") continue;
     if (query.getObserversCount() > 0 || keepHashes.has(query.queryHash)) continue;
     if (query.state.dataUpdatedAt >= now - PRUNE_AGE_MS) continue;
     cache.remove(query);

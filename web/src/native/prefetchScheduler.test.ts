@@ -339,3 +339,53 @@ describe("cleanup", () => {
     expect(round).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("throttle legato alla sessione (R5, C4)", () => {
+  it("dopo un cambio di token il giro parte subito, con lo stesso token a +5 minuti no", async () => {
+    startWithFreshMe();
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    fireVisibility("visible");
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(1);
+
+    await setToken("tok-b");
+    fireVisibility("visible");
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(2);
+  });
+
+  it("dopo logout e nuovo login con token diverso il giro parte subito", async () => {
+    startWithFreshMe();
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    await clearToken();
+    fireVisibility("visible");
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(1);
+
+    await setToken("tok-b");
+    fireVisibility("visible");
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(2);
+  });
+
+  it("resetPrefetchSchedulerForTests riporta il throttle e il token del giro precedente a zero", async () => {
+    startWithFreshMe();
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(1);
+
+    stop?.();
+    stop = undefined;
+    resetPrefetchSchedulerForTests();
+
+    stop = startPrefetch(queryClient);
+    queryClient.setQueryData(["me"], ME);
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(round).toHaveBeenCalledTimes(2);
+  });
+});
