@@ -645,6 +645,28 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npm run build && ls dist/sw.js dist/registerSW.js`: entrambi presenti;
   - `cd web && VITE_API_BASE_URL=https://pal.septimilleso.uk/api npm run build:native`: termina senza errori. Alla fine rilancia `npm run build` per lasciare in `dist/` la build della PWA.
 
+### [~] T22. Puntino offline in "Aggiungi alimento" (MAJOR della review 1)
+
+- Copre: C1, C12, C20, C28 (R1)
+- Rischio: alto
+- File: `web/src/pages/SearchPage.tsx` (modifica), `web/src/components/ModeSwitch.native.test.tsx` (modifica: un caso in più)
+- Passi:
+  1. In `SearchPage.tsx` l'header "Aggiungi alimento" non ha il puntino. Metti `h1` e `<OfflineIndicator className="relative -my-2.5 inline-flex shrink-0" />` in un `div className="flex items-center gap-1"`, come in `SettingsPage` (stesso margine negativo: la riga non cresce). Online e sul web l'indicatore rende `null`: layout identico a prima.
+  2. In `ModeSwitch.native.test.tsx` aggiungi un caso: `SearchPage` nativa offline con una query osservata con dati mostra il pulsante "Offline, dati delle …" (mock come in `SearchPage.test.tsx`), e online non c'è.
+  3. `SearchPage.test.tsx` non si modifica.
+- Verifica: `cd web && npx vitest run src/pages/SearchPage.test.tsx src/components/ModeSwitch.native.test.tsx && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`.
+
+### [ ] T23. Precarico legato alla sessione e pulizia più prudente (MINOR della review 1)
+
+- Copre: C4, C9, C28
+- Rischio: alto
+- File: `web/src/native/prefetchScheduler.ts` (modifica), `web/src/native/prefetchScheduler.test.ts` (modifica), `web/src/native/cachePrune.ts` (modifica), `web/src/native/cachePrune.test.ts` (modifica)
+- Passi:
+  1. **Scheduler.** Accanto a `lastCompletedAt` salva il token del giro completato (`getToken()` letto all'inizio del giro). Se `getToken()` è diverso da quello salvato (logout, 401, nuovo login), il throttle non si applica: `lastCompletedAt` vale `null`. Test: dopo un giro completato con token A, `setToken("B")` e un trigger a +5 minuti fa partire un giro; con lo stesso token a +5 minuti no.
+  2. **Pulizia.** In `pruneStaleQueries`, salta (`continue`) le query con `dataUpdatedAt === 0` o `fetchStatus === "fetching"`. Test: una query vuota (creata con `queryClient.getQueryCache().build(queryClient, { queryKey })`) o in fetch con chiave rimovibile resta; una vecchia con dati viene ancora rimossa.
+  3. I test esistenti dei due file non si modificano (solo aggiunte).
+- Verifica: `cd web && npx vitest run src/native/prefetchScheduler.test.ts src/native/cachePrune.test.ts && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`.
+
 ### [!] T21. Verifica sul dispositivo
 
 - Copre: C16, C17, C18, C19, C24, C25
@@ -682,3 +704,4 @@ T18 — DONE — review: 1 round. MINOR: SettingsPage.native.test.tsx:84-90 il c
 T19 — DONE — review: saltata. README aggiornato (puntino, precarico con trigger apertura/primo piano/ritorno rete, "Non disponibile offline", limite dati legati alla data, riga Dati offline).
 T20 — DONE — review: saltata. npm test 108 file / 788 test verdi; tsc ok; test protetti non modificati; build PWA ok (sw.js, registerSW.js); build nativa ok, senza VITE_API_BASE_URL fallisce col messaggio atteso; OfflineBar non più presente. Bundle index-*.js 434188 B (era 424558 B).
 T21 — IN ATTESA (manuale) — verifica sul dispositivo (C16-C19, C24, C25) dopo merge e tag: azioni dell utente. Da guardare in particolare: spostamento orizzontale ~16 px quando appare il puntino, riga Dieta/Palestra a 360 px, fumetto vicino al bordo destro, messaggi multipli in GymStatsPage, tab Recenti sempre "Non disponibile offline", peso del file e ora in Impostazioni.
+Review 1 — CHANGES_REQUESTED (1 MAJOR: puntino mancante in SearchPage, R1; 7 MINOR; 3 avvisi nuovi). Aggiunti T22 (puntino in Cerca) e T23 (precarico legato alla sessione + pulizia prudente).
