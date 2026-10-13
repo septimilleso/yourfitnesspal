@@ -9,11 +9,23 @@ import { useApplyToTemplate, useDeleteWorkout, useSaveAsTemplate, useWorkout } f
 import { useHasPermission, useMe } from "../auth/AuthContext";
 import { createQueryClient } from "../lib/queryClient";
 import { reportNetworkFailure, resetConnectivityForTests } from "../native/connectivity";
+import SearchPage from "../pages/SearchPage";
 import SettingsPage from "../pages/SettingsPage";
 import WorkoutDetailPage from "../pages/gym/WorkoutDetailPage";
 import ModeSwitch from "./ModeSwitch";
 
 vi.mock("../native/platform", () => ({ isNative: () => true }));
+
+// Le richieste di Cerca restano in sospeso: nessun dato, quindi il puntino legge solo la query osservata dal test.
+vi.mock("../api/client", async () => {
+  const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
+  return {
+    ...actual,
+    client: { ...actual.client, get: vi.fn(() => new Promise(() => undefined)) },
+  };
+});
+
+vi.mock("../components/Scanner", () => ({ default: () => null }));
 
 vi.mock("../auth/AuthContext", async () => {
   const actual = await vi.importActual<typeof import("../auth/AuthContext")>("../auth/AuthContext");
@@ -157,6 +169,25 @@ describe("puntino offline nelle intestazioni", () => {
     expect(button.parentElement).not.toHaveClass("absolute");
     expect(button.parentElement).not.toHaveClass("fixed");
     expect(actions.closest("header")).toContainElement(button);
+  });
+
+  it("in Aggiungi alimento offline il pulsante c'è accanto al titolo, e online no", () => {
+    vi.mocked(useHasPermission).mockReturnValue(false);
+    renderIn("/search?date=2026-08-26&meal=breakfast", <SearchPage />);
+
+    expect(screen.queryByRole("button", { name: /Offline/ })).not.toBeInTheDocument();
+
+    act(() => reportNetworkFailure());
+
+    const button = screen.getByRole("button", { name: indicatorName });
+    const heading = screen.getByRole("heading", { name: "Aggiungi alimento" });
+    expect(heading.parentElement).toContainElement(button);
+    // Stesso margine negativo di Impostazioni: il titolo resta alto quanto il testo.
+    expect(button.parentElement).toHaveClass("-my-2.5", "shrink-0");
+    expect(button.parentElement).not.toHaveClass("absolute");
+    expect(button.parentElement).not.toHaveClass("fixed");
+    // Il pulsante di scansione resta dov'è, nell'header.
+    expect(screen.getByRole("button", { name: "Scansiona codice a barre" })).toBeInTheDocument();
   });
 
   it("il fumetto si sposta dentro lo schermo quando il puntino è vicino al bordo", () => {

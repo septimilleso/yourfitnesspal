@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { FoodOut, FoodSearchItem, Meal } from "../api/queries";
 import { useFoodByBarcode, useFoodSearch, useRecentFoods } from "../api/queries";
 import CustomFoodForm from "../components/CustomFoodForm";
+import OfflineIndicator from "../components/OfflineIndicator";
 import OfflineUnavailable from "../components/OfflineUnavailable";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
@@ -94,7 +95,11 @@ function SearchPage() {
         <div className="mx-auto max-w-2xl px-4 py-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-[17px] font-semibold text-slate-900">Aggiungi alimento</h1>
+              <div className="flex items-center gap-1">
+                <h1 className="text-[17px] font-semibold text-slate-900">Aggiungi alimento</h1>
+                {/* Margine negativo: il pulsante da 44 px non allunga la riga del titolo (line-height circa 25,5 px). */}
+                <OfflineIndicator className="relative -my-2.5 inline-flex shrink-0" />
+              </div>
               <p className="truncate text-xs text-slate-500">
                 {MEAL_LABELS[meal]} &middot;{" "}
                 <span className="capitalize">{formatIsoDateLong(date)}</span>
