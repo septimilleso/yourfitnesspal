@@ -374,7 +374,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - oggetto senza `fetchStatus` → `false`.
 - Verifica: `cd web && npx vitest run src/lib/useOfflineUnavailable.test.tsx && npx tsc -b`, risultato atteso: verdi.
 
-### [ ] T10. Messaggio offline: diario, settimana, settimane salvate
+### [x] T10. Messaggio offline: diario, settimana, settimane salvate
 
 - Copre: C11, C12, C28
 - Rischio: alto
@@ -670,3 +670,4 @@ T6 — DONE — review: 1 round. MINOR (test): prefetch.test.ts:199-207 il detta
 T7 — DONE — review: 1 round. Spec precisata con l utente: con 2 lavoratori, dopo errore di rete o 401 nessuna nuova richiesta parte; quella già in volo finisce ma non entra in cache (R7, C6, C7). Incluse le correzioni MINOR di T6 (test keepHashes, admin, storico osservato). MINOR: prefetch.ts:163-177 un lavoratore esce quando la coda è vuota anche se l altro sta producendo figli (concorrenza scende a 1 sulle code finali, solo più lento: contatore active + segnale); prefetch.errors.test.ts:178-181 asserzione tautologica sul cambio token (usare toEqual([])); manca il test che la risposta in volo dopo 401 non entri in cache.
 T8 — DONE — review: 1 round (3 MINOR chiusi dall implementer: refreshStaleMe anche su ritorno rete/visibilità, test C10 completo con casi negativi, test senza loop). Avviso: la cleanup non interrompe un giro in corso (lo fa runPrefetchRound sul cambio token); montare startPrefetch (T16) dopo la registrazione di ["me"].
 T9 — DONE — review: 1 round. Nota: l hook non è mai provato con useInfiniteQuery (tipo compatibile per deduzione, lo verificherà tsc nei task T10-T14).
+T10 — DONE — review: 1 round. MINOR (test): offline.diary.native.test.tsx:139 con rete presente verificare anche "Caricamento..." con retryingQuery; :118 verificare header/frecce/link visibili con il messaggio.

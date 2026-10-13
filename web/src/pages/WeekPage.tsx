@@ -6,8 +6,10 @@ import { useGoal, useWeekDiary } from "../api/queries";
 import { useHasPermission } from "../auth/AuthContext";
 import CopyDaysDialog from "../components/CopyDaysDialog";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import SaveWeekDialog from "../components/SaveWeekDialog";
 import { formatIsoDateShort, shiftIsoDate, startOfWeek, todayIso } from "../lib/date";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -131,7 +133,9 @@ function WeekPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const start = searchParams.get("start") ?? startOfWeek(todayIso());
 
-  const { data, isLoading, isError } = useWeekDiary(start);
+  const diary = useWeekDiary(start);
+  const { data, isLoading, isError } = diary;
+  const unavailable = useOfflineUnavailable(diary);
   const { data: goal } = useGoal();
   const canCopy = useHasPermission("diary.copy");
   const isMonday = startOfWeek(start) === start;
@@ -197,8 +201,9 @@ function WeekPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
-        {isError && (
+        {unavailable && <OfflineUnavailable />}
+        {!unavailable && isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
+        {!unavailable && isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">
             Errore nel caricamento della settimana.
           </p>

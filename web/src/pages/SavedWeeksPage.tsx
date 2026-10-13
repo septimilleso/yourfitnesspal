@@ -2,10 +2,13 @@ import { Link } from "react-router-dom";
 
 import { useSavedWeeks } from "../api/savedWeeks";
 import ModeSwitch from "../components/ModeSwitch";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import { formatIsoDateShort } from "../lib/date";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 function SavedWeeksPage() {
   const weeks = useSavedWeeks();
+  const unavailable = useOfflineUnavailable(weeks);
 
   return (
     <div>
@@ -23,14 +26,15 @@ function SavedWeeksPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {weeks.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
-        {weeks.isError && (
+        {unavailable && <OfflineUnavailable />}
+        {!unavailable && weeks.isLoading && <p className="py-8 text-center text-sm text-slate-500">Caricamento...</p>}
+        {!unavailable && weeks.isError && (
           <p className="card px-4 py-3 text-center text-sm text-red-600">
             Errore nel caricamento delle settimane salvate.
           </p>
         )}
 
-        {weeks.data && weeks.data.length === 0 && (
+        {!unavailable && weeks.data && weeks.data.length === 0 && (
           <div className="card space-y-3 px-4 py-6 text-center">
             <p className="text-sm text-slate-500">Nessuna settimana salvata.</p>
             <Link to="/week" className="btn-secondary inline-flex min-h-[44px] items-center justify-center px-4">
