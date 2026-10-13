@@ -401,7 +401,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. I test esistenti delle quattro pagine non si modificano.
 - Verifica: `cd web && npx vitest run src/pages/offline.diary.native.test.tsx src/pages/DayPage.test.tsx src/pages/WeekPage.test.tsx src/pages/WeekPage.savedWeeks.test.tsx src/pages/SavedWeeksPage.test.tsx src/pages/SavedWeekDetailPage.test.tsx`, risultato atteso: verdi.
 
-### [ ] T11. Messaggio offline: statistiche dieta, serie, peso
+### [x] T11. Messaggio offline: statistiche dieta, serie, peso
 
 - Copre: C11, C12, C28
 - Rischio: alto
@@ -671,3 +671,4 @@ T7 — DONE — review: 1 round. Spec precisata con l utente: con 2 lavoratori, 
 T8 — DONE — review: 1 round (3 MINOR chiusi dall implementer: refreshStaleMe anche su ritorno rete/visibilità, test C10 completo con casi negativi, test senza loop). Avviso: la cleanup non interrompe un giro in corso (lo fa runPrefetchRound sul cambio token); montare startPrefetch (T16) dopo la registrazione di ["me"].
 T9 — DONE — review: 1 round. Nota: l hook non è mai provato con useInfiniteQuery (tipo compatibile per deduzione, lo verificherà tsc nei task T10-T14).
 T10 — DONE — review: 1 round. MINOR (test): offline.diary.native.test.tsx:139 con rete presente verificare anche "Caricamento..." con retryingQuery; :118 verificare header/frecce/link visibili con il messaggio.
+T11 — DONE — review: 1 round. MINOR (test): manca il caso WeightSection enabled=false offline (periodo personalizzato non valido). Nota: la modifica a StreakCard vale anche per GymStatsPage (stessa card), coerente con R12.
