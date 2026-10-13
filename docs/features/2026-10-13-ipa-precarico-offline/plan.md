@@ -312,7 +312,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - **C22:** con 502 e risposta non JSON su una URL, `getToken()` resta `"tok-a"` e `deleteFile` non è chiamato.
 - Verifica: `cd web && npx vitest run src/native/prefetch.test.ts src/native/prefetch.errors.test.ts src/api/client.errors.native.test.ts && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`.
 
-### [ ] T8. Scheduler del precarico: trigger, condizioni, throttle, idle
+### [x] T8. Scheduler del precarico: trigger, condizioni, throttle, idle
 
 - Copre: C4, C5, C10 (avvio), C20 (nessun precarico sul web), C28
 - Rischio: alto
@@ -668,3 +668,4 @@ T4 — DONE — review: 1 round. MINOR: queryPersistence.ts:204 il commento di g
 T5 — DONE — review: 1 round. MINOR: cachePrune.ts:48 una query senza dati (dataUpdatedAt 0) e senza osservatori viene rimossa; correzione consigliata `if (dataUpdatedAt === 0 || fetchStatus === "fetching") continue;` + test (rischio basso, le query del giro sono protette da keepHashes). Per T6: keepHashes deve includere anche gli hash dei dettagli saltati perché già in cache; il chiamante passa Date.now().
 T6 — DONE — review: 1 round. MINOR (test): prefetch.test.ts:199-207 il dettaglio già in cache dovrebbe avere updatedAt di 20 giorni per provare keepHashes; manca il caso admin senza permessi (meWith([], "admin")); manca il test dello storico osservato non sovrascritto. Avvisi per T7/T8: runSequentially ingoia ogni errore (anche NetworkError e 401) e in T7 con errore di rete la pulizia non deve girare; prefetch.ts:52-53 un ["me"] senza permissions rifiuta la promessa prima del try: lo scheduler deve intercettare ogni rifiuto di runPrefetchRound; MAX_CONCURRENT non ancora usata (T7).
 T7 — DONE — review: 1 round. Spec precisata con l utente: con 2 lavoratori, dopo errore di rete o 401 nessuna nuova richiesta parte; quella già in volo finisce ma non entra in cache (R7, C6, C7). Incluse le correzioni MINOR di T6 (test keepHashes, admin, storico osservato). MINOR: prefetch.ts:163-177 un lavoratore esce quando la coda è vuota anche se l altro sta producendo figli (concorrenza scende a 1 sulle code finali, solo più lento: contatore active + segnale); prefetch.errors.test.ts:178-181 asserzione tautologica sul cambio token (usare toEqual([])); manca il test che la risposta in volo dopo 401 non entri in cache.
+T8 — DONE — review: 1 round (3 MINOR chiusi dall implementer: refreshStaleMe anche su ritorno rete/visibilità, test C10 completo con casi negativi, test senza loop). Avviso: la cleanup non interrompe un giro in corso (lo fa runPrefetchRound sul cambio token); montare startPrefetch (T16) dopo la registrazione di ["me"].
