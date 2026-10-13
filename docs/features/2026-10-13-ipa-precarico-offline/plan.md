@@ -471,7 +471,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   7. `GymStatsPage.test.tsx`, `WorkoutCountCard.test.tsx`, `ExercisePicker.test.tsx` e i test di T2 non si modificano.
 - Verifica: `cd web && npx vitest run src/components/ src/pages/gym/`, risultato atteso: verdi.
 
-### [ ] T14. Messaggio offline: Cerca (Recenti), sessioni di Account, allenamento in corso
+### [x] T14. Messaggio offline: Cerca (Recenti), sessioni di Account, allenamento in corso
 
 - Copre: C11, C12, C28
 - Rischio: alto
@@ -674,3 +674,4 @@ T10 — DONE — review: 1 round. MINOR (test): offline.diary.native.test.tsx:13
 T11 — DONE — review: 1 round. MINOR (test): manca il caso WeightSection enabled=false offline (periodo personalizzato non valido). Nota: la modifica a StreakCard vale anche per GymStatsPage (stessa card), coerente con R12.
 T12 — DONE — review: 1 round. MINOR: offline.gym.native.test.tsx:80 verificare anche che "Inizia allenamento" sia disabilitato in pausa; HistoryPage.tsx:84 la guardia !historyUnavailable sul riquadro vuoto è superflua (innocua).
 T13 — DONE — review: 1 round (T13 ripreso dopo un limite di sessione, nessuna perdita). Avvisi: la riga di aiuto "Aprila con la rete per averla anche offline." è poco calzante nel picker esercizi (testo opzionale per il componente, da rimandare); offline in GymStatsPage compaiono più messaggi insieme (uno per sezione): da guardare su iPhone; nel picker con filtro in placeholder la lista è sostituita dal messaggio, la selezione resta nel footer.
+T14 — DONE — review: 1 round. MINOR accettato: in WorkoutPage.offline.test.tsx aggiunto anche il caso "rete presente + retryingQuery → Caricamento..." oltre al caso consentito. Avvisi (follow-up, fuori da R12): SearchPage ricerca con testo offline mostra "Nessun risultato." (query in pausa, isLoading falso) e alterna con "Caricamento..." ogni 20 s; la tab Recenti sarà sempre "Non disponibile offline" nell IPA (foods* non persistite): da tenere presente su iPhone; WorkoutPage ora richiede isOffline(): se React Query va in pausa per un evento offline di WKWebView prima di reportNetworkFailure si vede "Nessun allenamento in corso." finché startConnectivityRecovery (T15) non ascolta offline: verificare dopo T15.

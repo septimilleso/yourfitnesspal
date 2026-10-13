@@ -4,11 +4,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { FoodOut, FoodSearchItem, Meal } from "../api/queries";
 import { useFoodByBarcode, useFoodSearch, useRecentFoods } from "../api/queries";
 import CustomFoodForm from "../components/CustomFoodForm";
+import OfflineUnavailable from "../components/OfflineUnavailable";
 import QuantityPicker from "../components/QuantityPicker";
 import Scanner from "../components/Scanner";
 import { formatIsoDateLong, todayIso } from "../lib/date";
 import { mascot } from "../lib/art";
 import { MEAL_LABELS } from "../lib/meals";
+import { useOfflineUnavailable } from "../lib/useOfflineUnavailable";
 
 type Tab = "recenti" | "preferiti" | "miei";
 
@@ -61,6 +63,7 @@ function SearchPage() {
   const isSearching = debouncedQuery.length > 0;
   const searchResults = useFoodSearch(debouncedQuery);
   const recentFoods = useRecentFoods();
+  const recentUnavailable = useOfflineUnavailable(recentFoods) && !isSearching && tab === "recenti";
   const barcodeLookup = useFoodByBarcode();
 
   const results: FoodSearchItem[] = isSearching
@@ -230,7 +233,12 @@ function SearchPage() {
                   </button>
                 </li>
               ))}
-              {results.length === 0 && !isLoadingResults && !offUnavailable && (
+              {recentUnavailable && (
+                <li className="px-4">
+                  <OfflineUnavailable compact />
+                </li>
+              )}
+              {!recentUnavailable && results.length === 0 && !isLoadingResults && !offUnavailable && (
                 <li className="px-4 py-6 text-center">
                   <img
                     src={mascot("diet")}
@@ -248,7 +256,7 @@ function SearchPage() {
           </>
         )}
 
-        {isLoadingResults && <p className="text-center text-sm text-slate-500">Caricamento...</p>}
+        {isLoadingResults && !recentUnavailable && <p className="text-center text-sm text-slate-500">Caricamento...</p>}
       </div>
 
       {scannerOpen && <Scanner onDetect={handleDetect} onClose={() => setScannerOpen(false)} />}

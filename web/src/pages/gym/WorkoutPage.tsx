@@ -25,8 +25,8 @@ import {
 import { LiveErrorContext } from "../../lib/liveErrors";
 import { installAudioResume, unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
-import { isNative } from "../../native/platform";
 
 type PickerState = { mode: "add" } | { mode: "replace"; itemId: number } | null;
 
@@ -57,10 +57,25 @@ function WorkoutPage() {
   );
 }
 
+/** Schermata senza allenamento da mostrare: messaggio e link ai modelli. */
+function NoWorkout({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-app p-6 text-center">
+      <p className="text-slate-600">{message}</p>
+      <Link to="/gym" className="btn-primary">
+        Vai ai modelli
+      </Link>
+    </div>
+  );
+}
+
 function WorkoutSession() {
   const navigate = useNavigate();
   const report = useContext(LiveErrorContext);
-  const { data: workout, isLoading, isError, fetchStatus } = useActiveWorkout();
+  const active = useActiveWorkout();
+  const { data: workout, isLoading, isError } = active;
+  // Dopo un giro online i dati vivi restano: l'hook dà true solo se non c'è nessun allenamento.
+  const unavailable = useOfflineUnavailable(active);
   const now = useNow(1000);
   const viewportTop = useVisualViewportTop();
   useEffect(() => installAudioResume(), []);
@@ -77,22 +92,13 @@ function WorkoutSession() {
   const [manualRest, setManualRest] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
 
+  // Nell'IPA offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
+  if (unavailable) return <NoWorkout message="Allenamento non disponibile offline" />;
   if (isLoading) return <p className="py-16 text-center text-sm text-slate-500">Caricamento...</p>;
   if (isError) {
     return <p className="p-6 text-center text-sm text-red-600">Errore nel caricamento dell'allenamento.</p>;
   }
-  if (!workout) {
-    // Nell'IPA offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
-    const offline = isNative() && fetchStatus === "paused";
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-app p-6 text-center">
-        <p className="text-slate-600">{offline ? "Allenamento non disponibile offline" : "Nessun allenamento in corso."}</p>
-        <Link to="/gym" className="btn-primary">
-          Vai ai modelli
-        </Link>
-      </div>
-    );
-  }
+  if (!workout) return <NoWorkout message="Nessun allenamento in corso." />;
 
   const workoutId = workout.id;
   const items = workout.exercises;
