@@ -82,7 +82,7 @@ Decisioni di design (valgono per tutti i task):
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [ ] T1. Test di caratterizzazione: sezione peso e sessioni di Account
+### [x] T1. Test di caratterizzazione: sezione peso e sessioni di Account
 
 - Copre: C12, C28
 - Rischio: basso
@@ -661,3 +661,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 Partenza: d3e58d69bf7c9d41e1ad1c310f8fe18e0c27e71e su main
 
+T1 — DONE — review: saltata
