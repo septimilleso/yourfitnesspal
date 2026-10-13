@@ -109,7 +109,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Non modificare codice di produzione.
 - Verifica: `cd web && npx vitest run src/components/stats/WeightSection.test.tsx src/pages/AccountPage.test.tsx`, risultato atteso: tutti verdi sul codice attuale.
 
-### [ ] T2. Test di caratterizzazione: palestra (modelli, esercizi, progressione)
+### [x] T2. Test di caratterizzazione: palestra (modelli, esercizi, progressione)
 
 - Copre: C12, C28
 - Rischio: basso
@@ -662,3 +662,4 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 Partenza: d3e58d69bf7c9d41e1ad1c310f8fe18e0c27e71e su main
 
 T1 — DONE — review: saltata
+T2 — DONE — review: saltata
