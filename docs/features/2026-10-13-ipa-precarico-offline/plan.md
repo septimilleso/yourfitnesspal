@@ -232,7 +232,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - tabella di casi per `isPrunableKey`.
 - Verifica: `cd web && npx vitest run src/native/cachePrune.test.ts && npx tsc -b`, risultato atteso: verdi.
 
-### [ ] T6. Giro di precarico: elenco delle query, permessi, tetti, fine giro
+### [x] T6. Giro di precarico: elenco delle query, permessi, tetti, fine giro
 
 - Copre: C3, C5 (permessi), C8 (parte del giro), C9 (dettagli saltati e pulizia a fine giro), C10 (scritture), C28
 - Rischio: alto
@@ -666,3 +666,4 @@ T2 — DONE — review: saltata
 T3 — DONE — review: 1 round. MINOR: fetchers.test.ts manca il caso fetchExercises(EMPTY_FILTERS) -> /api/exercises?limit=200 e il caso 200 di fetchGoal/fetchTodayWeight; queries.ts:240-245 docblock di useWeekDiary finito sopra fetchWeekDiary.
 T4 — DONE — review: 1 round. MINOR: queryPersistence.ts:204 il commento di getPersistedCacheInfo non indica le unità (sizeBytes in byte, savedAt = mtime in ms epoch, verificato nei tipi di @capacitor/filesystem). Per T6/T8: release di holdQueryPersistence in un `finally` anche con giro interrotto da logout/401/smontaggio (holds mai azzerato, un hold orfano rinvia per sempre le scritture a debounce) e testarlo; il test di C10 deve tenere il documento visibile (hidden aggiunge una scrittura immediata).
 T5 — DONE — review: 1 round. MINOR: cachePrune.ts:48 una query senza dati (dataUpdatedAt 0) e senza osservatori viene rimossa; correzione consigliata `if (dataUpdatedAt === 0 || fetchStatus === "fetching") continue;` + test (rischio basso, le query del giro sono protette da keepHashes). Per T6: keepHashes deve includere anche gli hash dei dettagli saltati perché già in cache; il chiamante passa Date.now().
+T6 — DONE — review: 1 round. MINOR (test): prefetch.test.ts:199-207 il dettaglio già in cache dovrebbe avere updatedAt di 20 giorni per provare keepHashes; manca il caso admin senza permessi (meWith([], "admin")); manca il test dello storico osservato non sovrascritto. Avvisi per T7/T8: runSequentially ingoia ogni errore (anche NetworkError e 401) e in T7 con errore di rete la pulizia non deve girare; prefetch.ts:52-53 un ["me"] senza permissions rifiuta la promessa prima del try: lo scheduler deve intercettare ogni rifiuto di runPrefetchRound; MAX_CONCURRENT non ancora usata (T7).
