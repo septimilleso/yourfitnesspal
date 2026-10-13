@@ -200,7 +200,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `getPersistedCacheInfo` con `stat` mockato (`size: 430080`, `mtime: 123`) → `{ sizeBytes: 430080, savedAt: 123 }`; con `stat` che rifiuta → `null`; sul web → `null` senza chiamare `Filesystem`.
 - Verifica: `cd web && npx vitest run src/native/ && npx tsc -b`, risultato atteso: verdi (compresi `queryPersistence.test.ts` e `queryPersistence.restore.native.test.tsx` invariati). Poi `cd web && npm test`.
 
-### [ ] T5. Pulizia delle query vecchie
+### [x] T5. Pulizia delle query vecchie
 
 - Copre: C9, C28
 - Rischio: alto
@@ -665,3 +665,4 @@ T1 — DONE — review: saltata
 T2 — DONE — review: saltata
 T3 — DONE — review: 1 round. MINOR: fetchers.test.ts manca il caso fetchExercises(EMPTY_FILTERS) -> /api/exercises?limit=200 e il caso 200 di fetchGoal/fetchTodayWeight; queries.ts:240-245 docblock di useWeekDiary finito sopra fetchWeekDiary.
 T4 — DONE — review: 1 round. MINOR: queryPersistence.ts:204 il commento di getPersistedCacheInfo non indica le unità (sizeBytes in byte, savedAt = mtime in ms epoch, verificato nei tipi di @capacitor/filesystem). Per T6/T8: release di holdQueryPersistence in un `finally` anche con giro interrotto da logout/401/smontaggio (holds mai azzerato, un hold orfano rinvia per sempre le scritture a debounce) e testarlo; il test di C10 deve tenere il documento visibile (hidden aggiunge una scrittura immediata).
+T5 — DONE — review: 1 round. MINOR: cachePrune.ts:48 una query senza dati (dataUpdatedAt 0) e senza osservatori viene rimossa; correzione consigliata `if (dataUpdatedAt === 0 || fetchStatus === "fetching") continue;` + test (rischio basso, le query del giro sono protette da keepHashes). Per T6: keepHashes deve includere anche gli hash dei dettagli saltati perché già in cache; il chiamante passa Date.now().
