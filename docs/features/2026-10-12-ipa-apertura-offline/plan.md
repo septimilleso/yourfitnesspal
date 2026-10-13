@@ -1,7 +1,7 @@
 # Piano: IPA, apertura offline con dati in cache, icona e correzioni della feature 1
 
 - Data: 2026-10-12
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: `feature/ipa-apertura-offline`
@@ -401,3 +401,4 @@ Review 1 — CHANGES_REQUESTED (1 MAJOR: persistenza esclude query in errore 5xx
 T15 — DONE — review: 1 round. MINOR: test non verifica che la query viva resti in error dopo la scrittura; mancano test per fetchStatus paused/fetching scritto come idle e per mutations non vuote al ripristino. Avviso: lo stato scritto conserva fetchFailureReason/fetchFailureCount/errorUpdatedAt (un ApiError serializzato può portare il body della risposta nel file): azzerarli in asSuccessfulQuery, da fare in T17.
 T16 — DONE — review: 1 round. Avviso (da confermare in C17 su dispositivo): evento `offline` senza fetch fallite, poi `online` con solo query fresche (es. solo ["me"] dentro lo staleTime): nessuna fetch riparte e la barra resta finché una navigazione non ne fa partire una; eventuale correzione: invalidateQueries(["me"]) in onOnline quando isOffline().
 T17 — DONE — review: 1 round. Deviazione motivata dal piano: escluse dalla persistenza solo le ricerche esercizi con q non vuoto (non tutta la chiave ["gym","exercises"]), il catalogo senza filtri resta persistito. Aggiunti: azzeramento di fetchFailureCount/fetchFailureReason/errorUpdatedAt nel file e 3 test di regressione di T15. MINOR: queryClient.test.ts:68 manca un controllo che retry di foods resti retryNative e che sul web getQueryDefaults(["foods"]) sia vuoto. Avviso: una ricerca esercizi con q resta in memoria con gcTime Infinity per la vita del processo (follow-up: gcTime dentro useExercises).
+Review 2 — APPROVED (MAJOR del round 1 chiuso da T15; MINOR 2-4 chiusi da T16-T17; resta il MINOR sulla barra che copre l header, da verificare in C17)
