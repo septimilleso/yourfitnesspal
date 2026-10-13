@@ -38,7 +38,10 @@ jobs:
           fi
           echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
 
+      # Build the commit of the tag, also on workflow_dispatch. A missing tag fails here.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       - name: Check iOS project exists
         run: |
@@ -57,6 +60,7 @@ jobs:
         working-directory: ${{ env.WEB_DIR }}
         env:
           VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+          VITE_BUILD_ID: ${{ env.TAG }}
         run: |
           if [ -z "$VITE_API_BASE_URL" ]; then
             echo "::error::La variable GitHub API_BASE_URL è vuota (es. https://pal.septimilleso.uk/api). Impostala in Settings > Secrets and variables > Actions > Variables."

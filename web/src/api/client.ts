@@ -1,4 +1,6 @@
+import { reportNetworkFailure, reportNetworkSuccess } from "../native/connectivity";
 import { isNative } from "../native/platform";
+import { clearPersistedQueryCache } from "../native/queryPersistence";
 import { clearToken, getChallenge, getToken } from "../native/session";
 
 // Nella build nativa VITE_API_BASE_URL è un URL assoluto; nella PWA resta /api (stesso origin).
@@ -16,6 +18,27 @@ export class ApiError extends Error {
     this.status = status;
     this.body = body;
   }
+}
+
+// Errore di rete: fetch non ha ricevuto nessuna risposta. Non è un ApiError.
+export class NetworkError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "NetworkError";
+  }
+}
+
+// Nativo: un rifiuto di fetch è un errore di rete; ogni risposta, qualunque sia lo status, dice che la rete c'è.
+async function fetchNative(url: string, init: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    reportNetworkFailure();
+    throw new NetworkError("network", { cause: error });
+  }
+  reportNetworkSuccess();
+  return response;
 }
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -48,7 +71,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   };
 
-  const response = await fetch(`${basePath()}${path}`, init);
+  const response = native
+    ? await fetchNative(`${basePath()}${path}`, init)
+    : await fetch(`${basePath()}${path}`, init);
 
   if (!response.ok) {
     let parsedBody: unknown = null;
@@ -57,9 +82,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch {
       // Response had no JSON body; leave parsedBody as null.
     }
-    if (native && response.status === 401 && (parsedBody as { detail?: unknown } | null)?.detail === "unauthorized") {
+    if (
+      native &&
+      response.status === 401 &&
+      (parsedBody as { detail?: unknown } | null)?.detail === "unauthorized" &&
+      getToken() === token
+    ) {
       // Token scaduto o revocato. Un errore di rimozione non deve nascondere il 401.
+      // Se nel frattempo è arrivato un token nuovo, il 401 riguarda quello vecchio: non si tocca nulla.
       await clearToken().catch(() => undefined);
+      await clearPersistedQueryCache().catch(() => undefined);
     }
     const message =
       (parsedBody && typeof parsedBody === "object" && "detail" in parsedBody

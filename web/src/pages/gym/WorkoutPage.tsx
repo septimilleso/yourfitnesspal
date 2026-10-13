@@ -26,6 +26,7 @@ import { LiveErrorContext } from "../../lib/liveErrors";
 import { installAudioResume, unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
 import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
+import { isNative } from "../../native/platform";
 
 type PickerState = { mode: "add" } | { mode: "replace"; itemId: number } | null;
 
@@ -59,7 +60,7 @@ function WorkoutPage() {
 function WorkoutSession() {
   const navigate = useNavigate();
   const report = useContext(LiveErrorContext);
-  const { data: workout, isLoading, isError } = useActiveWorkout();
+  const { data: workout, isLoading, isError, fetchStatus } = useActiveWorkout();
   const now = useNow(1000);
   const viewportTop = useVisualViewportTop();
   useEffect(() => installAudioResume(), []);
@@ -81,9 +82,11 @@ function WorkoutSession() {
     return <p className="p-6 text-center text-sm text-red-600">Errore nel caricamento dell'allenamento.</p>;
   }
   if (!workout) {
+    // Nell'IPA offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
+    const offline = isNative() && fetchStatus === "paused";
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-app p-6 text-center">
-        <p className="text-slate-600">Nessun allenamento in corso.</p>
+        <p className="text-slate-600">{offline ? "Allenamento non disponibile offline" : "Nessun allenamento in corso."}</p>
         <Link to="/gym" className="btn-primary">
           Vai ai modelli
         </Link>

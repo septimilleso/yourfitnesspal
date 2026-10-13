@@ -329,7 +329,9 @@ App Store or TestFlight build, and no SideStore source JSON in this version.
    a single push, so a batch can silently skip the workflow.
 4. The mirror forwards the tag and GitHub starts the **iOS release** workflow. If it does not start,
    open the **Actions** tab on GitHub, choose **iOS release**, run it with **Run workflow** and enter
-   the tag name (for example `v0.1.0`).
+   the tag name (for example `v0.1.0`). The run builds the commit of that tag, not the branch it runs
+   on. The tag must already be on GitHub through the mirror: otherwise the run fails at checkout and
+   creates no tag.
 
 The workflow builds the web bundle with `API_BASE_URL`, runs `npx cap sync ios`, builds an unsigned
 Release app and packages it as `Payload/App.app`. It checks that `CFBundleShortVersionString` equals
@@ -364,8 +366,14 @@ To update, install the new IPA the same way. Things to know about a free account
 - **Native haptics** are used when a set is completed and when the rest ends.
 - **The UI is inside the IPA.** Server changes reach the app as soon as the API is deployed, but any
   UI change needs a new tag and a new IPA.
-- **Network required.** The app needs a connection to sync. Full offline use is planned for a later
-  feature.
+- **Offline, read-only.** The app opens without a connection and shows the data it loaded online
+  before: today's diary, the week, gym, workout history and stats. A bar reading
+  `Offline, dati delle <time>` shows when that data was last updated, and disappears when the
+  connection returns and the data refreshes.
+  - Changes need a connection and are not queued. A live workout session is not available offline.
+  - After installing, and after each new IPA, open the app once with a connection before the cache
+    is available. A first launch without a connection cannot show data.
+  - The cache is cleared on logout or when the session is revoked.
 
 ### Local builds and CI
 
