@@ -498,7 +498,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - online, per entrambe, nessun messaggio.
 - Verifica: `cd web && npx vitest run src/pages/offline.other.native.test.tsx src/pages/SearchPage.test.tsx src/pages/AccountPage.test.tsx src/pages/gym/WorkoutPage.offline.test.tsx src/pages/gym/WorkoutPage.test.tsx`, risultato atteso: verdi. Poi `cd web && npm test`.
 
-### [ ] T15. Indicatore offline al posto della barra, e servizi nativi in App
+### [x] T15. Indicatore offline al posto della barra, e servizi nativi in App
 
 - Copre: C1, C2, C20, C26, C28
 - Rischio: alto
@@ -675,3 +675,4 @@ T11 — DONE — review: 1 round. MINOR (test): manca il caso WeightSection enab
 T12 — DONE — review: 1 round. MINOR: offline.gym.native.test.tsx:80 verificare anche che "Inizia allenamento" sia disabilitato in pausa; HistoryPage.tsx:84 la guardia !historyUnavailable sul riquadro vuoto è superflua (innocua).
 T13 — DONE — review: 1 round (T13 ripreso dopo un limite di sessione, nessuna perdita). Avvisi: la riga di aiuto "Aprila con la rete per averla anche offline." è poco calzante nel picker esercizi (testo opzionale per il componente, da rimandare); offline in GymStatsPage compaiono più messaggi insieme (uno per sezione): da guardare su iPhone; nel picker con filtro in placeholder la lista è sostituita dal messaggio, la selezione resta nel footer.
 T14 — DONE — review: 1 round. MINOR accettato: in WorkoutPage.offline.test.tsx aggiunto anche il caso "rete presente + retryingQuery → Caricamento..." oltre al caso consentito. Avvisi (follow-up, fuori da R12): SearchPage ricerca con testo offline mostra "Nessun risultato." (query in pausa, isLoading falso) e alterna con "Caricamento..." ogni 20 s; la tab Recenti sarà sempre "Non disponibile offline" nell IPA (foods* non persistite): da tenere presente su iPhone; WorkoutPage ora richiede isOffline(): se React Query va in pausa per un evento offline di WKWebView prima di reportNetworkFailure si vede "Nessun allenamento in corso." finché startConnectivityRecovery (T15) non ascolta offline: verificare dopo T15.
+T15 — DONE — review: 1 round. MINOR (test): OfflineIndicator.test.tsx:775 la chiusura dopo 4000 ms non distingue 4 s da 1 ms (usare 3999+1); manca un test che l indicatore da solo non avvia la ripresa. Per T17: il fumetto è centrato sul puntino e non va a capo, vicino al bordo destro può uscire dallo schermo; chi passa className deve includere relative. Stato intermedio: l indicatore non è montato in nessuna schermata finché non c è T17.
