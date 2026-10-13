@@ -585,7 +585,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   6. `ModeSwitch.test.tsx`, `SettingsPage.test.tsx`, `WorkoutDetailPage.test.tsx`, `WorkoutPage.test.tsx` e `AppShell.test.tsx` non si modificano.
 - Verifica: `cd web && npx vitest run src/components/ src/pages/ && npx tsc -b`, risultato atteso: verdi. Poi `cd web && npm test`.
 
-### [ ] T18. Riga "Dati offline" in Impostazioni
+### [x] T18. Riga "Dati offline" in Impostazioni
 
 - Copre: C13, C20, C28
 - Rischio: alto
@@ -678,3 +678,4 @@ T14 — DONE — review: 1 round. MINOR accettato: in WorkoutPage.offline.test.t
 T15 — DONE — review: 1 round. MINOR (test): OfflineIndicator.test.tsx:775 la chiusura dopo 4000 ms non distingue 4 s da 1 ms (usare 3999+1); manca un test che l indicatore da solo non avvia la ripresa. Per T17: il fumetto è centrato sul puntino e non va a capo, vicino al bordo destro può uscire dallo schermo; chi passa className deve includere relative. Stato intermedio: l indicatore non è montato in nessuna schermata finché non c è T17.
 T16 — DONE — review: 1 round. MINOR (test): NativeOfflineServices.test.tsx:177 C10 non distingue "2000 ms dalla risposta di /auth/me" da "dal mount" (far rispondere /auth/me in ritardo); manca un test d integrazione con ["me"] ripristinata fresca (refreshStaleMe → invalidate → success → giro). Avvisi: il giro non parte nell esecuzione corrente se il refetch di ["me"] in idle fallisce con 5xx o se si parte offline, finché non arriva un ritorno in primo piano/rete; il precarico non parte mai solo se nessun evento successivo arriva.
 T17 — DONE — review: 2 round. Deviazioni: puntino nel flusso (flex, shrink-0) invece di absolute, concordato con l utente; fumetto absolute con clamp dentro lo schermo (modifica minima a OfflineIndicator.tsx); test di T12 offline.gym.native.test.tsx avvolto in QueryClientProvider. Round 1: MAJOR spostamento verticale ~18 px in SettingsPage e 4 px in ModeSwitch, chiuso con margini negativi (-my-2.5 / -my-1). Da verificare su iPhone: spostamento ORIZZONTALE residuo di ~16 px del gruppo Dieta/Palestra, del titolo (WorkoutDetailPage) e del tempo (WorkoutPage) quando appare il puntino; a 360 px la riga Dieta/Palestra con puntino è al limite (3-5 px dall ingranaggio, stima); fumetto vicino al bordo destro.
+T18 — DONE — review: 1 round. MINOR: SettingsPage.native.test.tsx:84-90 il caso web controlla l assenza subito dopo render (attendere le microtask con await act); OfflineCacheInfo.tsx:34 sotto 512 byte mostra "circa 0 KB" (poco realistico). La riga si legge al mount di Impostazioni e non si aggiorna mentre la pagina è aperta.

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useHasPermission, useMe } from "../auth/AuthContext";
 import ModeSwitch from "../components/ModeSwitch";
 import NativeRestAlertSetting from "../components/NativeRestAlertSetting";
+import OfflineCacheInfo from "../components/OfflineCacheInfo";
 import OfflineIndicator from "../components/OfflineIndicator";
 import RestAlertSetting from "../components/RestAlertSetting";
 import { isNative } from "../native/platform";
@@ -36,6 +37,7 @@ function SettingsPage() {
           {me?.role === "admin" && <Link className="row flex justify-between" to="/admin/users"><span>Gestione utenti</span><span>›</span></Link>}
         </section>
         {canUseWorkouts && (isNative() ? <NativeRestAlertSetting /> : <RestAlertSetting />)}
+        {isNative() && <OfflineCacheInfo />}
       </div>
     </div>
   );
