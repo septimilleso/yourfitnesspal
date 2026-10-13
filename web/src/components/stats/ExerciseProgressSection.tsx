@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { useExerciseProgress, usePerformedExercises, type Tracking } from "../../api/gym";
 import type { Period } from "../../lib/stats";
 import { formatIsoDateLong } from "../../lib/date";
+import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import OfflineUnavailable from "../OfflineUnavailable";
 import ProgressChart from "./ProgressChart";
 import PersonalRecords from "./PersonalRecords";
 
@@ -48,7 +50,12 @@ function ExerciseProgressSection({ period, enabled }: { period: Period; enabled:
   const selected = list.find((exercise) => exercise.exercise_id === requestedId) ?? list[0];
   const exerciseId = selected?.exercise_id ?? 0;
   const progress = useExerciseProgress(exerciseId, period.start, period.end, enabled && selected !== undefined);
+  const exercisesUnavailable = useOfflineUnavailable(exercises);
+  const progressUnavailable = useOfflineUnavailable(progress);
 
+  if (exercisesUnavailable) {
+    return <OfflineUnavailable />;
+  }
   if (exercises.isError) {
     return <p role="alert" className="card px-4 py-3 text-sm text-red-600">Impossibile caricare gli esercizi.</p>;
   }
@@ -97,7 +104,9 @@ function ExerciseProgressSection({ period, enabled }: { period: Period; enabled:
             ))}
           </select>
         </label>
-        {!enabled ? null : progress.isError ? (
+        {!enabled ? null : progressUnavailable ? (
+          <OfflineUnavailable compact />
+        ) : progress.isError ? (
           <p role="alert" className="text-sm text-red-600">Impossibile caricare la progressione.</p>
         ) : progress.isLoading || !progress.data ? (
           <p className="py-5 text-center text-sm text-slate-500">Caricamento progressione...</p>

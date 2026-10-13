@@ -444,7 +444,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   6. I test esistenti e quelli di T2 non si modificano.
 - Verifica: `cd web && npx vitest run src/pages/gym/ src/components/gym/`, risultato atteso: verdi.
 
-### [ ] T13. Messaggio offline: esercizi e statistiche palestra
+### [x] T13. Messaggio offline: esercizi e statistiche palestra
 
 - Copre: C11, C12, C28
 - Rischio: alto
@@ -673,3 +673,4 @@ T9 — DONE — review: 1 round. Nota: l hook non è mai provato con useInfinite
 T10 — DONE — review: 1 round. MINOR (test): offline.diary.native.test.tsx:139 con rete presente verificare anche "Caricamento..." con retryingQuery; :118 verificare header/frecce/link visibili con il messaggio.
 T11 — DONE — review: 1 round. MINOR (test): manca il caso WeightSection enabled=false offline (periodo personalizzato non valido). Nota: la modifica a StreakCard vale anche per GymStatsPage (stessa card), coerente con R12.
 T12 — DONE — review: 1 round. MINOR: offline.gym.native.test.tsx:80 verificare anche che "Inizia allenamento" sia disabilitato in pausa; HistoryPage.tsx:84 la guardia !historyUnavailable sul riquadro vuoto è superflua (innocua).
+T13 — DONE — review: 1 round (T13 ripreso dopo un limite di sessione, nessuna perdita). Avvisi: la riga di aiuto "Aprila con la rete per averla anche offline." è poco calzante nel picker esercizi (testo opzionale per il componente, da rimandare); offline in GymStatsPage compaiono più messaggi insieme (uno per sezione): da guardare su iPhone; nel picker con filtro in placeholder la lista è sostituita dal messaggio, la selezione resta nel footer.
