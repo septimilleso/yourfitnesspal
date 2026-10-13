@@ -367,10 +367,22 @@ To update, install the new IPA the same way. Things to know about a free account
 - **The UI is inside the IPA.** Server changes reach the app as soon as the API is deployed, but any
   UI change needs a new tag and a new IPA.
 - **Offline, read-only.** The app opens without a connection and shows the data it loaded online
-  before: today's diary, the week, gym, workout history and stats. A bar reading
-  `Offline, dati delle <time>` shows when that data was last updated, and disappears when the
-  connection returns and the data refreshes.
+  before: today's diary, the week, gym, workout history and stats. When data is offline, an amber
+  dot appears in the header of the screens that have data. Tapping it shows when the data was last
+  updated: `Offline, dati delle <time>`, or `Offline, dati del <day> alle <time>` for older data.
+  The dot disappears when the connection returns.
+  - Prefetch: with a connection, when the app opens, returns to the foreground or the connection
+    returns, the app downloads in the background, at most once every 15 minutes after the last
+    completed round: today's and yesterday's diary, the current week, weight, the 7, 30 and 90 day
+    statistics, workout templates (up to 30, with their details), the exercise catalogue, the last
+    20 workouts with their details, and up to 10 saved weeks. It never runs without a connection or
+    on the web, and it does not download food search results or the active workout.
+  - Screens with no data offline show "Non disponibile offline".
+  - Data tied to the date has a limit: if the last update was yesterday, offline today's diary and
+    the 7, 30 and 90 day statistics (which end today) are not available. Yesterday's diary is.
   - Changes need a connection and are not queued. A live workout session is not available offline.
+  - Settings shows a line such as `Dati offline: circa 420 KB, salvati alle 14:05`, with the size and
+    time of the offline cache, or `Dati offline: nessuno` when there is no cache.
   - After installing, and after each new IPA, open the app once with a connection before the cache
     is available. A first launch without a connection cannot show data.
   - The cache is cleared on logout or when the session is revoked.
