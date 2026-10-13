@@ -346,7 +346,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test: query con dati, poi `queryFn` che rifiuta con `ApiError` 502 (retry a zero) fino a `status: "error"`, poi scrittura: il file contiene ancora la query con i suoi dati e, dopo il ripristino in un nuovo `QueryClient`, `status` è `"success"` e `getQueryData` restituisce i dati. Una query in errore senza dati non viene scritta. Chiavi escluse ancora escluse. Test esistenti invariati.
 - Verifica: `cd web && npx vitest run src/native/ && npx tsc -b`, verdi. Poi `cd web && npm test`.
 
-### [ ] T16. Evento `offline` e ora della barra (MINOR 2 e 3 della review 1)
+### [x] T16. Evento `offline` e ora della barra (MINOR 2 e 3 della review 1)
 
 - Copre: C5, C27, C26 (R6, R16)
 - Rischio: alto
@@ -399,3 +399,4 @@ T13 — DONE — review: saltata. npm test 86 file / 550 test verdi; build PWA o
 T14 — IN ATTESA (manuale) — richiede merge su main, tag pushato solo su Gitea, run CI e prove sull iPhone: azioni dell utente, non eseguibili dall orchestratore. Esito da annotare punto per punto per C14-C20 e C25. Da verificare in particolare sul dispositivo: C16 icona (ritaglio stretto), barra offline che può coprire ~20 px di header, barra assente se all apertura offline nessuna fetch fallisce.
 Review 1 — CHANGES_REQUESTED (1 MAJOR: persistenza esclude query in errore 5xx, viola R4; 4 MINOR; 7 avvisi nuovi)
 T15 — DONE — review: 1 round. MINOR: test non verifica che la query viva resti in error dopo la scrittura; mancano test per fetchStatus paused/fetching scritto come idle e per mutations non vuote al ripristino. Avviso: lo stato scritto conserva fetchFailureReason/fetchFailureCount/errorUpdatedAt (un ApiError serializzato può portare il body della risposta nel file): azzerarli in asSuccessfulQuery, da fare in T17.
+T16 — DONE — review: 1 round. Avviso (da confermare in C17 su dispositivo): evento `offline` senza fetch fallite, poi `online` con solo query fresche (es. solo ["me"] dentro lo staleTime): nessuna fetch riparte e la barra resta finché una navigazione non ne fa partire una; eventuale correzione: invalidateQueries(["me"]) in onOnline quando isOffline().

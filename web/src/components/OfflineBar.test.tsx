@@ -43,6 +43,12 @@ function renderPage(staleTime = Infinity) {
   );
 }
 
+// Come AuthProvider: la query ["me"] è sempre osservata, con staleTime lungo.
+function MeObserver() {
+  useQuery({ queryKey: ["me"], queryFn: () => client.get<string>("/auth/me"), staleTime: Infinity });
+  return null;
+}
+
 function localTime(year: number, month: number, day: number, hour: number, minute: number): number {
   return new Date(year, month, day, hour, minute).getTime();
 }
@@ -92,6 +98,36 @@ describe("OfflineBar sull'IPA", () => {
     renderPage();
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("R16: con la query me più vecchia di un'altra mostra l'ora dell'altra", () => {
+    queryClient.setQueryData(["me"], "utente", { updatedAt: localTime(2026, 9, 12, 9, 0) });
+    queryClient.setQueryData(["diary"], "vecchi", { updatedAt: localTime(2026, 9, 12, 14, 5) });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <OfflineBar />
+        <MeObserver />
+        <DiaryPage staleTime={Infinity} />
+      </QueryClientProvider>,
+    );
+
+    act(() => reportNetworkFailure());
+
+    expect(screen.getByRole("status")).toHaveTextContent("Offline, dati delle 14:05");
+  });
+
+  it("R16: con la sola query me mostra l'ora della query me", () => {
+    queryClient.setQueryData(["me"], "utente", { updatedAt: localTime(2026, 9, 12, 9, 0) });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <OfflineBar />
+        <MeObserver />
+      </QueryClientProvider>,
+    );
+
+    act(() => reportNetworkFailure());
+
+    expect(screen.getByRole("status")).toHaveTextContent("Offline, dati delle 09:00");
   });
 
   it("indica il giorno quando i dati non sono di oggi", () => {

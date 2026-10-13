@@ -4,15 +4,26 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { isOffline, startConnectivityRecovery, subscribeConnectivity } from "../native/connectivity";
 import { isNative } from "../native/platform";
 
-// Ora più vecchia tra le query in vista che hanno dati. Restituisce un numero, quindi lo snapshot è stabile.
+// La query ["me"] è sempre osservata da AuthProvider, quindi la sua età non dice cosa è in vista.
+function isMeQuery(queryKey: readonly unknown[]): boolean {
+  return queryKey.length === 1 && queryKey[0] === "me";
+}
+
+// Ora più vecchia tra le query in vista che hanno dati, ["me"] esclusa se ce ne sono altre.
+// Restituisce un numero, quindi lo snapshot è stabile.
 function oldestShownUpdatedAt(queryClient: QueryClient): number | null {
   let oldest: number | null = null;
+  let oldestMe: number | null = null;
   for (const query of queryClient.getQueryCache().getAll()) {
     const { data, dataUpdatedAt } = query.state;
     if (query.getObserversCount() === 0 || data === undefined || dataUpdatedAt <= 0) continue;
-    if (oldest === null || dataUpdatedAt < oldest) oldest = dataUpdatedAt;
+    if (isMeQuery(query.queryKey)) {
+      oldestMe = dataUpdatedAt;
+    } else if (oldest === null || dataUpdatedAt < oldest) {
+      oldest = dataUpdatedAt;
+    }
   }
-  return oldest;
+  return oldest ?? oldestMe;
 }
 
 function formatShownAt(updatedAt: number, now: Date): string {

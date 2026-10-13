@@ -54,14 +54,18 @@ export function startConnectivityRecovery(): () => void {
     if (document.visibilityState === "visible" && isOffline()) retryConnection();
   };
   const onOnline = () => retryConnection();
+  // Con l'app in primo piano WKWebView può emettere `offline` senza che nessuna fetch fallisca.
+  const onOffline = () => reportNetworkFailure();
 
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
 
   return () => {
     clearInterval(interval);
     document.removeEventListener("visibilitychange", onVisibilityChange);
     window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
   };
 }
 

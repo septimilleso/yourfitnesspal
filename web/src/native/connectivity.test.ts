@@ -157,6 +157,29 @@ describe("startConnectivityRecovery on the native platform", () => {
     expect(setOnline).toHaveBeenCalledWith(true);
     stop();
   });
+
+  it("the window offline event marks the connection offline, once", () => {
+    const listener = vi.fn();
+    subscribeConnectivity(listener);
+    const stop = startConnectivityRecovery();
+
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("offline"));
+
+    expect(isOffline()).toBe(true);
+    expect(onlineManager.isOnline()).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it("removes the offline listener on cleanup", () => {
+    const stop = startConnectivityRecovery();
+    stop();
+
+    window.dispatchEvent(new Event("offline"));
+
+    expect(isOffline()).toBe(false);
+  });
 });
 
 describe("startConnectivityRecovery on the web", () => {
@@ -174,5 +197,15 @@ describe("startConnectivityRecovery on the web", () => {
     expect(addWindowListener).not.toHaveBeenCalled();
     expect(addDocumentListener).not.toHaveBeenCalled();
     expect(setOnline).not.toHaveBeenCalled();
+  });
+
+  it("ignores the window offline event", () => {
+    platform.native = false;
+    const stop = startConnectivityRecovery();
+
+    window.dispatchEvent(new Event("offline"));
+
+    expect(isOffline()).toBe(false);
+    stop();
   });
 });
