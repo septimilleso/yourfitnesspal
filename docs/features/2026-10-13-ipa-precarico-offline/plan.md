@@ -147,7 +147,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   7. Non modificare codice di produzione.
 - Verifica: `cd web && npx vitest run src/pages/gym/GymStartPage.test.tsx src/components/gym/TemplatePreviewSheet.test.tsx src/components/gym/ExerciseList.test.tsx src/components/gym/ExerciseDetailSheet.test.tsx src/components/stats/ExerciseProgressSection.test.tsx`, risultato atteso: tutti verdi sul codice attuale.
 
-### [ ] T3. Chiavi e funzioni di lettura esportate dai moduli API
+### [x] T3. Chiavi e funzioni di lettura esportate dai moduli API
 
 - Copre: C3 (prerequisito), C12, C20, C28
 - Rischio: alto
@@ -663,3 +663,4 @@ Partenza: d3e58d69bf7c9d41e1ad1c310f8fe18e0c27e71e su main
 
 T1 — DONE — review: saltata
 T2 — DONE — review: saltata
+T3 — DONE — review: 1 round. MINOR: fetchers.test.ts manca il caso fetchExercises(EMPTY_FILTERS) -> /api/exercises?limit=200 e il caso 200 di fetchGoal/fetchTodayWeight; queries.ts:240-245 docblock di useWeekDiary finito sopra fetchWeekDiary.

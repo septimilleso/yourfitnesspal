@@ -173,15 +173,24 @@ export function useCreateEntry() {
   });
 }
 
-function dayDiaryQueryKey(date: string) {
-  return ["diary", "day", date] as const;
+export const diaryKeys = {
+  day: (date: string) => ["diary", "day", date] as const,
+  week: (start: string) => ["diary", "week", start] as const,
+  range: (start: string, end: string) => ["diary", "range", start, end] as const,
+  goals: ["goals"] as const,
+  streak: ["streak"] as const,
+};
+
+/** `GET /api/diary/day/:date`. */
+export function fetchDayDiary(date: string) {
+  return client.get<DayResponse>(`/diary/day/${date}`);
 }
 
 /** `GET /api/diary/day/:date`. */
 export function useDayDiary(date: string) {
   return useQuery({
-    queryKey: dayDiaryQueryKey(date),
-    queryFn: () => client.get<DayResponse>(`/diary/day/${date}`),
+    queryKey: diaryKeys.day(date),
+    queryFn: () => fetchDayDiary(date),
   });
 }
 
@@ -231,19 +240,28 @@ export interface WeekResponse {
 /** `GET /api/diary/week?start=:date`. `start` is expected to already be an
  * ISO date string (the Monday of the week being viewed) -- `WeekPage` owns
  * computing/shifting it. */
+export function fetchWeekDiary(start: string) {
+  return client.get<WeekResponse>(`/diary/week?start=${start}`);
+}
+
 export function useWeekDiary(start: string) {
   return useQuery({
-    queryKey: ["diary", "week", start] as const,
-    queryFn: () => client.get<WeekResponse>(`/diary/week?start=${start}`),
+    queryKey: diaryKeys.week(start),
+    queryFn: () => fetchWeekDiary(start),
   });
+}
+
+/** `GET /api/diary/range?start=&end=`. */
+export function fetchDiaryRange(start: string, end: string) {
+  return client.get<WeekResponse>(`/diary/range?start=${start}&end=${end}`);
 }
 
 /** `GET /api/diary/range?start=&end=`: one total per day, inclusive, empty
  * days included. `enabled` lets the stats page skip invalid custom ranges. */
 export function useDiaryRange(start: string, end: string, enabled = true) {
   return useQuery({
-    queryKey: ["diary", "range", start, end] as const,
-    queryFn: () => client.get<WeekResponse>(`/diary/range?start=${start}&end=${end}`),
+    queryKey: diaryKeys.range(start, end),
+    queryFn: () => fetchDiaryRange(start, end),
     enabled,
   });
 }
@@ -253,11 +271,16 @@ export interface Streak {
   best: number;
 }
 
+/** `GET /api/stats/streak`. */
+export function fetchStreak() {
+  return client.get<Streak>("/stats/streak");
+}
+
 /** `GET /api/stats/streak`: consecutive days the app was opened. */
 export function useStreak() {
   return useQuery({
-    queryKey: ["streak"] as const,
-    queryFn: () => client.get<Streak>("/stats/streak"),
+    queryKey: diaryKeys.streak,
+    queryFn: () => fetchStreak(),
   });
 }
 
@@ -270,19 +293,21 @@ export function recordActivity(): Promise<void> {
  * case, which is treated here as "no goal" (`null`) rather than a query
  * error, so `WeekPage`/`CopyDaysDialog` callers can render without a goal
  * to color against instead of hitting an error state. */
+export async function fetchGoal(): Promise<Goal | null> {
+  try {
+    return await client.get<Goal>("/goals");
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export function useGoal() {
   return useQuery({
-    queryKey: ["goals"] as const,
-    queryFn: async () => {
-      try {
-        return await client.get<Goal>("/goals");
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
-          return null;
-        }
-        throw err;
-      }
-    },
+    queryKey: diaryKeys.goals,
+    queryFn: () => fetchGoal(),
   });
 }
 

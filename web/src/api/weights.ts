@@ -35,10 +35,19 @@ export const weightKeys = {
   range: (start: string, end: string) => ["weight", "range", start, end] as const,
 };
 
+/** `GET /api/weights/today`. 204 (nothing logged today) comes back as `null`. */
+export async function fetchTodayWeight(): Promise<Weight | null> {
+  return (await client.get<Weight | undefined>("/weights/today")) ?? null;
+}
+
+export function fetchWeightHistory(start: string, end: string) {
+  return client.get<WeightHistory>(`/weights?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+}
+
 export function useTodayWeight(enabled = true) {
   return useQuery({
     queryKey: weightKeys.today,
-    queryFn: async () => (await client.get<Weight | undefined>("/weights/today")) ?? null,
+    queryFn: () => fetchTodayWeight(),
     enabled,
   });
 }
@@ -46,8 +55,7 @@ export function useTodayWeight(enabled = true) {
 export function useWeightHistory(start: string, end: string, enabled = true) {
   return useQuery({
     queryKey: weightKeys.range(start, end),
-    queryFn: () =>
-      client.get<WeightHistory>(`/weights?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
+    queryFn: () => fetchWeightHistory(start, end),
     enabled,
   });
 }
