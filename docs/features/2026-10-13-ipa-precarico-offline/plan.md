@@ -349,7 +349,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - In `afterEach`: cleanup, `resetPrefetchSchedulerForTests()` e `resetConnectivityForTests()`.
 - Verifica: `cd web && npx vitest run src/native/prefetchScheduler.test.ts && npx tsc -b`, risultato atteso: verdi.
 
-### [ ] T9. Hook e componente "Non disponibile offline"
+### [x] T9. Hook e componente "Non disponibile offline"
 
 - Copre: C11 (hook), C20, C28
 - Rischio: alto
@@ -669,3 +669,4 @@ T5 — DONE — review: 1 round. MINOR: cachePrune.ts:48 una query senza dati (d
 T6 — DONE — review: 1 round. MINOR (test): prefetch.test.ts:199-207 il dettaglio già in cache dovrebbe avere updatedAt di 20 giorni per provare keepHashes; manca il caso admin senza permessi (meWith([], "admin")); manca il test dello storico osservato non sovrascritto. Avvisi per T7/T8: runSequentially ingoia ogni errore (anche NetworkError e 401) e in T7 con errore di rete la pulizia non deve girare; prefetch.ts:52-53 un ["me"] senza permissions rifiuta la promessa prima del try: lo scheduler deve intercettare ogni rifiuto di runPrefetchRound; MAX_CONCURRENT non ancora usata (T7).
 T7 — DONE — review: 1 round. Spec precisata con l utente: con 2 lavoratori, dopo errore di rete o 401 nessuna nuova richiesta parte; quella già in volo finisce ma non entra in cache (R7, C6, C7). Incluse le correzioni MINOR di T6 (test keepHashes, admin, storico osservato). MINOR: prefetch.ts:163-177 un lavoratore esce quando la coda è vuota anche se l altro sta producendo figli (concorrenza scende a 1 sulle code finali, solo più lento: contatore active + segnale); prefetch.errors.test.ts:178-181 asserzione tautologica sul cambio token (usare toEqual([])); manca il test che la risposta in volo dopo 401 non entri in cache.
 T8 — DONE — review: 1 round (3 MINOR chiusi dall implementer: refreshStaleMe anche su ritorno rete/visibilità, test C10 completo con casi negativi, test senza loop). Avviso: la cleanup non interrompe un giro in corso (lo fa runPrefetchRound sul cambio token); montare startPrefetch (T16) dopo la registrazione di ["me"].
+T9 — DONE — review: 1 round. Nota: l hook non è mai provato con useInfiniteQuery (tipo compatibile per deduzione, lo verificherà tsc nei task T10-T14).
