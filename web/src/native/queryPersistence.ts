@@ -28,8 +28,18 @@ function isPersistableKey(queryKey: readonly unknown[]): boolean {
   return queryKey[0] !== "foods" && queryKey[0] !== "admin";
 }
 
+// Una query con dati che riceve un errore (502, rete) passa a "error" e tiene i dati: vanno persistiti.
+function hasPersistableData(state: { data: unknown; dataUpdatedAt: number }): boolean {
+  return state.data !== undefined && state.dataUpdatedAt > 0;
+}
+
 function shouldPersistQuery(query: Query): boolean {
-  return query.state.status === "success" && isPersistableKey(query.queryKey);
+  return isPersistableKey(query.queryKey) && hasPersistableData(query.state);
+}
+
+// Il file descrive una query riuscita: l'errore non si ripristina, il dato sì.
+function asSuccessfulQuery(query: DehydratedState["queries"][number]): DehydratedState["queries"][number] {
+  return { ...query, state: { ...query.state, status: "success", error: null, fetchStatus: "idle" } };
 }
 
 // Le scritture e le cancellazioni si susseguono in ordine: una scrittura non deve sovrascrivere una cancellazione.
@@ -62,7 +72,11 @@ async function writeCache(queryClient: QueryClient): Promise<void> {
     shouldDehydrateQuery: shouldPersistQuery,
     shouldDehydrateMutation: () => false,
   });
-  const payload: PersistedCache = { buster: cacheBuster(), savedAt: Date.now(), state };
+  const payload: PersistedCache = {
+    buster: cacheBuster(),
+    savedAt: Date.now(),
+    state: { ...state, queries: state.queries.map(asSuccessfulQuery) },
+  };
   await Filesystem.writeFile({
     path: CACHE_PATH,
     data: JSON.stringify(payload),
@@ -85,8 +99,10 @@ export async function restoreQueryCache(queryClient: QueryClient): Promise<void>
       await deleteCacheFile();
       return;
     }
-    const queries = cache.state.queries.filter((query) => isPersistableKey(query.queryKey));
-    hydrate(queryClient, { ...cache.state, queries });
+    const queries = cache.state.queries
+      .filter((query) => isPersistableKey(query.queryKey) && hasPersistableData(query.state))
+      .map(asSuccessfulQuery);
+    hydrate(queryClient, { mutations: [], queries });
   } catch {
     await deleteCacheFile();
   }

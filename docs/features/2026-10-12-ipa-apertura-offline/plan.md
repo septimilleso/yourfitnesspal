@@ -335,6 +335,38 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
   Alla fine rilancia `npm run build` per lasciare `dist/` della PWA.
 
+### [x] T15. Persistenza anche delle query in errore con dati (MAJOR della review 1)
+
+- Copre: C3, C26 (R4)
+- Rischio: alto
+- File: `web/src/native/queryPersistence.ts` (modifica), `web/src/native/queryPersistence.test.ts` (modifica)
+- Passi:
+  1. `shouldPersistQuery` deve accettare ogni query con `state.data !== undefined` e `state.dataUpdatedAt > 0`, a prescindere dallo status (una query con dati che riceve un errore non-401 passa a `status: "error"` e tiene i dati). Le chiavi escluse (`isPersistableKey`) restano escluse.
+  2. Nel file scritto (in `dehydrate` tramite `serializeData`/trasformazione dello stato, oppure al ripristino in `restoreQueryCache`) normalizza lo stato di ogni query a `status: "success"`, `error: null`, `fetchStatus: "idle"`, così il dato non torna come errore. Al ripristino rifiltra le query (`isPersistableKey` e dati presenti) e passa a `hydrate` `mutations: []`.
+  3. Test: query con dati, poi `queryFn` che rifiuta con `ApiError` 502 (retry a zero) fino a `status: "error"`, poi scrittura: il file contiene ancora la query con i suoi dati e, dopo il ripristino in un nuovo `QueryClient`, `status` è `"success"` e `getQueryData` restituisce i dati. Una query in errore senza dati non viene scritta. Chiavi escluse ancora escluse. Test esistenti invariati.
+- Verifica: `cd web && npx vitest run src/native/ && npx tsc -b`, verdi. Poi `cd web && npm test`.
+
+### [ ] T16. Evento `offline` e ora della barra (MINOR 2 e 3 della review 1)
+
+- Copre: C5, C27, C26 (R6, R16)
+- Rischio: alto
+- File: `web/src/native/connectivity.ts` (modifica), `web/src/native/connectivity.test.ts` (modifica), `web/src/components/OfflineBar.tsx` (modifica), `web/src/components/OfflineBar.test.tsx` (modifica)
+- Passi:
+  1. In `startConnectivityRecovery` (solo nativo) registra anche un listener `offline` su `window` che chiama `reportNetworkFailure()`, e rimuovilo nella cleanup. Test: l'evento `offline` rende `isOffline()` true; la cleanup rimuove il listener; sul web non registra nulla.
+  2. In `OfflineBar` il calcolo dell'ora esclude la query `["me"]`: usa il minimo `dataUpdatedAt` tra le altre query osservate con dati; se non ce ne sono, usa `["me"]`. Test: con `["me"]` più vecchia di un'altra query osservata, l'ora mostrata è quella dell'altra query; con la sola `["me"]`, l'ora di `["me"]`.
+- Verifica: `cd web && npx vitest run src/native/connectivity.test.ts src/components/OfflineBar.test.tsx && npx tsc -b`, verdi. Poi `cd web && npm test`.
+
+### [ ] T17. Ricerche fuori dalla cache (MINOR 4 della review 1)
+
+- Copre: C26 (NFR Prestazioni)
+- Rischio: alto
+- File: `web/src/lib/queryClient.ts` (modifica), `web/src/lib/queryClient.test.ts` (modifica), `web/src/native/queryPersistence.ts` (modifica), `web/src/native/queryPersistence.test.ts` (modifica)
+- Passi:
+  1. Nel `QueryClient` nativo, `setQueryDefaults(["foods"], { gcTime: 5 * 60_000 })` (le ricerche cibo non restano in memoria per tutta la vita del processo). Il web resta senza `defaultOptions`.
+  2. In `isPersistableKey` escludi anche `["gym","exercises"]` (tutta la chiave, ricerche con `q` incluse): verifica nel codice (`web/src/api/gym.ts`) la forma esatta della chiave e, se il catalogo senza filtri è usato da molte schermate, escludi solo le chiavi con `q` non vuoto. Motiva la scelta in una riga nel commento.
+  3. Test: `foods` ha `gcTime` di 5 minuti e le altre query `Infinity` nel client nativo; una ricerca esercizi non finisce nel file e non viene ripristinata.
+- Verifica: `cd web && npx vitest run src/lib/ src/native/ && npx tsc -b`, verdi. Poi `cd web && npm test`.
+
 ### [!] T14. Verifica in CI e sul dispositivo
 
 - Copre: C14, C15, C16, C17, C18, C19, C20, C25
@@ -365,3 +397,5 @@ T11 — DONE — review: saltata. Icona 1024x1024 RGB opaca, rigenerabile e dete
 T12 — DONE — review: saltata. Deviazione: VITE_BUILD_ID = tag (env.TAG) invece di github.sha (con workflow_dispatch lo sha è quello del branch, non del tag); il testo del piano parla ancora di sha. Workflow non eseguito in CI (verifica statica + YAML valido).
 T13 — DONE — review: saltata. npm test 86 file / 550 test verdi; build PWA ok (sw.js, registerSW.js); build nativa ok senza sw, con URL assoluto; senza VITE_API_BASE_URL fallisce col messaggio atteso; 12 test protetti non modificati. Commento di queryPersistence.ts allineato (buster = tag). PROBLEMA PREESISTENTE CONFERMATO (anche web, fuori scope, follow-up): AuthProvider sopra Routes, dopo queryClient.clear() (logout o finish() del login) il suo observer di ["me"] resta sulla query rimossa; test di prova: logout admin poi login user, useIsAdmin()=true e useHasPermission("diary.copy")=true con valori dell admin, anche se getQueryData(["me"]) è user B.
 T14 — IN ATTESA (manuale) — richiede merge su main, tag pushato solo su Gitea, run CI e prove sull iPhone: azioni dell utente, non eseguibili dall orchestratore. Esito da annotare punto per punto per C14-C20 e C25. Da verificare in particolare sul dispositivo: C16 icona (ritaglio stretto), barra offline che può coprire ~20 px di header, barra assente se all apertura offline nessuna fetch fallisce.
+Review 1 — CHANGES_REQUESTED (1 MAJOR: persistenza esclude query in errore 5xx, viola R4; 4 MINOR; 7 avvisi nuovi)
+T15 — DONE — review: 1 round. MINOR: test non verifica che la query viva resti in error dopo la scrittura; mancano test per fetchStatus paused/fetching scritto come idle e per mutations non vuote al ripristino. Avviso: lo stato scritto conserva fetchFailureReason/fetchFailureCount/errorUpdatedAt (un ApiError serializzato può portare il body della risposta nel file): azzerarli in asSuccessfulQuery, da fare in T17.

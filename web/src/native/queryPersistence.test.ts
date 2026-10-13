@@ -1,6 +1,7 @@
 import { dehydrate, QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../api/client";
 import { gymKeys, type Workout } from "../api/gym";
 
 const preferences = vi.hoisted(() => ({
@@ -171,6 +172,97 @@ describe("query persistence on the native platform", () => {
     expect(keys.some((key: string) => key.startsWith('["broken"'))).toBe(false);
     expect(payload.state.mutations).toEqual([]);
     stop();
+  });
+
+  it("keeps a query with data after a 502 and writes it as successful", async () => {
+    const { session, persistence } = await loadModules();
+    await session.loadNativeSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["me"], ME);
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    await queryClient
+      .fetchQuery({
+        queryKey: ["me"],
+        queryFn: () => Promise.reject(new ApiError(502, "Bad Gateway", "<html>")),
+        retry: false,
+      })
+      .catch(() => undefined);
+    expect(queryClient.getQueryState(["me"])?.status).toBe("error");
+
+    vi.useFakeTimers();
+    const stop = persistence.startQueryPersistence(queryClient);
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    vi.advanceTimersByTime(1000);
+    await persistence.flushQueryPersistenceForTests();
+    stop();
+    vi.useRealTimers();
+
+    const payload = JSON.parse(writtenPayload());
+    const me = payload.state.queries.find(
+      (query: { queryKey: unknown[] }) => JSON.stringify(query.queryKey) === JSON.stringify(["me"]),
+    );
+    expect(me).toBeDefined();
+    expect(me.state).toMatchObject({ status: "success", fetchStatus: "idle", error: null, data: ME });
+
+    filesystem.readFile.mockResolvedValue({ data: writtenPayload() });
+    const restored = new QueryClient();
+    await persistence.restoreQueryCache(restored);
+    expect(restored.getQueryState(["me"])?.status).toBe("success");
+    expect(restored.getQueryData(["me"])).toEqual(ME);
+  });
+
+  it("does not write a query that is in error without data", async () => {
+    const { session, persistence } = await loadModules();
+    await session.loadNativeSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    await queryClient
+      .fetchQuery({
+        queryKey: ["diary", "week"],
+        queryFn: () => Promise.reject(new ApiError(502, "Bad Gateway", "")),
+        retry: false,
+      })
+      .catch(() => undefined);
+
+    vi.useFakeTimers();
+    const stop = persistence.startQueryPersistence(queryClient);
+    queryClient.setQueryData(["diary", "day", "2026-10-12"], DIARY);
+    vi.advanceTimersByTime(1000);
+    await persistence.flushQueryPersistenceForTests();
+    stop();
+    vi.useRealTimers();
+
+    const keys = JSON.parse(writtenPayload()).state.queries.map((query: { queryKey: unknown[] }) =>
+      JSON.stringify(query.queryKey),
+    );
+    expect(keys).toContain(JSON.stringify(["diary", "day", "2026-10-12"]));
+    expect(keys).not.toContain(JSON.stringify(["diary", "week"]));
+  });
+
+  it("restores only persistable queries that carry data, as successful", async () => {
+    const { persistence } = await loadModules();
+    const source = await populatedClient();
+    await source
+      .fetchQuery({
+        queryKey: ["diary", "week"],
+        queryFn: () => Promise.reject(new ApiError(502, "Bad Gateway", "")),
+        retry: false,
+      })
+      .catch(() => undefined);
+    const state = dehydrate(source, { shouldDehydrateQuery: () => true });
+    filesystem.readFile.mockResolvedValue({
+      data: JSON.stringify({ buster: "1|build-a", savedAt: Date.now(), state }),
+    });
+
+    const queryClient = new QueryClient();
+    await persistence.restoreQueryCache(queryClient);
+
+    expect(queryClient.getQueryState(["me"])?.status).toBe("success");
+    expect(queryClient.getQueryData(["me"])).toEqual(ME);
+    expect(queryClient.getQueryState(["broken"])).toBeUndefined();
+    expect(queryClient.getQueryState(["diary", "week"])).toBeUndefined();
+    expect(queryClient.getQueryState(["foods", "search", "pasta"])).toBeUndefined();
+    expect(queryClient.getQueryState(["admin", "users"])).toBeUndefined();
   });
 
   it("clearPersistedQueryCache cancels a pending write and deletes the file", async () => {
