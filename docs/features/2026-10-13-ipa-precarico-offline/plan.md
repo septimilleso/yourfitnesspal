@@ -172,7 +172,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   6. **`fetchers.test.ts`** (client web, `fetch` stubbato con risposte minimali come in `OfflineBar.test.tsx`). Per ogni funzione verifica la URL esatta (`/api/...`). Verifica inoltre che `fetchGoal()` con 404 risolva `null` e che `fetchTodayWeight()` con 204 risolva `null`.
 - Verifica: `cd web && npx vitest run src/api/ src/pages/ src/components/ && npx tsc -b`, risultato atteso: verdi, nessun errore di tipo. Poi `cd web && npm test`: tutti verdi.
 
-### [ ] T4. Persistenza: sospensione delle scritture e informazioni sul file
+### [x] T4. Persistenza: sospensione delle scritture e informazioni sul file
 
 - Copre: C10, C13 (funzione), C22, C23, C28
 - Rischio: alto
@@ -664,3 +664,4 @@ Partenza: d3e58d69bf7c9d41e1ad1c310f8fe18e0c27e71e su main
 T1 — DONE — review: saltata
 T2 — DONE — review: saltata
 T3 — DONE — review: 1 round. MINOR: fetchers.test.ts manca il caso fetchExercises(EMPTY_FILTERS) -> /api/exercises?limit=200 e il caso 200 di fetchGoal/fetchTodayWeight; queries.ts:240-245 docblock di useWeekDiary finito sopra fetchWeekDiary.
+T4 — DONE — review: 1 round. MINOR: queryPersistence.ts:204 il commento di getPersistedCacheInfo non indica le unità (sizeBytes in byte, savedAt = mtime in ms epoch, verificato nei tipi di @capacitor/filesystem). Per T6/T8: release di holdQueryPersistence in un `finally` anche con giro interrotto da logout/401/smontaggio (holds mai azzerato, un hold orfano rinvia per sempre le scritture a debounce) e testarlo; il test di C10 deve tenere il documento visibile (hidden aggiunge una scrittura immediata).
