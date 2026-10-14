@@ -7,12 +7,13 @@ the HTTP checks (C10, isolation, 403) need the remote test database.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi.routing import APIRoute
 from pydantic import ValidationError
 
-from app import main
 from app.models.exercise import Exercise, Tracking
 from app.models.user import Role, User
 from app.models.workout import TemplateExercise, WorkoutTemplate
+from app.routers.workouts import router as workouts_router
 from app.schemas.workout import OfflineSnapshot, SetValues, SnapshotExercise
 from app.services import workouts
 from app.services.errors import PermissionMissing
@@ -79,14 +80,21 @@ def test_snapshot_entry_takes_rest_previous_and_max_from_the_history() -> None:
     assert entry.exercise.custom is False
 
 
-def test_snapshot_route_is_declared_before_the_workout_id_route() -> None:
-    get_paths = [
-        route.path for route in main.app.routes if "GET" in getattr(route, "methods", set())
+def _get_route(path: str) -> APIRoute:
+    # Read from the router itself: `app.routes` and `app.openapi()` depend on the FastAPI version.
+    matches = [
+        r for r in workouts_router.routes
+        if isinstance(r, APIRoute) and r.path == path and "GET" in r.methods
     ]
-    assert "/api/workouts/offline-snapshot" in get_paths
-    assert get_paths.index("/api/workouts/offline-snapshot") < get_paths.index(
-        "/api/workouts/{workout_id}"
-    )
+    assert len(matches) == 1, path
+    return matches[0]
+
+
+def test_snapshot_route_is_a_get_returning_offline_snapshot() -> None:
+    # Order versus `/{workout_id}` is not checked here: the DB test below calls the route and proves it.
+    route = _get_route("/api/workouts/offline-snapshot")
+    assert route.response_model is OfflineSnapshot
+    assert _get_route("/api/workouts/{workout_id}").name == "get_one"
 
 
 async def test_snapshot_refuses_a_user_without_the_workouts_permission() -> None:
