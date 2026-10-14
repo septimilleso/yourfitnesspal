@@ -6,6 +6,7 @@ the full workout so the SPA can replace its cached copy.
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,7 @@ from app.schemas.workout import (
     WorkoutExerciseAdd,
     WorkoutExercisePatch,
     WorkoutOut,
+    WorkoutPutIn,
     WorkoutRename,
     WorkoutStart,
 )
@@ -59,6 +61,20 @@ async def start(
     user: User = Depends(get_current_user),
 ) -> WorkoutOut:
     return await workouts.start_workout(session, user, payload)
+
+
+@router.put("/{workout_uuid}", response_model=WorkoutOut)
+async def put(
+    workout_uuid: UUID,
+    payload: WorkoutPutIn,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> WorkoutOut:
+    """Create (201) or replace (200) the whole workout, the offline client's save."""
+    workout, created = await workouts.put_workout(session, user, workout_uuid, payload)
+    response.status_code = 201 if created else 200
+    return workout
 
 
 @router.get("/{workout_id}", response_model=WorkoutOut)

@@ -9,6 +9,7 @@ every insert/delete; superset groups are renormalized after every change.
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.models.exercise import Exercise
 from app.models.user import User
 from app.models.workout import (
     TemplateExercise,
@@ -43,6 +45,9 @@ from app.schemas.workout import (
     WorkoutExerciseOut,
     WorkoutExercisePatch,
     WorkoutOut,
+    WorkoutPutExercise,
+    WorkoutPutIn,
+    WorkoutPutSet,
     WorkoutRename,
     WorkoutSetOut,
     WorkoutStart,
@@ -55,6 +60,11 @@ from app.services.gym_rules import (
     NoRestTimer,
     SetState,
     SetTuple,
+    StateExercise,
+    StateSet,
+    StateWorkout,
+    canonical_workout,
+    clamp_times,
     exercise_prefill,
     finish_problem,
     finish_prune,
@@ -87,9 +97,13 @@ class Previous:
     sets: list[SetValues] = field(default_factory=list)
 
 
-async def load_workout(db: AsyncSession, user: User, workout_id: int) -> Workout:
+async def load_workout(
+    db: AsyncSession, user: User, workout_id: int, *, for_update: bool = False
+) -> Workout:
+    """The user's workout. `for_update` locks its row until the transaction ends, so a
+    version check and the write that follows it cannot interleave with another save."""
     ensure_permission(user, Permission.workouts)
-    workout = await db.scalar(
+    statement = (
         sa.select(Workout)
         .where(Workout.id == workout_id, Workout.user_id == user.id)
         .options(
@@ -98,13 +112,16 @@ async def load_workout(db: AsyncSession, user: User, workout_id: int) -> Workout
         )
         .execution_options(populate_existing=True)
     )
+    if for_update:
+        statement = statement.with_for_update()
+    workout = await db.scalar(statement)
     if workout is None:
         raise NotFound("workout not found")
     return workout
 
 
 async def _load_live(db: AsyncSession, user: User, workout_id: int) -> Workout:
-    workout = await load_workout(db, user, workout_id)
+    workout = await load_workout(db, user, workout_id, for_update=True)
     if workout.status is not WorkoutStatus.in_progress:
         raise Invalid("workout is not in progress")
     return workout
@@ -389,10 +406,183 @@ async def start_workout(db: AsyncSession, user: User, payload: WorkoutStart) -> 
         raise Invalid("a workout is already in progress") from exc
 
 
+def _survivors(payload: WorkoutPutIn) -> list[tuple[WorkoutPutExercise, list[WorkoutPutSet]]]:
+    """The sent exercises and sets in the order `canonical_workout` keeps them. A finished
+    workout drops the sets not done and the exercises left without one (`finish_prune`)."""
+    if payload.status is WorkoutStatus.in_progress:
+        return [(item, list(item.sets)) for item in payload.exercises]
+    kept = finish_prune(
+        [[s.completed_at is not None for s in item.sets] for item in payload.exercises]
+    )
+    return [
+        (payload.exercises[index], [payload.exercises[index].sets[number] for number in numbers])
+        for index, numbers in kept
+    ]
+
+
+def _state_of_put(payload: WorkoutPutIn, template_id: int | None) -> StateWorkout:
+    return StateWorkout(
+        name=payload.name, template_id=template_id, status=payload.status,
+        started_at=payload.started_at, finished_at=payload.finished_at,
+        rest_ends_at=payload.rest_ends_at, rest_total_s=payload.rest_total_s,
+        exercises=tuple(
+            StateExercise(
+                exercise_id=item.exercise_id, rest_seconds=item.rest_seconds,
+                superset_group=item.superset_group, note=item.note or None,
+                sets=tuple(
+                    StateSet(
+                        weight_kg=s.weight_kg, reps=s.reps, duration_s=s.duration_s,
+                        completed_at=s.completed_at,
+                    )
+                    for s in item.sets
+                ),
+            )
+            for item in payload.exercises
+        ),
+    )
+
+
+def _sync_sets(
+    item: WorkoutExercise, sent: list[WorkoutPutSet], values: tuple[StateSet, ...]
+) -> list[WorkoutSet]:
+    stored = {workout_set.uuid: workout_set for workout_set in item.sets}
+    rows = []
+    for number, (sent_set, value) in enumerate(zip(sent, values, strict=True)):
+        row = stored.get(sent_set.uuid)
+        if row is None:
+            row = WorkoutSet(uuid=sent_set.uuid)
+        row.position = number
+        row.weight_kg = value.weight_kg
+        row.reps = value.reps
+        row.duration_s = value.duration_s
+        row.completed_at = value.completed_at
+        rows.append(row)
+    return rows
+
+
+def _sync_exercises(
+    workout: Workout,
+    exercises: dict[int, Exercise],
+    state: StateWorkout,
+    survivors: list[tuple[WorkoutPutExercise, list[WorkoutPutSet]]],
+) -> None:
+    """Pair the sent exercises with the stored rows by uuid: paired rows keep their id, new
+    ones are created, and the stored ones not sent are deleted with their parent."""
+    stored = {item.uuid: item for item in workout.exercises}
+    items = []
+    for (sent, sent_sets), entry in zip(survivors, state.exercises, strict=True):
+        item = stored.get(sent.uuid)
+        if item is None:
+            item = WorkoutExercise(uuid=sent.uuid)
+        item.exercise_id = entry.exercise_id
+        item.exercise = exercises[entry.exercise_id]
+        item.position = len(items)
+        item.rest_seconds = entry.rest_seconds
+        item.superset_group = entry.superset_group
+        item.note = entry.note
+        item.sets[:] = _sync_sets(item, sent_sets, entry.sets)
+        items.append(item)
+    workout.exercises[:] = items
+
+
+async def put_workout(
+    db: AsyncSession, user: User, workout_uuid: UUID, payload: WorkoutPutIn
+) -> tuple[WorkoutOut, bool]:
+    """Create or replace the workout with this uuid from the whole body. Returns the stored
+    workout and whether it was created (201 or 200).
+
+    The content is canonicalized and only then the times are clamped (R5, R6): the order
+    matters for the content comparison that the idempotence check will add. The uuid of
+    another user answers 404 through `load_workout`.
+    """
+    ensure_permission(user, Permission.workouts)
+    stored_id = await db.scalar(sa.select(Workout.id).where(Workout.uuid == workout_uuid))
+    # The row lock is taken before the version comparison, so two saves cannot both pass it.
+    workout = (
+        None if stored_id is None
+        else await load_workout(db, user, stored_id, for_update=True)
+    )
+    if (workout is None and payload.base_version is not None) or (
+        workout is not None and payload.base_version != workout.version
+    ):
+        # T6 (R4): here the 409 `version_conflict` with `current` (the stored copy, or null),
+        # and before it the idempotence check (R5). Until then a stale write is refused.
+        raise Invalid("version_conflict")
+
+    exercises = await get_visible_exercises(
+        db, user, {item.exercise_id for item in payload.exercises}
+    )
+    template = (
+        None if payload.template_id is None
+        else await find_template(db, user, payload.template_id)
+    )
+    if payload.status is WorkoutStatus.finished:
+        problem = finish_problem(
+            [s.completed_at is not None for item in payload.exercises for s in item.sets],
+            discard_incomplete=True,
+        )
+        if problem:
+            raise Invalid(problem)
+    at = now()
+    state = clamp_times(
+        canonical_workout(_state_of_put(payload, None if template is None else template.id)), at
+    )
+    for entry in state.exercises:
+        tracking = exercises[entry.exercise_id].tracking
+        for values in entry.sets:
+            if values.completed_at is not None:
+                problem = set_problem(tracking, values.weight_kg, values.reps, values.duration_s)
+                if problem:
+                    raise Invalid(problem)
+
+    created = workout is None
+    if workout is None:
+        workout = Workout(uuid=workout_uuid, user_id=user.id)
+        db.add(workout)
+    workout.name = state.name
+    workout.template_id = state.template_id
+    workout.status = state.status
+    workout.started_at = state.started_at
+    workout.finished_at = state.finished_at
+    workout.rest_ends_at = state.rest_ends_at
+    workout.rest_total_s = state.rest_total_s
+    _sync_exercises(workout, exercises, state, _survivors(payload))
+    if state.rest_ends_at is not None and state.rest_ends_at <= at:
+        # R6: a rest that ended before this save is not pushed late.
+        workout.rest_notified_at = state.rest_ends_at
+    if created and template is not None:
+        template.last_used_at = state.started_at
+    try:
+        return await _save(db, user, workout), created
+    except IntegrityError as exc:
+        await db.rollback()
+        message = _put_conflict_message(exc)
+        if message is None:
+            raise
+        raise Invalid(message) from exc
+
+
+def _put_conflict_message(exc: IntegrityError) -> str | None:
+    """What a unique constraint hit by the save means. None for an unknown constraint,
+    which is re-raised rather than guessed."""
+    # The driver's error carries the constraint name; the message text is the fallback.
+    cause = getattr(exc.orig, "__cause__", None)
+    text = getattr(cause, "constraint_name", None) or str(exc.orig)
+    if "ux_workouts_one_in_progress" in text:
+        # T6: `other_active` 409 with `current` in place of this message.
+        return "a workout is already in progress"
+    if "workouts_uuid_key" in text:
+        # Two creations with the same uuid raced. T6: 409 `version_conflict` with `current`.
+        return "version_conflict"
+    if "workout_exercises_uuid_key" in text or "workout_sets_uuid_key" in text:
+        return "uuid already in use"
+    return None
+
+
 async def rename_workout(
     db: AsyncSession, user: User, workout_id: int, payload: WorkoutRename
 ) -> WorkoutOut:
-    workout = await load_workout(db, user, workout_id)
+    workout = await load_workout(db, user, workout_id, for_update=True)
     workout.name = payload.name
     return await _save(db, user, workout)
 
@@ -613,7 +803,7 @@ async def delete_workout(db: AsyncSession, user: User, workout_id: int) -> None:
 
 
 async def _load_finished(db: AsyncSession, user: User, workout_id: int) -> Workout:
-    workout = await load_workout(db, user, workout_id)
+    workout = await load_workout(db, user, workout_id, for_update=True)
     if workout.status is not WorkoutStatus.finished:
         raise Invalid("workout is not finished")
     return workout
