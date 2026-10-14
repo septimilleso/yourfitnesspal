@@ -141,7 +141,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. `gymKeys.offlineSnapshot = ["gym","offline-snapshot"]`, `fetchOfflineSnapshot()`, `putWorkout(uuid, body)`, `deleteWorkoutChecked(id, baseVersion)`. Solo aggiunte, nessun uso ancora.
 - Verifica: `cd web && npm test && npm run build`, risultato atteso: tutti verdi, build senza errori.
 
-### [~] T10. Porting puro delle regole e test di parità in Vitest
+### [x] T10. Porting puro delle regole e test di parità in Vitest
 
 - Copre: C13
 - Rischio: alto
@@ -151,7 +151,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. Il test legge `../api/tests/fixtures/gym_parity.json` e fa girare ogni caso; un `fn` senza implementazione TS fa fallire il test.
 - Verifica: `cd web && npx vitest run src/lib/gymRules.parity.test.ts`, risultato atteso: un test per caso, tutti verdi; `npm test` verde.
 
-### [ ] T11. Reducer della sessione: serie e riposo
+### [~] T11. Reducer della sessione: serie e riposo
 
 - Copre: C18, C19, C23 (logica dell'orologio)
 - Rischio: alto
@@ -420,5 +420,6 @@ T6 — DONE — review: 2 round (MAJOR: db.refresh(user) dopo rollback, altrimen
 T7 — DONE — review: 1 round, APPROVED. Solo test (codice gia in T5). MINOR: test_workouts_sync.py:795-813 conteggi notify_due_rests su tutto il DB (filtrare calls per endpoint come _calls_for_endpoints se l'isolamento sul remoto da problemi). Remoto: pytest tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py.
 T8 — DONE — review: 1 round, APPROVED. Forma snapshot: {server_now, exercises:[{exercise, rest_seconds|null, previous:SetValues[], max:SetValues[]}]} (liste vuote se senza storia): T9 la usa cosi. MINOR: (a) test_workouts_snapshot.py:100 manca test per in_progress con started_at > 90 giorni e per il confine esatto dei 90; (b) :157 isolamento non copre modello/allenamento attivo di Alice; (c) schemas/workout.py:147 `rest_seconds` ha ge=0/le=600 sullo schema di uscita SnapshotExercise: una riga fuori range da 500 all'intero snapshot, usare `int | None` senza limiti come gli altri schemi di uscita. Remoto: pytest tests/test_workouts_snapshot.py. PARTE SERVER T1-T8 COMPLETA: restano da eseguire sul remoto tutti i test DB (vedi righe T1, T3, T5, T6, T7, T8) e il controllo C11.
 T9 — DONE — review: saltata. Suite web: 111 file, 804 test verdi. Esportati: fetchOfflineSnapshot, putWorkout, deleteWorkoutChecked, gymKeys.offlineSnapshot, tipi OfflineSnapshot/SnapshotExercise/WorkoutPutBody/ConflictBody.
+T10 — DONE — review: 1 round, APPROVED. Suite web 112 file, 904 verdi. Divergenze volute: normalizeSupersets e formatSetText copiati in gymRules.ts (gym.ts importa api/client.ts); roundKg half-up float-safe, canonicalWorkout TS arrotonda il peso mentre canonical_workout Python no (lo fa lo schema del PUT). MINOR per T11/T12: (a) i reducer scrivono i pesi SEMPRE arrotondati con roundKg (cosi formatSet e formatSetText coincidono e canonical TS = server); (b) usare solo stringhe prodotte da isoOffset (UTC, ms, +00:00): date non valide o senza offset divergono da Python; (c) mai `undefined`, sempre `null` (setProblem e sameContent via JSON.stringify trattano undefined diverso da null); (d) clampTimes riscrive in UTC ms: va bene se il client produce solo UTC ms; (e) debito: spostare normalizeSupersets in gymRules.ts e far importare gym.ts da li (task successivo, non ora); formatKg non esportata in gymRules.ts ma gym.ts ne esporta una omonima diversa: attenzione agli import automatici.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main
