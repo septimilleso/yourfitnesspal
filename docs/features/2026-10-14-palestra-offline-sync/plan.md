@@ -72,7 +72,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Casi nella fixture per ogni funzione.
 - Verifica: `cd api && pytest -q tests/test_gym_rules.py tests/test_gym_parity.py` verde in locale. Pytest sul remoto `tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_gym_routers.py`: verdi, invariati.
 
-### [~] T4. Normalizzazione canonica, confronto di contenuto e limiti degli orari
+### [x] T4. Normalizzazione canonica, confronto di contenuto e limiti degli orari
 
 - Copre: C12
 - Rischio: alto
@@ -84,7 +84,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Casi nella fixture, compresi orari nel futuro, `completed_at` prima dell'inizio e riposo oltre 600 s.
 - Verifica: `cd api && pytest -q tests/test_gym_parity.py` verde in locale.
 
-### [ ] T5. `PUT /api/workouts/{uuid}`: creazione e aggiornamento
+### [~] T5. `PUT /api/workouts/{uuid}`: creazione e aggiornamento
 
 - Copre: C3, C4, C5, C42, C43
 - Rischio: alto
@@ -414,5 +414,6 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 T1 — DONE — review: 2 round (MAJOR incremento version in SQL, risolto). Test DB e C11 (downgrade/upgrade + uuid distinti) DA ESEGUIRE SUL REMOTO. avviso nuovo: dipendenze API installate nel Python globale, starlette 0.38.6 in conflitto con streamlit 1.58.0.
 T2 — DONE — review: saltata. 45 test verdi in locale. Nota per T10: la conversione degli input (tracking, tuple/frozenset) e in test_gym_parity.py e va ripetuta lato Vitest.
 T3 — DONE — review: 1 round, APPROVED. MINOR: api/tests/fixtures/gym_parity.json:52 caso rest_action start_s 0 fuori dominio (RestIn.start_s ge=1), da togliere o documentare prima di T10. Remoto: pytest tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_gym_routers.py tests/test_rest_notifier.py.
+T4 — DONE — review: 1 round, APPROVED. MINOR (da gestire in T5/T10): (a) peso float senza arrotondamento a 2 decimali vs Numeric(6,2): limitare a 2 decimali nello schema del PUT o quantize ROUND_HALF_UP in canonical e TS; (b) clamp_times con un solo tra rest_ends_at/rest_total_s azzera il riposo: aggiungere frase a R6 della spec; (c) dopo il clamp rest_ends_at puo superare rest_total_s, e rest_action con delta puo arrivare a 1200 s mentre il PUT taglia a 600: allineare; (d) finished_at non validato per stato: validatore in WorkoutPutIn (null se in corso, obbligatorio se finito). Avvisi per T5: usare AwareDatetime nel corpo del PUT e now aware; formato orari `+00:00` come isoformat (TS non deve emettere `Z`); rest_notified_at (R6) a T5; same_content su canonical_workout del payload PRIMA di clamp_times.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main

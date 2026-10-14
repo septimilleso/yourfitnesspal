@@ -5,13 +5,18 @@ Postgres. Italian strings are user-facing (the SPA shows them verbatim).
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.models.exercise import Tracking
+from app.models.workout import WorkoutStatus
 
 DEFAULT_REST_SECONDS = 90
+# R6: times sent by a client may be this far ahead of the server clock, and a
+# rest lasts at most MAX_REST_SECONDS.
+TIME_TOLERANCE = timedelta(minutes=5)
+MAX_REST_SECONDS = 600
 
 TRACKING_FIELDS = {
     Tracking.weight_reps: ("weight_kg", "reps"),
@@ -312,3 +317,126 @@ def finish_prune(completed: Sequence[Sequence[bool]]) -> list[tuple[int, list[in
         for index, sets in enumerate(completed)
         if any(sets)
     ]
+
+
+@dataclass(frozen=True)
+class StateSet:
+    """A set as the client holds it: `completed_at` is None while it is not done."""
+
+    weight_kg: float | Decimal | None
+    reps: int | None
+    duration_s: int | None
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True)
+class StateExercise:
+    """An exercise of a workout. Its position is its index in the workout."""
+
+    exercise_id: int
+    rest_seconds: int
+    superset_group: int | None
+    note: str | None
+    sets: tuple[StateSet, ...]
+
+
+@dataclass(frozen=True)
+class StateWorkout:
+    """A whole workout, as `PUT /api/workouts/{uuid}` sends it. Times are
+    timezone-aware datetimes; uuids and ids are identity, not content, so they
+    are not part of the state."""
+
+    name: str
+    template_id: int | None
+    status: WorkoutStatus
+    started_at: datetime
+    finished_at: datetime | None
+    rest_ends_at: datetime | None
+    rest_total_s: int | None
+    exercises: tuple[StateExercise, ...]
+
+
+def _canonical_set(state: StateSet) -> StateSet:
+    weight = None if state.weight_kg is None else float(state.weight_kg)
+    return replace(state, weight_kg=weight)
+
+
+def canonical_workout(state: StateWorkout) -> StateWorkout:
+    """The workout as the server stores it. Positions are the order of the tuples;
+    decimal weights become floats (as `_norm`). A finished workout keeps only the
+    done sets and the exercises left with one, has no rest timer, and its
+    supersets are renumbered after that pruning, so a group can shrink to a lone
+    exercise (which is then no superset). In progress, nothing is dropped.
+    """
+    finished = state.status is WorkoutStatus.finished
+    exercises = []
+    for exercise in state.exercises:
+        sets = tuple(
+            _canonical_set(s)
+            for s in exercise.sets
+            if not finished or s.completed_at is not None
+        )
+        if finished and not sets:
+            continue
+        exercises.append(replace(exercise, sets=sets))
+    groups = normalize_supersets([e.superset_group for e in exercises])
+    return replace(
+        state,
+        exercises=tuple(
+            replace(e, superset_group=group) for e, group in zip(exercises, groups, strict=True)
+        ),
+        rest_ends_at=None if finished else state.rest_ends_at,
+        rest_total_s=None if finished else state.rest_total_s,
+    )
+
+
+def same_content(a: StateWorkout, b: StateWorkout) -> bool:
+    """Whether two workouts hold the same content once canonicalized (R5)."""
+    return canonical_workout(a) == canonical_workout(b)
+
+
+def _clamp_time(value: datetime | None, low: datetime, high: datetime) -> datetime | None:
+    if value is None:
+        return None
+    return max(min(value, high), low)
+
+
+def clamp_times(state: StateWorkout, now: datetime) -> StateWorkout:
+    """The workout with its times brought back into the plausible range around
+    `now` (R6): out-of-range values are clamped, never rejected.
+
+    Order: started_at <= now + T; finished_at within [started_at, now + T];
+    each completed_at within [started_at, finished_at or now + T]; rest_ends_at
+    <= now + 600 s + T; rest_total_s within [1, 600]. A rest whose two fields are
+    not both present is dropped. Timestamps must be timezone-aware.
+    """
+    ceiling = now + TIME_TOLERANCE
+    started_at = min(state.started_at, ceiling)
+    finished = state.status is WorkoutStatus.finished
+    finished_at = _clamp_time(state.finished_at, started_at, ceiling)
+    last = finished_at if finished and finished_at is not None else ceiling
+    exercises = tuple(
+        replace(
+            exercise,
+            sets=tuple(
+                replace(s, completed_at=_clamp_time(s.completed_at, started_at, last))
+                for s in exercise.sets
+            ),
+        )
+        for exercise in state.exercises
+    )
+    if state.rest_ends_at is None or state.rest_total_s is None:
+        rest_ends_at, rest_total_s = None, None
+    else:
+        rest_ends_at = min(
+            state.rest_ends_at, now + timedelta(seconds=MAX_REST_SECONDS) + TIME_TOLERANCE
+        )
+        rest_total_s = min(max(state.rest_total_s, 1), MAX_REST_SECONDS)
+    return replace(
+        state,
+        started_at=started_at,
+        finished_at=finished_at,
+        rest_ends_at=rest_ends_at,
+        rest_total_s=rest_total_s,
+        exercises=exercises,
+    )
