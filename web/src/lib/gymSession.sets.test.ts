@@ -404,3 +404,81 @@ describe("uuid inesistenti e stato non modificabile", () => {
     expectRejected(run(state, { type: "completeSet", setUuid: "a1", values: { weight_kg: 80, reps: 1.5, duration_s: null } }), "Valori non validi", state);
   });
 });
+
+describe("C18: il giro che si chiude per ultimo fa partire il riposo dell'ultimo del gruppo", () => {
+  it("b1 poi a1: parte il riposo di B (120 s), l'ultimo del gruppo", () => {
+    const state = workout([
+      exercise("A", { rest_seconds: 60, superset_group: 1, sets: [set("a1", { weight_kg: 80, reps: 8 })] }),
+      exercise("B", { rest_seconds: 120, superset_group: 1, sets: [set("b1", { weight_kg: 40, reps: 10 })] }),
+    ]);
+
+    const afterB = applied(
+      run(state, { type: "completeSet", setUuid: "b1", values: { weight_kg: 40, reps: 10, duration_s: null } }),
+    );
+    expect(afterB.rest_ends_at).toBeNull();
+    expect(afterB.rest_total_s).toBeNull();
+
+    const afterA = applied(
+      run(afterB, { type: "completeSet", setUuid: "a1", values: { weight_kg: 80, reps: 8, duration_s: null } }),
+    );
+    expect(afterA.rest_total_s).toBe(120);
+    expect(afterA.rest_ends_at).toBe(isoOffset(NOW + 120_000));
+  });
+});
+
+describe("confini dei limiti del server e arrotondamento sul valore grezzo", () => {
+  it("restDelta: ±600 s sono accettati con un timer in corso, ±601 s risponde 'Valori non validi'", () => {
+    const started = applied(run(workout([exercise("A")]), { type: "restStart", seconds: 300 }));
+
+    expect(run(started, { type: "restDelta", seconds: 600 }).ok).toBe(true);
+    expect(run(started, { type: "restDelta", seconds: -600 }).ok).toBe(true);
+    expectRejected(run(started, { type: "restDelta", seconds: 601 }), "Valori non validi", started);
+    expectRejected(run(started, { type: "restDelta", seconds: -601 }), "Valori non validi", started);
+  });
+
+  it("duration_s: 36000 è accettato, 36001 risponde 'Valori non validi' sia in patchSet sia in completeSet", () => {
+    const state = workout([exercise("D", { tracking: "duration", sets: [set("d1")] })]);
+
+    const next = applied(run(state, { type: "completeSet", setUuid: "d1", values: { weight_kg: null, reps: null, duration_s: 36000 } }));
+    expect(setOf(next, "D", 0).duration_s).toBe(36000);
+    expectRejected(run(state, { type: "completeSet", setUuid: "d1", values: { weight_kg: null, reps: null, duration_s: 36001 } }), "Valori non validi", state);
+    expectRejected(run(state, { type: "patchSet", setUuid: "d1", values: { weight_kg: null, reps: null, duration_s: 36001 } }), "Valori non validi", state);
+  });
+
+  it("il limite di peso si controlla sul valore inviato: 1000.004 è fuori anche se arrotondato sarebbe 1000", () => {
+    const state = workout([exercise("A", { sets: [set("a1")] })]);
+
+    expectRejected(run(state, { type: "patchSet", setUuid: "a1", values: { weight_kg: 1000.004, reps: 8, duration_s: null } }), "Valori non validi", state);
+    expectRejected(run(state, { type: "completeSet", setUuid: "a1", values: { weight_kg: 1000.004, reps: 8, duration_s: null } }), "Valori non validi", state);
+  });
+
+  it("un peso di 999.999 è accettato e salvato arrotondato a 1000", () => {
+    const state = workout([exercise("A", { sets: [set("a1")] })]);
+
+    const next = applied(run(state, { type: "patchSet", setUuid: "a1", values: { weight_kg: 999.999, reps: 8, duration_s: null } }));
+
+    expect(setOf(next, "A", 0).weight_kg).toBe(1000);
+  });
+
+  it("patchSet arrotonda il peso a 2 decimali come il server (80.125 → 80.13, 80.124 → 80.12)", () => {
+    const state = workout([exercise("A", { sets: [set("a1"), set("a2")] })]);
+
+    const next = applied(run(state, { type: "patchSet", setUuid: "a1", values: { weight_kg: 80.125, reps: 8, duration_s: null } }));
+    const again = applied(run(next, { type: "patchSet", setUuid: "a2", values: { weight_kg: 80.124, reps: 8, duration_s: null } }));
+
+    expect(setOf(again, "A", 0).weight_kg).toBe(80.13);
+    expect(setOf(again, "A", 1).weight_kg).toBe(80.12);
+  });
+});
+
+describe("addSet: tetto di 100 serie per esercizio", () => {
+  it("con 99 serie aggiunge la centesima; con 100 risponde 'Valori non validi' e lo stato resta", () => {
+    const sets = Array.from({ length: 99 }, (_, i) => set(`s${i}`, { weight_kg: 1, reps: 1 }));
+    const state = workout([exercise("A", { sets })]);
+
+    const full = applied(run(state, { type: "addSet", exerciseUuid: "A", previousFirst: null }));
+    expect(full.exercises[0].sets).toHaveLength(100);
+
+    expectRejected(run(full, { type: "addSet", exerciseUuid: "A", previousFirst: null }), "Valori non validi", full);
+  });
+});
