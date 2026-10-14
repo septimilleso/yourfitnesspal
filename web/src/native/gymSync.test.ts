@@ -239,6 +239,32 @@ describe("esito 200 o 201 (C24)", () => {
   });
 });
 
+describe("fine durante il volo", () => {
+  it("Termina durante il volo: la voce resta finita e pending con id e baseVersion, e non esce dallo store", async () => {
+    const uuid = startedFromTemplate();
+    const setUuid = getSnapshot().active?.workout.exercises[0].sets[0].uuid ?? "";
+    expect(dispatch(uuid, { type: "completeSet", setUuid, values: { weight_kg: 50, reps: 8, duration_s: null } }).ok).toBe(true);
+    let resolveFirst: (value: Workout) => void = () => undefined;
+    api.putWorkout.mockImplementationOnce(
+      () =>
+        new Promise<Workout>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    const first = syncEntry(uuid, queryClient);
+    const sentBody = lastBody();
+    expect(dispatch(uuid, { type: "finish", discardIncomplete: false }).ok).toBe(true);
+    expect(getSnapshot().finished).toHaveLength(1);
+    resolveFirst(serverCopy(uuid, sentBody));
+    await expect(first).resolves.toBe("pending");
+
+    expect(getSnapshot().active).toBeNull();
+    expect(getSnapshot().finished).toEqual([expect.objectContaining({ sync: "pending", baseVersion: 1 })]);
+    expect(getSnapshot().finished[0].workout).toMatchObject({ uuid, id: 42, version: 1, status: "finished" });
+  });
+});
+
 describe("allenamento finito confermato (C26)", () => {
   it("esce dallo store, mette la risposta in ['gym','workout',id] e invalida storico, statistiche, modelli e snapshot", async () => {
     const uuid = finishedLocally();

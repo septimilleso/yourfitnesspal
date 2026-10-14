@@ -13,6 +13,7 @@ import { meWith, type Reply, type RouteContext, routeFetch } from "../test/prefe
 import { resetConnectivityForTests, startConnectivityRecovery } from "./connectivity";
 import NativeBridge from "./NativeBridge";
 import NativeOfflineServices from "./NativeOfflineServices";
+import { startGymSync } from "./gymSync";
 import { resetPrefetchSchedulerForTests, startPrefetch } from "./prefetchScheduler";
 import { clearToken, getToken, setToken } from "./session";
 
@@ -48,6 +49,10 @@ vi.mock("./connectivity", async (importOriginal) => {
 vi.mock("./prefetchScheduler", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./prefetchScheduler")>();
   return { ...actual, startPrefetch: vi.fn(actual.startPrefetch) };
+});
+vi.mock("./gymSync", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./gymSync")>();
+  return { ...actual, startGymSync: vi.fn(actual.startGymSync) };
 });
 // La campanella è una richiesta a /sounds: la escludiamo, così la prima richiesta di fetch è /auth/me.
 vi.mock("./restNotifications", async (importOriginal) => {
@@ -152,7 +157,25 @@ describe("NativeOfflineServices sul montaggio", () => {
     expect(stopPrefetch).toHaveBeenCalledTimes(1);
   });
 
-  it("web: non avvia né la ripresa né il precarico", () => {
+  it("nativo: avvia il sync della palestra con il client di React Query e lo ferma allo smontaggio", () => {
+    setupFetch();
+    const stopGymSync = vi.fn();
+    vi.mocked(startGymSync).mockReturnValueOnce(stopGymSync);
+
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <NativeOfflineServices />
+      </QueryClientProvider>,
+    );
+    expect(startGymSync).toHaveBeenCalledTimes(1);
+    expect(startGymSync).toHaveBeenCalledWith(queryClient);
+    expect(stopGymSync).not.toHaveBeenCalled();
+
+    unmount();
+    expect(stopGymSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("web: non avvia né la ripresa né il precarico né il sync", () => {
     setupFetch();
     platform.native = false;
 
@@ -164,6 +187,7 @@ describe("NativeOfflineServices sul montaggio", () => {
     unmount();
     expect(startConnectivityRecovery).not.toHaveBeenCalled();
     expect(startPrefetch).not.toHaveBeenCalled();
+    expect(startGymSync).not.toHaveBeenCalled();
     expect(routed.urls).toEqual([]);
   });
 });

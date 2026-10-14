@@ -1,12 +1,14 @@
 // Sync dell'allenamento locale verso il server (R15, R16). Qui si invia un `PUT` e si applica l'esito;
-// quando inviare (trigger, coalescing, ordine) sta nello scheduler. Importa `api/gym` e lo store, mai il contrario.
-import type { QueryClient } from "@tanstack/react-query";
+// quando inviare (trigger, coalescing, ordine) sta nello scheduler in fondo al file. Importa `api/gym` e lo store, mai il contrario.
+import { type QueryClient, onlineManager } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
 import { type ConflictBody, type Workout, type WorkoutPutBody, gymKeys, putWorkout } from "../api/gym";
 import type { SessionWorkout } from "../lib/gymSession";
 import { clockOffsetMs } from "../lib/restTimer";
-import { type GymConflict, type GymEntry, getSnapshot, patchEntry, removeEntry, setClockOffset } from "./gymStore";
+import { isOffline, subscribeConnectivity } from "./connectivity";
+import { type GymConflict, type GymEntry, getSnapshot, patchEntry, removeEntry, setClockOffset, subscribe } from "./gymStore";
+import { getToken } from "./session";
 
 /** Esito di un invio: chi pianifica i tentativi decide cosa fare dopo (R15). */
 export type SyncOutcome = "synced" | "pending" | "conflict" | "error" | "unauthorized" | "missing";
@@ -164,8 +166,9 @@ function applyFailure(uuid: string, error: unknown): SyncOutcome {
 }
 
 /**
- * Invia l'allenamento con `PUT /api/workouts/{uuid}` e applica l'esito. Mai lancia per un errore di
- * rete o del server: lo stato resta coerente e il prossimo trigger riprova.
+ * Invia l'allenamento con `PUT /api/workouts/{uuid}` e applica l'esito. Mai lancia: un errore di rete o del
+ * server lascia lo stato coerente e il prossimo trigger riprova. Anche una risposta 2xx senza `uuid` o
+ * `version` non si applica e finisce come errore di sincronizzazione.
  */
 export async function syncEntry(uuid: string, queryClient: QueryClient): Promise<SyncOutcome> {
   const entry = findEntry(uuid);
@@ -178,5 +181,123 @@ export async function syncEntry(uuid: string, queryClient: QueryClient): Promise
   } catch (error) {
     return applyFailure(uuid, error);
   }
-  return applyAccepted(uuid, sentRevision, server, queryClient);
+  try {
+    return applyAccepted(uuid, sentRevision, server, queryClient);
+  } catch {
+    // Una 2xx senza uuid o version: il server può aver già accettato la scrittura. Si segna l'errore e il ritento
+    // al primo piano può dare 409 version_conflict, che porta al dialogo di conflitto (R18) invece di perdere dati.
+    setSync(uuid, "error");
+    return "error";
+  }
+}
+
+// Coalescing delle modifiche (R15): l'invio parte dopo questo tempo di quiete.
+const SETTLE_MS = 1000;
+// Al più un `PUT` in volo per uuid: chi ne chiede un altro aspetta quello già partito.
+const inFlight = new Map<string, Promise<SyncOutcome>>();
+// Client di React Query per `syncNow`, che riceve solo uuid e timeout. Lo imposta `startGymSync`.
+let activeClient: QueryClient | null = null;
+
+function finishedTime(entry: GymEntry): number {
+  return Date.parse(entry.workout.finished_at ?? "") || 0;
+}
+
+// Da inviare: modifiche non ancora inviate e voce in attesa. Una voce in errore si ritenta solo se
+// `retryErrors` (primo piano o apertura, R16). Un conflitto non si invia: lo sblocca la scelta dell'utente (R18).
+function isSendable(entry: GymEntry, retryErrors: boolean): boolean {
+  if (entry.revision === entry.sentRevision) return false;
+  return entry.sync === "pending" || (entry.sync === "error" && retryErrors);
+}
+
+function sendOnce(uuid: string, queryClient: QueryClient): Promise<SyncOutcome> {
+  const running = inFlight.get(uuid);
+  if (running !== undefined) return running;
+  const sending = syncEntry(uuid, queryClient).finally(() => inFlight.delete(uuid));
+  inFlight.set(uuid, sending);
+  return sending;
+}
+
+// Un giro: prima i finiti in ordine di fine, poi l'attivo (R15). Si ferma alla rete assente e al 401.
+async function sendQueue(queryClient: QueryClient, retryErrors: boolean): Promise<void> {
+  if (getToken() === null || isOffline() || !onlineManager.isOnline()) return;
+  const { active, finished } = getSnapshot();
+  const order = [...finished].sort((a, b) => finishedTime(a) - finishedTime(b));
+  if (active !== null) order.push(active);
+  for (const { workout } of order) {
+    // Si ricontrolla prima di ogni invio: mentre il giro aspetta, la voce può essere già stata inviata.
+    const entry = findEntry(workout.uuid);
+    if (entry === undefined || !isSendable(entry, retryErrors)) continue;
+    const outcome = await sendOnce(workout.uuid, queryClient);
+    // Si ferma solo per il 401 o per la rete assente: un errore del server su una voce non blocca le altre.
+    if (outcome === "unauthorized" || isOffline() || !onlineManager.isOnline()) return;
+  }
+}
+
+/**
+ * Avvia il sync dell'IPA (R15): dopo ogni modifica con 1 s di quiete, al ritorno della rete, al ritorno in
+ * primo piano e all'apertura con un token. Non dipende dal throttle del precarico. Restituisce la funzione
+ * che ferma i trigger.
+ */
+export function startGymSync(queryClient: QueryClient): () => void {
+  activeClient = queryClient;
+  let settle: ReturnType<typeof setTimeout> | undefined;
+  const run = (retryErrors: boolean) => {
+    void sendQueue(queryClient, retryErrors).catch(() => undefined);
+  };
+
+  const unsubscribeStore = subscribe(() => {
+    clearTimeout(settle);
+    settle = setTimeout(() => run(false), SETTLE_MS);
+  });
+  const unsubscribeConnectivity = subscribeConnectivity(() => {
+    if (!isOffline()) run(false);
+  });
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") run(true);
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  run(true);
+
+  return () => {
+    clearTimeout(settle);
+    unsubscribeStore();
+    unsubscribeConnectivity();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    if (activeClient === queryClient) activeClient = null;
+  };
+}
+
+// Ripete l'invio solo se durante il volo sono arrivate modifiche e il server ha accettato la revisione inviata
+// (sentRevision è avanzato). Un errore del server o la rete assente danno l'esito subito, senza ripetere.
+async function sendUntilSettled(uuid: string, queryClient: QueryClient): Promise<SyncOutcome> {
+  for (;;) {
+    const sentBefore = findEntry(uuid)?.sentRevision;
+    const outcome = await sendOnce(uuid, queryClient);
+    if (outcome !== "pending" || isOffline()) return outcome;
+    const entry = findEntry(uuid);
+    if (entry === undefined || entry.sentRevision === sentBefore || entry.revision === entry.sentRevision) return outcome;
+  }
+}
+
+/**
+ * Invia subito l'allenamento e aspetta l'esito per al massimo `timeoutMs` (Termina, R19). Oltre il tempo
+ * restituisce "timeout": il PUT prosegue e applica l'esito da solo. Un conflitto non si invia.
+ */
+export async function syncNow(uuid: string, timeoutMs: number): Promise<SyncOutcome | "timeout"> {
+  const queryClient = activeClient;
+  if (queryClient === null) return "pending";
+  const entry = findEntry(uuid);
+  if (entry === undefined) return "missing";
+  if (entry.sync === "conflict") return "conflict";
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
+  const sending = sendUntilSettled(uuid, queryClient).catch((): SyncOutcome => "error");
+  try {
+    return await Promise.race([sending, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
