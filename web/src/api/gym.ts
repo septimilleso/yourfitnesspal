@@ -403,11 +403,15 @@ export const useDeleteFolder = () =>
 
 // ---- workouts ----
 
+/** `GET /workouts/active`. 204 (no live workout) comes back as `undefined`; here it is null. */
+export async function fetchActiveWorkout(): Promise<Workout | null> {
+  return (await client.get<Workout | undefined>("/workouts/active")) ?? null;
+}
+
 export function useActiveWorkout(enabled = true) {
   return useQuery({
     queryKey: gymKeys.active,
-    // 204 (no live workout) comes back as `undefined`; react-query needs null.
-    queryFn: async () => (await client.get<Workout | undefined>("/workouts/active")) ?? null,
+    queryFn: fetchActiveWorkout,
     enabled,
   });
 }

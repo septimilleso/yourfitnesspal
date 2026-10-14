@@ -17,7 +17,7 @@ const filesystem = vi.hoisted(() => ({
   rename: vi.fn(),
   stat: vi.fn(),
 }));
-const api = vi.hoisted(() => ({ putWorkout: vi.fn() }));
+const api = vi.hoisted(() => ({ fetchActiveWorkout: vi.fn(), putWorkout: vi.fn() }));
 
 vi.mock("./platform", () => ({ isNative: () => platform.native }));
 vi.mock("@capacitor/preferences", () => ({ Preferences: preferences }));
@@ -28,6 +28,7 @@ vi.mock("@capacitor/filesystem", () => ({
 }));
 vi.mock("../api/gym", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/gym")>()),
+  fetchActiveWorkout: api.fetchActiveWorkout,
   putWorkout: api.putWorkout,
 }));
 
@@ -150,6 +151,9 @@ beforeEach(async () => {
   filesystem.deleteFile.mockResolvedValue(undefined);
   filesystem.rename.mockResolvedValue(undefined);
   filesystem.stat.mockResolvedValue({});
+  // Nessun allenamento attivo sul server (204): l'adozione all'apertura non cambia nulla.
+  api.fetchActiveWorkout.mockReset();
+  api.fetchActiveWorkout.mockResolvedValue(null);
   api.putWorkout.mockReset();
   queryClient = new QueryClient();
   await clearGymStore();

@@ -442,6 +442,12 @@ export function patchEntry(uuid: string, patch: EntryPatch): boolean {
   });
 }
 
+/** Adotta l'allenamento attivo del server (R17) quando il telefono non ne ha uno. Non sostituisce un attivo locale. */
+export function adoptActiveEntry(entry: GymEntry): void {
+  if (data.active !== null) return;
+  commit({ ...data, active: entry });
+}
+
 /** Toglie un allenamento (attivo o finito) dallo stato locale: annullamento o fine della sincronizzazione. */
 export function removeEntry(uuid: string): boolean {
   const active = data.active;

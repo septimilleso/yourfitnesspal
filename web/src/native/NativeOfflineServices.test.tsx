@@ -73,7 +73,8 @@ function meReply({ init }: RouteContext): Reply {
 }
 
 function setupFetch(overrides: Parameters<typeof routeFetch>[0] = {}): void {
-  routed = routeFetch({ "/auth/me": meReply, ...overrides });
+  // Nessun allenamento attivo sul server (204): è la risposta che il sync dell'apertura riceve (R17).
+  routed = routeFetch({ "/auth/me": meReply, "/workouts/active": { status: 204 }, ...overrides });
   vi.stubGlobal("fetch", routed.fetch);
 }
 
@@ -200,15 +201,17 @@ describe("precarico avviato dai servizi nativi", () => {
   it("la prima richiesta è /auth/me e il giro parte solo dopo la sua risposta e 2 secondi di idle", async () => {
     setupFetch();
     render(app(queryClient));
-    expect(routed.fetch.mock.calls[0]?.[0]).toBe("/api/auth/me");
-    expect(routed.urls).toEqual(["/auth/me"]);
+    expect(routed.urls).toContain("/auth/me");
+    // La GET dell'attivo (sync, R17) non fa parte del precarico: si toglie dalla sequenza.
+    const prefetchUrls = () => routed.urls.filter((url) => url !== "/workouts/active");
+    expect(prefetchUrls()).toEqual(["/auth/me"]);
 
     await advance(1999);
-    expect(routed.urls).toEqual(["/auth/me"]);
+    expect(prefetchUrls()).toEqual(["/auth/me"]);
 
     await advance(1);
     await settle();
-    expect(routed.urls).toEqual(
+    expect(prefetchUrls()).toEqual(
       expect.arrayContaining([
         "/diary/day/2026-10-13",
         "/diary/day/2026-10-12",

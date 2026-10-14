@@ -1,13 +1,24 @@
-// Sync dell'allenamento locale verso il server (R15, R16). Qui si invia un `PUT` e si applica l'esito;
-// quando inviare (trigger, coalescing, ordine) sta nello scheduler in fondo al file. Importa `api/gym` e lo store, mai il contrario.
+// Sync dell'allenamento locale verso il server (R15, R16, R17). Qui si invia un `PUT` e si applica l'esito, e si adotta
+// l'allenamento attivo del server; quando inviare (trigger, coalescing, ordine) sta nello scheduler in fondo al file.
+// Importa `api/gym` e lo store, mai il contrario.
 import { type QueryClient, onlineManager } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
-import { type ConflictBody, type Workout, type WorkoutPutBody, gymKeys, putWorkout } from "../api/gym";
+import { type ConflictBody, type Workout, type WorkoutPutBody, fetchActiveWorkout, gymKeys, putWorkout } from "../api/gym";
 import type { SessionWorkout } from "../lib/gymSession";
 import { clockOffsetMs } from "../lib/restTimer";
 import { isOffline, subscribeConnectivity } from "./connectivity";
-import { type GymConflict, type GymEntry, getSnapshot, patchEntry, removeEntry, setClockOffset, subscribe } from "./gymStore";
+import {
+  type GymConflict,
+  type GymEntry,
+  type PendingDelete,
+  adoptActiveEntry,
+  getSnapshot,
+  patchEntry,
+  removeEntry,
+  setClockOffset,
+  subscribe,
+} from "./gymStore";
 import { getToken } from "./session";
 
 /** Esito di un invio: chi pianifica i tentativi decide cosa fare dopo (R15). */
@@ -233,16 +244,131 @@ async function sendQueue(queryClient: QueryClient, retryErrors: boolean): Promis
   }
 }
 
+/** Esito dell'adozione (R17). `failed`: il server non ha risposto e il giro prosegue; `unauthorized`: il giro si ferma. */
+export type AdoptOutcome = "adopted" | "removed" | "unchanged" | "unauthorized" | "failed";
+
+// Le parti dello store che l'adozione legge. Lo store cambia il riferimento di una parte solo quando la cambia
+// (ogni commit spread di `data`, e `setClockOffset` non tocca queste parti), quindi il confronto per identità
+// dice se qualcosa è cambiato durante la GET: in quel caso la risposta è più vecchia del locale.
+interface SeenState {
+  active: GymEntry | null;
+  finished: GymEntry[];
+  pendingDeletes: PendingDelete[];
+}
+
+function seenState(): SeenState {
+  const { active, finished, pendingDeletes } = getSnapshot();
+  return { active, finished, pendingDeletes };
+}
+
+function changedSince(seen: SeenState): boolean {
+  const now = getSnapshot();
+  return now.active !== seen.active || now.finished !== seen.finished || now.pendingDeletes !== seen.pendingDeletes;
+}
+
+// Voce locale di un allenamento attivo preso dal server: nessuna modifica locale, quindi revisione e inviata coincidono.
+function entryFromServer(server: Workout): GymEntry {
+  const workout = sessionFromServer(server);
+  return {
+    workout,
+    baseVersion: workout.version,
+    revision: 0,
+    sentRevision: 0,
+    sync: "synced",
+    conflict: null,
+    lastServer: server,
+  };
+}
+
+// Regole di R17 applicate allo stato attuale, senza await in mezzo. `seenKey` è lo stato di prima della GET.
+function applyAdoption(server: Workout | null, seen: SeenState): AdoptOutcome {
+  if (changedSince(seen)) return "unchanged";
+  const { active, finished, pendingDeletes } = getSnapshot();
+  // Un finito in attesa di sync, o un annullamento offline in attesa, ha questo allenamento sul server: non si riadotta (R16, R20).
+  if (server !== null) {
+    const finishedHere = finished.some((entry) => entry.workout.uuid === server.uuid);
+    if (finishedHere || pendingDeletes.some((pending) => pending.id === server.id)) return "unchanged";
+  }
+  if (active === null) {
+    if (server === null) return "unchanged";
+    // Nessun locale: si adotta.
+    adoptActiveEntry(entryFromServer(server));
+    return "adopted";
+  }
+  const { uuid } = active.workout;
+  // Un PUT in volo o un conflitto aspettano il loro esito: lo stato non si tocca.
+  if (inFlight.has(uuid) || active.sync === "conflict") return "unchanged";
+  const hasChanges = active.revision !== active.sentRevision;
+  const clean = !hasChanges && active.sync === "synced" && active.baseVersion !== null;
+  if (server === null) {
+    // Finito o annullato altrove: il locale sincronizzato senza modifiche si toglie.
+    if (!clean) return "unchanged";
+    removeEntry(uuid);
+    return "removed";
+  }
+  if (server.uuid !== uuid) {
+    // Uuid diverso: con il locale pulito il server vince (scelta dell'utente). Con modifiche in attesa decide il PUT (other_active).
+    if (!clean) return "unchanged";
+    const entry = entryFromServer(server);
+    removeEntry(uuid);
+    adoptActiveEntry(entry);
+    return "adopted";
+  }
+  // Stesso uuid: si adotta solo una versione più alta e senza modifiche in attesa.
+  if (hasChanges || active.baseVersion === null || server.version === undefined || server.version <= active.baseVersion) return "unchanged";
+  patchEntry(uuid, {
+    workout: sessionFromServer(server),
+    baseVersion: server.version,
+    sentRevision: active.revision,
+    sync: "synced",
+    conflict: null,
+    lastServer: server,
+  });
+  return "adopted";
+}
+
+/**
+ * Adotta l'allenamento attivo del server (R17) e aggiorna lo scarto d'orologio. Va chiamata all'apertura e al
+ * ritorno in primo piano, prima dei PUT. Mai lancia: rete o 5xx danno `failed` e il sync prosegue.
+ */
+export async function adoptServerActive(): Promise<AdoptOutcome> {
+  if (getToken() === null) return "unauthorized";
+  if (isOffline() || !onlineManager.isOnline()) return "failed";
+  const seen = seenState();
+  let server: Workout | null;
+  try {
+    server = await fetchActiveWorkout();
+  } catch (error) {
+    return error instanceof ApiError && error.status === 401 ? "unauthorized" : "failed";
+  }
+  try {
+    if (server !== null) setClockOffset(clockOffsetMs(server.server_now, Date.now()));
+    return applyAdoption(server, seen);
+  } catch {
+    // Copia del server senza uuid o version: non si applica, il sync prosegue con lo stato locale.
+    return "failed";
+  }
+}
+
 /**
  * Avvia il sync dell'IPA (R15): dopo ogni modifica con 1 s di quiete, al ritorno della rete, al ritorno in
- * primo piano e all'apertura con un token. Non dipende dal throttle del precarico. Restituisce la funzione
- * che ferma i trigger.
+ * primo piano e all'apertura con un token. Non dipende dal throttle del precarico. All'apertura e al ritorno
+ * in primo piano l'attivo del server (R17) viene adottato prima dei PUT. Restituisce la funzione che ferma i trigger.
  */
 export function startGymSync(queryClient: QueryClient): () => void {
   activeClient = queryClient;
   let settle: ReturnType<typeof setTimeout> | undefined;
-  const run = (retryErrors: boolean) => {
-    void sendQueue(queryClient, retryErrors).catch(() => undefined);
+  // Se l'ultima adozione è fallita (p.es. app aperta offline), il ritorno della rete la rifà.
+  let adoptionFailed = false;
+  const run = (retryErrors: boolean, adopt = false) => {
+    void (async () => {
+      if (adopt) {
+        const outcome = await adoptServerActive();
+        adoptionFailed = outcome === "failed";
+        if (outcome === "unauthorized") return;
+      }
+      await sendQueue(queryClient, retryErrors);
+    })().catch(() => undefined);
   };
 
   const unsubscribeStore = subscribe(() => {
@@ -250,14 +376,14 @@ export function startGymSync(queryClient: QueryClient): () => void {
     settle = setTimeout(() => run(false), SETTLE_MS);
   });
   const unsubscribeConnectivity = subscribeConnectivity(() => {
-    if (!isOffline()) run(false);
+    if (!isOffline()) run(false, adoptionFailed);
   });
   const onVisibilityChange = () => {
-    if (document.visibilityState === "visible") run(true);
+    if (document.visibilityState === "visible") run(true, true);
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
 
-  run(true);
+  run(true, true);
 
   return () => {
     clearTimeout(settle);
