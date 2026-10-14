@@ -130,7 +130,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 ### Client-core
 
-### [~] T9. Tipi e chiamate API per sync e snapshot
+### [x] T9. Tipi e chiamate API per sync e snapshot
 
 - Copre: C38 (preparazione)
 - Rischio: basso
@@ -141,7 +141,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. `gymKeys.offlineSnapshot = ["gym","offline-snapshot"]`, `fetchOfflineSnapshot()`, `putWorkout(uuid, body)`, `deleteWorkoutChecked(id, baseVersion)`. Solo aggiunte, nessun uso ancora.
 - Verifica: `cd web && npm test && npm run build`, risultato atteso: tutti verdi, build senza errori.
 
-### [ ] T10. Porting puro delle regole e test di parità in Vitest
+### [~] T10. Porting puro delle regole e test di parità in Vitest
 
 - Copre: C13
 - Rischio: alto
@@ -419,5 +419,6 @@ T5 — DONE — review: 3 round (MAJOR uuid duplicati/vincoli, MAJOR controllo v
 T6 — DONE — review: 2 round (MAJOR: db.refresh(user) dopo rollback, altrimenti MissingGreenlet/500 nelle corse). Fatto anche: clamp prima di same_content, test _stored_by_uuid, corsa uuid con stesso contenuto -> 200. Per T17: il client tratta il 404 di un DELETE in attesa con base_version come riuscito e tollera `current: null` in other_active. Avviso: dopo rollback scade request.state.user_session (oggi letto solo da routers/auth.py). Nota T7: orari futuri oltre now+T tagliati con un now diverso a ogni reinvio, quindi reinvio tardivo non idempotente (spec lo accetta). Remoto: pytest tests/test_workouts_sync.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_workouts_version.py tests/test_rest_notifier.py.
 T7 — DONE — review: 1 round, APPROVED. Solo test (codice gia in T5). MINOR: test_workouts_sync.py:795-813 conteggi notify_due_rests su tutto il DB (filtrare calls per endpoint come _calls_for_endpoints se l'isolamento sul remoto da problemi). Remoto: pytest tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py.
 T8 — DONE — review: 1 round, APPROVED. Forma snapshot: {server_now, exercises:[{exercise, rest_seconds|null, previous:SetValues[], max:SetValues[]}]} (liste vuote se senza storia): T9 la usa cosi. MINOR: (a) test_workouts_snapshot.py:100 manca test per in_progress con started_at > 90 giorni e per il confine esatto dei 90; (b) :157 isolamento non copre modello/allenamento attivo di Alice; (c) schemas/workout.py:147 `rest_seconds` ha ge=0/le=600 sullo schema di uscita SnapshotExercise: una riga fuori range da 500 all'intero snapshot, usare `int | None` senza limiti come gli altri schemi di uscita. Remoto: pytest tests/test_workouts_snapshot.py. PARTE SERVER T1-T8 COMPLETA: restano da eseguire sul remoto tutti i test DB (vedi righe T1, T3, T5, T6, T7, T8) e il controllo C11.
+T9 — DONE — review: saltata. Suite web: 111 file, 804 test verdi. Esportati: fetchOfflineSnapshot, putWorkout, deleteWorkoutChecked, gymKeys.offlineSnapshot, tipi OfflineSnapshot/SnapshotExercise/WorkoutPutBody/ConflictBody.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main
