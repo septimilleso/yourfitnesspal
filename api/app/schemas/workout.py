@@ -139,6 +139,26 @@ class WorkoutOut(BaseModel):
     template_diff: list[str] = Field(default_factory=list)
 
 
+class SnapshotExercise(BaseModel):
+    """One exercise of the offline snapshot, with what Precedente and Max show for it."""
+
+    exercise: ExerciseOut
+    # Rest of the last finished appearance; null if the exercise has none.
+    rest_seconds: int | None = Field(default=None, ge=0, le=600)
+    # Completed sets of the last finished appearance, in order; empty if none.
+    previous: list[SetValues]
+    # Best completed set per position across finished workouts; empty if none.
+    max: list[SetValues]
+
+
+class OfflineSnapshot(BaseModel):
+    """`GET /api/workouts/offline-snapshot`: the phone's Precedente and Max source."""
+
+    # Server clock at response time, as in `WorkoutOut.server_now`.
+    server_now: datetime
+    exercises: list[SnapshotExercise]
+
+
 # Largest value of a Postgres integer column: larger ids would fail in the database.
 _MAX_INT4 = 2**31 - 1
 

@@ -36,10 +36,12 @@ from app.schemas.workout import (
     HistoryItem,
     HistoryPage,
     LayoutIn,
+    OfflineSnapshot,
     RestIn,
     SaveAsTemplateIn,
     SetPatch,
     SetValues,
+    SnapshotExercise,
     TemplateOut,
     WorkoutExerciseAdd,
     WorkoutExerciseOut,
@@ -53,7 +55,7 @@ from app.schemas.workout import (
     WorkoutStart,
 )
 from app.services.errors import Conflict, Invalid, NotFound
-from app.services.exercises import exercise_out, get_visible_exercises
+from app.services.exercises import exercise_out, get_visible_exercises, visible_exercise_filter
 from app.services.gym_rules import (
     DiffExercise,
     ExerciseProgress,
@@ -337,6 +339,62 @@ async def workout_out(db: AsyncSession, user: User, workout: Workout) -> Workout
             for item in workout.exercises
         ],
         template_diff=diff,
+    )
+
+
+# How far back the snapshot looks for finished workouts.
+SNAPSHOT_WINDOW = timedelta(days=90)
+
+
+def snapshot_entry(
+    exercise: Exercise, previous: Previous | None, best: list[SetValues] | None
+) -> SnapshotExercise:
+    """Same values `workout_out` gives a new set of this exercise, per position."""
+    return SnapshotExercise(
+        exercise=exercise_out(exercise),
+        rest_seconds=previous.rest_seconds if previous is not None else None,
+        previous=previous.sets if previous is not None else [],
+        max=best or [],
+    )
+
+
+async def offline_snapshot(db: AsyncSession, user: User) -> OfflineSnapshot:
+    """Precedente and Max for the offline client: the exercises of the user's templates,
+    of the workouts finished in the last 90 days and of the active one. Reuses
+    `previous_sets` and `best_sets`, one batch query each for the whole set."""
+    ensure_permission(user, Permission.workouts)
+    current = now()
+    since = current - SNAPSHOT_WINDOW
+    template_exercise_ids = await db.scalars(
+        sa.select(TemplateExercise.exercise_id)
+        .join(WorkoutTemplate, WorkoutTemplate.id == TemplateExercise.template_id)
+        .where(WorkoutTemplate.user_id == user.id)
+    )
+    recent_exercise_ids = await db.scalars(
+        sa.select(WorkoutExercise.exercise_id)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .where(
+            Workout.user_id == user.id,
+            sa.or_(
+                Workout.status == WorkoutStatus.in_progress,
+                sa.and_(Workout.status == WorkoutStatus.finished, Workout.finished_at >= since),
+            ),
+        )
+    )
+    ids = set(template_exercise_ids) | set(recent_exercise_ids)
+    exercises = (
+        await db.scalars(
+            sa.select(Exercise).where(Exercise.id.in_(ids), visible_exercise_filter(user))
+        )
+    ).all()
+    previous = await previous_sets(db, user, ids)
+    best = await best_sets(db, user, ids)
+    return OfflineSnapshot(
+        server_now=current,
+        exercises=[
+            snapshot_entry(exercise, previous.get(exercise.id), best.get(exercise.id))
+            for exercise in sorted(exercises, key=lambda item: (item.name, item.id))
+        ],
     )
 
 

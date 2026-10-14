@@ -18,6 +18,7 @@ from app.schemas.workout import (
     FinishIn,
     HistoryPage,
     LayoutIn,
+    OfflineSnapshot,
     RestIn,
     SaveAsTemplateIn,
     SetPatch,
@@ -42,6 +43,15 @@ async def active(
     if workout is None:
         return Response(status_code=204)
     return workout
+
+
+# Declared before `/{workout_id}`, which would otherwise capture this path.
+@router.get("/offline-snapshot", response_model=OfflineSnapshot)
+async def offline_snapshot(
+    session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)
+) -> OfflineSnapshot:
+    """Precedente and Max of the user's exercises, for the offline client."""
+    return await workouts.offline_snapshot(session, user)
 
 
 @router.get("", response_model=HistoryPage)

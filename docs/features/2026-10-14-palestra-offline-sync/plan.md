@@ -117,7 +117,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test di C9: orari nel futuro e `completed_at` precedente; riposo scaduto da 10 s e `notify_due_rests` con un sender finto che non viene chiamato.
 - Verifica: pytest sul remoto `tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py`: verdi.
 
-### [~] T8. Endpoint `GET /api/workouts/offline-snapshot`
+### [x] T8. Endpoint `GET /api/workouts/offline-snapshot`
 
 - Copre: C10
 - Rischio: alto
@@ -130,7 +130,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 ### Client-core
 
-### [ ] T9. Tipi e chiamate API per sync e snapshot
+### [~] T9. Tipi e chiamate API per sync e snapshot
 
 - Copre: C38 (preparazione)
 - Rischio: basso
@@ -418,5 +418,6 @@ T4 — DONE — review: 1 round, APPROVED. MINOR (da gestire in T5/T10): (a) pes
 T5 — DONE — review: 3 round (MAJOR uuid duplicati/vincoli, MAJOR controllo versione non atomico -> lock FOR UPDATE in load_workout(for_update) usato da PUT, _load_live, _load_finished, rename; MAJOR test con IntegrityError reale -> test DB-free con _save mockato). Fatti gia in T5: clamp_times e rest_notified_at (T7 aggiunge solo i test di C9). Per T6: (1) distinguere IntegrityError per constraint_name: workouts_uuid_key = corsa alla creazione, ux_workouts_one_in_progress = other_active; (2) controllo 'allenamento finished sul server' PRIMA di ogni scrittura; (3) delete_workout con base_version deve usare for_update=True; (4) allenamento eliminato tra lettura id e lock: 404 -> deve essere version_conflict con current null (R4); (5) test dei vincoli sempre DB-free con _save mockato, mai IntegrityError reale su fixture db. MINOR: ripiego su str(exc.orig) non coperto da test. SPEC da decidere con l'utente (non modificata): R6 un solo campo del riposo -> riposo azzerato; PUT taglia rest_total_s a 600 anche se rest_action con delta puo superare. Remoto: pytest tests/test_workouts_sync.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_workouts_version.py tests/test_rest_notifier.py.
 T6 — DONE — review: 2 round (MAJOR: db.refresh(user) dopo rollback, altrimenti MissingGreenlet/500 nelle corse). Fatto anche: clamp prima di same_content, test _stored_by_uuid, corsa uuid con stesso contenuto -> 200. Per T17: il client tratta il 404 di un DELETE in attesa con base_version come riuscito e tollera `current: null` in other_active. Avviso: dopo rollback scade request.state.user_session (oggi letto solo da routers/auth.py). Nota T7: orari futuri oltre now+T tagliati con un now diverso a ogni reinvio, quindi reinvio tardivo non idempotente (spec lo accetta). Remoto: pytest tests/test_workouts_sync.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_workouts_version.py tests/test_rest_notifier.py.
 T7 — DONE — review: 1 round, APPROVED. Solo test (codice gia in T5). MINOR: test_workouts_sync.py:795-813 conteggi notify_due_rests su tutto il DB (filtrare calls per endpoint come _calls_for_endpoints se l'isolamento sul remoto da problemi). Remoto: pytest tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py.
+T8 — DONE — review: 1 round, APPROVED. Forma snapshot: {server_now, exercises:[{exercise, rest_seconds|null, previous:SetValues[], max:SetValues[]}]} (liste vuote se senza storia): T9 la usa cosi. MINOR: (a) test_workouts_snapshot.py:100 manca test per in_progress con started_at > 90 giorni e per il confine esatto dei 90; (b) :157 isolamento non copre modello/allenamento attivo di Alice; (c) schemas/workout.py:147 `rest_seconds` ha ge=0/le=600 sullo schema di uscita SnapshotExercise: una riga fuori range da 500 all'intero snapshot, usare `int | None` senza limiti come gli altri schemi di uscita. Remoto: pytest tests/test_workouts_snapshot.py. PARTE SERVER T1-T8 COMPLETA: restano da eseguire sul remoto tutti i test DB (vedi righe T1, T3, T5, T6, T7, T8) e il controllo C11.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main
