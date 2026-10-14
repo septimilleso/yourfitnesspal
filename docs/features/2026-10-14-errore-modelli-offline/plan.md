@@ -23,7 +23,7 @@ Un secondo test copre `HistoryPage`, una query infinita, per C1. La verifica sul
 
 Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
-### [~] T1. Test di regressione: Modelli offline dopo smontaggio e ripresa
+### [x] T1. Test di regressione: Modelli offline dopo smontaggio e ripresa
 
 - Copre: C1 (Modelli con e senza dati), C2
 - Rischio: alto
@@ -55,7 +55,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
      - `queryClient.getQueryData(["me"])` è `null`.
 - Verifica: `cd web && npx vitest run src/pages/gym/GymStartPage.offlineError.native.test.tsx`. Risultato atteso: il caso di regressione **fallisce**, con `status` `"error"` al posto di `"success"`, oppure con "Errore nel caricamento dei modelli." presente. Gli altri tre casi passano.
 
-### [ ] T2. Correzione: un errore di rete non porta in errore una query con dati
+### [x] T2. Correzione: un errore di rete non porta in errore una query con dati
 
 - Copre: C1, C2, C3
 - Rischio: alto
@@ -70,7 +70,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npm test`: tutti i test verdi, compresi `src/lib/queryClient.test.ts` e `src/components/OfflineIndicator.test.tsx`;
   - `git diff --stat` mostra solo `web/src/lib/queryClient.ts` (i due test esistenti non sono modificati).
 
-### [ ] T3. Test della stessa sequenza su Storico
+### [~] T3. Test della stessa sequenza su Storico
 
 - Copre: C1 (terzo punto), C3
 - Rischio: basso
@@ -98,5 +98,8 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - Verifica: in tutti i casi i dati in cache sono visibili e non compare nessun errore rosso. L'esito va annotato nel registro di esecuzione. Se l'errore compare senza lasciare la schermata, va annotato come indizio dell'ipotesi (a) della spec (vedi "Domande aperte" della spec).
 
 ## Registro di esecuzione
+
+T1 — DONE — review: 1 round, APPROVED. MINOR: GymStartPage.offlineError.native.test.tsx:88-90 attesa `fetchMock` soddisfatta anche da useActiveWorkout e asserzione 'Non disponibile offline' fuori da waitFor (usare findByText); :86 commento non verificato (aggiungere `expect(fetchMock).not.toHaveBeenCalled()` dopo retryConnection). Test non committato da solo: va col commit di T2.
+T2 — DONE — review: 1 round, APPROVED. Note: dopo la correzione `isInvalidated` e `true` (il reducer error lo imposta prima di onError), effetto voluto; la spec dice "resta", impreciso. T1 e T2 nello stesso commit (regola test di regressione).
 
 Partenza: dda4bbce54dd6b169b7807b5d7387385ebfe9830 su main

@@ -15,6 +15,10 @@ export function createQueryClient(native: boolean): QueryClient {
           queryClient.setQueryData(["me"], null);
           void queryClient.invalidateQueries({ queryKey: ["me"] });
         }
+        // Con il retryer annullato allo smontaggio, la ripresa rifiuta con NetworkError: i dati in cache restano validi.
+        if (native && error instanceof NetworkError && query.state.data !== undefined) {
+          query.setState({ ...query.state, status: "success", error: null, fetchStatus: "idle", fetchFailureCount: 0, fetchFailureReason: null });
+        }
       },
     }),
     mutationCache: new MutationCache({ onError: (error) => {
