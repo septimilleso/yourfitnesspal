@@ -106,7 +106,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test di C6, C7, C8 e del `DELETE` con versione giusta (204), sbagliata (409) e senza parametro (204 come oggi).
 - Verifica: pytest sul remoto `tests/test_workouts_sync.py tests/test_gym_routers.py`: verdi.
 
-### [~] T7. Limiti degli orari nel `PUT` e niente push tardive
+### [x] T7. Limiti degli orari nel `PUT` e niente push tardive
 
 - Copre: C9, C45
 - Rischio: alto
@@ -117,7 +117,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Test di C9: orari nel futuro e `completed_at` precedente; riposo scaduto da 10 s e `notify_due_rests` con un sender finto che non viene chiamato.
 - Verifica: pytest sul remoto `tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py`: verdi.
 
-### [ ] T8. Endpoint `GET /api/workouts/offline-snapshot`
+### [~] T8. Endpoint `GET /api/workouts/offline-snapshot`
 
 - Copre: C10
 - Rischio: alto
@@ -417,5 +417,6 @@ T3 — DONE — review: 1 round, APPROVED. MINOR: api/tests/fixtures/gym_parity.
 T4 — DONE — review: 1 round, APPROVED. MINOR (da gestire in T5/T10): (a) peso float senza arrotondamento a 2 decimali vs Numeric(6,2): limitare a 2 decimali nello schema del PUT o quantize ROUND_HALF_UP in canonical e TS; (b) clamp_times con un solo tra rest_ends_at/rest_total_s azzera il riposo: aggiungere frase a R6 della spec; (c) dopo il clamp rest_ends_at puo superare rest_total_s, e rest_action con delta puo arrivare a 1200 s mentre il PUT taglia a 600: allineare; (d) finished_at non validato per stato: validatore in WorkoutPutIn (null se in corso, obbligatorio se finito). Avvisi per T5: usare AwareDatetime nel corpo del PUT e now aware; formato orari `+00:00` come isoformat (TS non deve emettere `Z`); rest_notified_at (R6) a T5; same_content su canonical_workout del payload PRIMA di clamp_times.
 T5 — DONE — review: 3 round (MAJOR uuid duplicati/vincoli, MAJOR controllo versione non atomico -> lock FOR UPDATE in load_workout(for_update) usato da PUT, _load_live, _load_finished, rename; MAJOR test con IntegrityError reale -> test DB-free con _save mockato). Fatti gia in T5: clamp_times e rest_notified_at (T7 aggiunge solo i test di C9). Per T6: (1) distinguere IntegrityError per constraint_name: workouts_uuid_key = corsa alla creazione, ux_workouts_one_in_progress = other_active; (2) controllo 'allenamento finished sul server' PRIMA di ogni scrittura; (3) delete_workout con base_version deve usare for_update=True; (4) allenamento eliminato tra lettura id e lock: 404 -> deve essere version_conflict con current null (R4); (5) test dei vincoli sempre DB-free con _save mockato, mai IntegrityError reale su fixture db. MINOR: ripiego su str(exc.orig) non coperto da test. SPEC da decidere con l'utente (non modificata): R6 un solo campo del riposo -> riposo azzerato; PUT taglia rest_total_s a 600 anche se rest_action con delta puo superare. Remoto: pytest tests/test_workouts_sync.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_workouts_version.py tests/test_rest_notifier.py.
 T6 — DONE — review: 2 round (MAJOR: db.refresh(user) dopo rollback, altrimenti MissingGreenlet/500 nelle corse). Fatto anche: clamp prima di same_content, test _stored_by_uuid, corsa uuid con stesso contenuto -> 200. Per T17: il client tratta il 404 di un DELETE in attesa con base_version come riuscito e tollera `current: null` in other_active. Avviso: dopo rollback scade request.state.user_session (oggi letto solo da routers/auth.py). Nota T7: orari futuri oltre now+T tagliati con un now diverso a ogni reinvio, quindi reinvio tardivo non idempotente (spec lo accetta). Remoto: pytest tests/test_workouts_sync.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_workouts_version.py tests/test_rest_notifier.py.
+T7 — DONE — review: 1 round, APPROVED. Solo test (codice gia in T5). MINOR: test_workouts_sync.py:795-813 conteggi notify_due_rests su tutto il DB (filtrare calls per endpoint come _calls_for_endpoints se l'isolamento sul remoto da problemi). Remoto: pytest tests/test_workouts_sync.py tests/test_rest_notifier.py tests/test_rest_notifier_race.py.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main

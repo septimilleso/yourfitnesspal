@@ -12,11 +12,13 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app import main
-from app.models.exercise import Tracking
+from app.models.exercise import Exercise, Tracking
+from app.models.push import PushSubscription
 from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
 from app.schemas.workout import TemplateIn, WorkoutOut, WorkoutPutIn, WorkoutPutSet
 from app.services import templates, workouts
 from app.services.errors import Conflict, Invalid, NotFound
+from app.services.rest_notifier import PushResult, notify_due_rests
 from tests.factories import GYM, http_client, make_exercise, make_finished_workout, make_user
 
 T0 = datetime(2026, 9, 24, 18, 0, tzinfo=UTC)
@@ -679,3 +681,133 @@ async def test_delete_checks_base_version_before_deleting(monkeypatch, base_vers
         assert (raised.value.reason, raised.value.current) == ("version_conflict", COPY)
         db.delete.assert_not_awaited()
     load.assert_awaited_once_with(db, USER, 7, for_update=True)
+
+
+# --- C9: times out of range are clamped to the plausible range (R6), without a database ---
+
+async def _put_and_capture(monkeypatch, body: dict) -> Workout:
+    """The workout `put_workout` hands to the save: the times it would store."""
+    db, save = _fake_put(monkeypatch)
+    monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(return_value={
+        1: Exercise(id=1, name="Zzq Clamp", tracking=Tracking.weight_reps),
+    }))
+    await workouts.put_workout(db, USER, uuid4(), WorkoutPutIn.model_validate(body))
+    return save.await_args.args[2]
+
+
+def _set_done_at(completed_at: datetime) -> dict:
+    done = _set(80, 8, done=True)
+    done["completed_at"] = completed_at.isoformat()
+    return done
+
+
+async def test_start_and_set_in_the_future_are_clamped_to_five_minutes_ahead(
+    monkeypatch, clock,
+) -> None:
+    future = T0 + timedelta(hours=1)
+    workout = await _put_and_capture(monkeypatch, _body(
+        started_at=future.isoformat(),
+        exercises=[_item(1, [_set_done_at(future)])],
+    ))
+    assert workout.started_at == T0 + timedelta(minutes=5)
+    assert workout.exercises[0].sets[0].completed_at == T0 + timedelta(minutes=5)
+
+
+async def test_times_within_the_tolerance_are_kept(monkeypatch, clock) -> None:
+    near = T0 + timedelta(minutes=4)
+    workout = await _put_and_capture(monkeypatch, _body(
+        started_at=near.isoformat(),
+        exercises=[_item(1, [_set_done_at(near)])],
+    ))
+    assert workout.started_at == near
+    assert workout.exercises[0].sets[0].completed_at == near
+
+
+async def test_set_completed_before_the_start_is_clamped_to_the_start(monkeypatch, clock) -> None:
+    early = T0 - timedelta(days=1)
+    workout = await _put_and_capture(monkeypatch, _body(
+        exercises=[_item(1, [_set_done_at(early)])],
+    ))
+    assert workout.exercises[0].sets[0].completed_at == T0
+
+
+@pytest.mark.parametrize(("finished_at", "expected"), [
+    (T0 + timedelta(hours=2), T0 + timedelta(minutes=5)),
+    (T0 - timedelta(hours=1), T0),
+])
+async def test_finished_at_out_of_range_is_clamped(
+    monkeypatch, clock, finished_at, expected,
+) -> None:
+    workout = await _put_and_capture(monkeypatch, _body(
+        status="finished", finished_at=finished_at.isoformat(),
+        exercises=[_item(1, [_set(80, 8, done=True)])],
+    ))
+    assert workout.finished_at == expected
+
+
+async def test_rest_over_600_seconds_is_clamped(monkeypatch, clock) -> None:
+    workout = await _put_and_capture(monkeypatch, _body(
+        rest_ends_at=(T0 + timedelta(seconds=2000)).isoformat(), rest_total_s=900,
+    ))
+    assert workout.rest_total_s == 600
+    assert workout.rest_ends_at == T0 + timedelta(seconds=600) + timedelta(minutes=5)
+
+
+# --- C45: a rest that ended before the save is not pushed late (R6) ----------------------
+
+@pytest.mark.parametrize(("offset_s", "notified"), [(-10, True), (0, True), (1, False)])
+async def test_rest_ended_at_or_before_the_save_is_marked_notified(
+    monkeypatch, clock, offset_s, notified,
+) -> None:
+    ends = T0 + timedelta(seconds=offset_s)
+    workout = await _put_and_capture(monkeypatch, _body(
+        rest_ends_at=ends.isoformat(), rest_total_s=90,
+    ))
+    assert workout.rest_ends_at == ends
+    assert workout.rest_notified_at == (ends if notified else None)
+
+
+def _recording_sender(calls: list[str]):
+    async def send(subscription: dict, payload: str) -> PushResult:
+        calls.append(subscription["endpoint"])
+        return PushResult.sent
+
+    return send
+
+
+async def _subscribe(db, user, endpoint: str) -> None:
+    db.add(PushSubscription(user_id=user.id, endpoint=endpoint, p256dh="key", auth="auth"))
+    await db.flush()
+
+
+async def test_rest_expired_before_the_put_is_not_pushed(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    endpoint = "https://fcm.googleapis.com/expired"
+    await _subscribe(db, user, endpoint)
+    async with await http_client(db, user) as client:
+        saved = await client.put(f"/api/workouts/{uuid4()}", json=_body(
+            rest_ends_at=(T0 - timedelta(seconds=10)).isoformat(), rest_total_s=90,
+        ))
+    assert saved.status_code == 201
+
+    calls: list[str] = []
+    assert await notify_due_rests(_recording_sender(calls), T0) == 0
+    assert calls == []
+
+
+async def test_rest_still_ahead_is_pushed_once_at_its_end(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    endpoint = "https://fcm.googleapis.com/ahead"
+    await _subscribe(db, user, endpoint)
+    async with await http_client(db, user) as client:
+        saved = await client.put(f"/api/workouts/{uuid4()}", json=_body(
+            rest_ends_at=(T0 + timedelta(seconds=90)).isoformat(), rest_total_s=90,
+        ))
+    assert saved.status_code == 201
+
+    calls: list[str] = []
+    sender = _recording_sender(calls)
+    assert await notify_due_rests(sender, T0 + timedelta(seconds=89)) == 0
+    assert await notify_due_rests(sender, T0 + timedelta(seconds=91)) == 1
+    assert await notify_due_rests(sender, T0 + timedelta(seconds=92)) == 0
+    assert calls == [endpoint]
