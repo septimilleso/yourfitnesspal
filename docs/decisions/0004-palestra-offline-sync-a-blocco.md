@@ -17,6 +17,13 @@ L'allenamento attivo vive in uno stato locale (IndexedDB) modificato da un reduc
 - Coda di mutazioni fine-grained riprodotte in ordine: molte chiamate, id temporanei ovunque, fragile.
 - Database locale con sync bidirezionale completa: sovradimensionato per un'app personale.
 
+## Aggiornamento 2026-10-14
+
+Dopo il brainstorm di [palestra-offline-sync](../features/2026-10-14-palestra-offline-sync/):
+- Lo stato locale è un file JSON in `Directory.Library` (`@capacitor/filesystem`), come la cache delle query, e non IndexedDB.
+- Precedente e Max offline vengono da uno snapshot calcolato dal server (nuovo endpoint, precaricato), non da regole duplicate nel client.
+- Il resto della decisione resta valido, compresi versione e 409 con scelta dell'utente.
+
 ## Conseguenze
 
 - Nuovo endpoint e colonna di versione sul workout.
