@@ -61,7 +61,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. `test_gym_parity.py` scorre la fixture, chiama la funzione indicata da `fn` e confronta con `expected`; un `fn` sconosciuto fa fallire il test.
 - Verifica: `cd api && pytest -q tests/test_gym_rules.py tests/test_gym_parity.py`, risultato atteso: tutti verdi, in locale.
 
-### [~] T3. Regole pure delle azioni live, usate dagli endpoint esistenti
+### [x] T3. Regole pure delle azioni live, usate dagli endpoint esistenti
 
 - Copre: C12, C41
 - Rischio: alto
@@ -72,7 +72,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Casi nella fixture per ogni funzione.
 - Verifica: `cd api && pytest -q tests/test_gym_rules.py tests/test_gym_parity.py` verde in locale. Pytest sul remoto `tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_gym_routers.py`: verdi, invariati.
 
-### [ ] T4. Normalizzazione canonica, confronto di contenuto e limiti degli orari
+### [~] T4. Normalizzazione canonica, confronto di contenuto e limiti degli orari
 
 - Copre: C12
 - Rischio: alto
@@ -413,5 +413,6 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 ## Registro di esecuzione
 T1 — DONE — review: 2 round (MAJOR incremento version in SQL, risolto). Test DB e C11 (downgrade/upgrade + uuid distinti) DA ESEGUIRE SUL REMOTO. avviso nuovo: dipendenze API installate nel Python globale, starlette 0.38.6 in conflitto con streamlit 1.58.0.
 T2 — DONE — review: saltata. 45 test verdi in locale. Nota per T10: la conversione degli input (tracking, tuple/frozenset) e in test_gym_parity.py e va ripetuta lato Vitest.
+T3 — DONE — review: 1 round, APPROVED. MINOR: api/tests/fixtures/gym_parity.json:52 caso rest_action start_s 0 fuori dominio (RestIn.start_s ge=1), da togliere o documentare prima di T10. Remoto: pytest tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_gym_routers.py tests/test_rest_notifier.py.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main

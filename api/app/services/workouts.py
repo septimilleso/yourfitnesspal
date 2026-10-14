@@ -50,14 +50,21 @@ from app.schemas.workout import (
 from app.services.errors import Invalid, NotFound
 from app.services.exercises import exercise_out, get_visible_exercises
 from app.services.gym_rules import (
-    DEFAULT_REST_SECONDS,
     DiffExercise,
     ExerciseProgress,
+    NoRestTimer,
+    SetState,
+    SetTuple,
+    exercise_prefill,
+    finish_problem,
+    finish_prune,
+    next_set_values,
     normalize_supersets,
+    rest_action,
     rest_after_completion,
     set_problem,
     template_diff,
-    tracking_fields,
+    tracking_reset,
 )
 from app.services.templates import (
     find_template,
@@ -116,6 +123,25 @@ def _set(workout: Workout, set_id: int) -> tuple[WorkoutExercise, WorkoutSet]:
             if workout_set.id == set_id:
                 return item, workout_set
     raise NotFound("set not found")
+
+
+def _values_of(workout_set: WorkoutSet | SetValues) -> SetTuple:
+    values = SetValues.model_validate(workout_set)
+    return values.weight_kg, values.reps, values.duration_s
+
+
+def _state_of(workout_set: WorkoutSet) -> SetState:
+    return SetState(
+        weight_kg=workout_set.weight_kg, reps=workout_set.reps,
+        duration_s=workout_set.duration_s, completed=workout_set.completed_at is not None,
+    )
+
+
+def _store_state(workout_set: WorkoutSet, state: SetState) -> None:
+    workout_set.weight_kg = state.weight_kg
+    workout_set.reps = state.reps
+    workout_set.duration_s = state.duration_s
+    workout_set.completed_at = workout_set.completed_at if state.completed else None
 
 
 def _renumber(workout: Workout) -> None:
@@ -377,14 +403,17 @@ async def add_exercise(
     workout = await _load_live(db, user, workout_id)
     exercise = (await get_visible_exercises(db, user, [payload.exercise_id]))[payload.exercise_id]
     previous = (await previous_sets(db, user, [exercise.id])).get(exercise.id)
-    values = previous.sets if previous and previous.sets else [SetValues()]
+    rest_seconds, values = exercise_prefill(
+        None if previous is None else previous.rest_seconds,
+        [] if previous is None else [_values_of(s) for s in previous.sets],
+    )
     workout.exercises.append(
         WorkoutExercise(
             exercise_id=exercise.id, exercise=exercise, position=len(workout.exercises),
-            rest_seconds=previous.rest_seconds if previous else DEFAULT_REST_SECONDS,
+            rest_seconds=rest_seconds,
             sets=[
-                WorkoutSet(position=number, **value.model_dump())
-                for number, value in enumerate(values)
+                WorkoutSet(position=number, weight_kg=weight_kg, reps=reps, duration_s=duration_s)
+                for number, (weight_kg, reps, duration_s) in enumerate(values)
             ],
         )
     )
@@ -405,12 +434,9 @@ async def patch_exercise(
         item.exercise_id = exercise.id
         item.exercise = exercise
         if exercise.tracking is not old_tracking:
-            used_fields = tracking_fields(exercise.tracking)
-            for workout_set in item.sets:
-                workout_set.completed_at = None
-                for name in SET_FIELDS:
-                    if name not in used_fields:
-                        setattr(workout_set, name, None)
+            states = tracking_reset(exercise.tracking, [_state_of(s) for s in item.sets])
+            for workout_set, state in zip(item.sets, states, strict=True):
+                _store_state(workout_set, state)
     if "rest_seconds" in fields and payload.rest_seconds is not None:
         item.rest_seconds = payload.rest_seconds
     if "note" in fields:
@@ -447,13 +473,18 @@ async def add_set(db: AsyncSession, user: User, workout_id: int, item_id: int) -
     """Add a set copying the last one, or the first set of last time."""
     workout = await _load_live(db, user, workout_id)
     item = _item(workout, item_id)
-    if item.sets:
-        last = item.sets[-1]
-        values = SetValues(weight_kg=last.weight_kg, reps=last.reps, duration_s=last.duration_s)
-    else:
+    last = _values_of(item.sets[-1]) if item.sets else None
+    previous_first = None
+    if last is None:
         previous = (await previous_sets(db, user, [item.exercise_id])).get(item.exercise_id)
-        values = _previous_at(previous, 0) or SetValues()
-    item.sets.append(WorkoutSet(position=len(item.sets), **values.model_dump()))
+        first = _previous_at(previous, 0)
+        previous_first = None if first is None else _values_of(first)
+    weight_kg, reps, duration_s = next_set_values(last, previous_first)
+    item.sets.append(
+        WorkoutSet(
+            position=len(item.sets), weight_kg=weight_kg, reps=reps, duration_s=duration_s,
+        )
+    )
     return await _save(db, user, workout)
 
 
@@ -539,20 +570,13 @@ async def uncomplete_set(
 
 async def rest(db: AsyncSession, user: User, workout_id: int, payload: RestIn) -> WorkoutOut:
     workout = await _load_live(db, user, workout_id)
-    current = now()
-    if payload.skip:
-        _clear_rest(workout)
-    elif payload.start_s is not None:
-        _start_rest(workout, payload.start_s)
-    else:
-        if workout.rest_ends_at is None or workout.rest_ends_at <= current:
-            raise Invalid("no rest timer running")
-        ends = workout.rest_ends_at + timedelta(seconds=payload.delta_s or 0)
-        if ends <= current:
-            _clear_rest(workout)
-        else:
-            workout.rest_ends_at = ends
-            workout.rest_total_s = max(1, (workout.rest_total_s or 0) + (payload.delta_s or 0))
+    try:
+        workout.rest_ends_at, workout.rest_total_s = rest_action(
+            now(), workout.rest_ends_at, workout.rest_total_s,
+            start_s=payload.start_s, delta_s=payload.delta_s, skip=payload.skip,
+        )
+    except NoRestTimer as exc:
+        raise Invalid(str(exc)) from exc
     return await _save(db, user, workout)
 
 
@@ -562,14 +586,20 @@ async def finish_workout(
     """Close the session. Undone sets are only dropped when the user confirmed
     (`discard_incomplete`); exercises left without sets are dropped too."""
     workout = await _load_live(db, user, workout_id)
-    all_sets = [s for item in workout.exercises for s in item.sets]
-    if not any(s.completed_at is not None for s in all_sets):
-        raise Invalid("empty_workout")
-    if any(s.completed_at is None for s in all_sets) and not payload.discard_incomplete:
-        raise Invalid("incomplete_sets")
-    for item in workout.exercises:
-        item.sets[:] = [s for s in item.sets if s.completed_at is not None]
-    workout.exercises[:] = [item for item in workout.exercises if item.sets]
+    problem = finish_problem(
+        [s.completed_at is not None for item in workout.exercises for s in item.sets],
+        payload.discard_incomplete,
+    )
+    if problem:
+        raise Invalid(problem)
+    kept = dict(
+        finish_prune(
+            [[s.completed_at is not None for s in item.sets] for item in workout.exercises]
+        )
+    )
+    for index, item in enumerate(workout.exercises):
+        item.sets[:] = [item.sets[number] for number in kept.get(index, [])]
+    workout.exercises[:] = [item for index, item in enumerate(workout.exercises) if index in kept]
     _renumber(workout)
     workout.status = WorkoutStatus.finished
     workout.finished_at = now()

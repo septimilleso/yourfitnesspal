@@ -36,5 +36,43 @@
   {"fn": "format_set", "name": "format_set: solo ripetizioni", "input": {"tracking": "reps", "values": [null, 12, null]}, "expected": "12 rip"},
   {"fn": "format_set", "name": "format_set: ripetizioni con peso", "input": {"tracking": "reps", "values": [10, 12, null]}, "expected": "10 kg × 12"},
   {"fn": "format_set", "name": "format_set: durata", "input": {"tracking": "duration", "values": [null, null, 75]}, "expected": "1:15"},
-  {"fn": "format_set", "name": "format_set: durata assente", "input": {"tracking": "duration", "values": [null, null, null]}, "expected": "0:00"}
+  {"fn": "format_set", "name": "format_set: durata assente", "input": {"tracking": "duration", "values": [null, null, null]}, "expected": "0:00"},
+
+  {"fn": "next_set_values", "name": "next_set_values: copia dell'ultima serie", "input": {"last": [80, 8, null], "previous_first": [70, 10, null]}, "expected": [80, 8, null]},
+  {"fn": "next_set_values", "name": "next_set_values: senza serie, prima di Precedente", "input": {"last": null, "previous_first": [70, 10, null]}, "expected": [70, 10, null]},
+  {"fn": "next_set_values", "name": "next_set_values: senza serie e senza Precedente", "input": {"last": null, "previous_first": null}, "expected": [null, null, null]},
+  {"fn": "next_set_values", "name": "next_set_values: ultima serie vuota non cede a Precedente", "input": {"last": [null, null, null], "previous_first": [70, 10, null]}, "expected": [null, null, null]},
+
+  {"fn": "exercise_prefill", "name": "exercise_prefill: senza Precedente", "input": {"previous_rest": null, "previous_sets": []}, "expected": {"rest_seconds": 90, "sets": [[null, null, null]]}},
+  {"fn": "exercise_prefill", "name": "exercise_prefill: serie e riposo da Precedente", "input": {"previous_rest": 120, "previous_sets": [[80, 8, null], [80, 6, null]]}, "expected": {"rest_seconds": 120, "sets": [[80, 8, null], [80, 6, null]]}},
+  {"fn": "exercise_prefill", "name": "exercise_prefill: Precedente senza serie completate", "input": {"previous_rest": 0, "previous_sets": []}, "expected": {"rest_seconds": 0, "sets": [[null, null, null]]}},
+
+  {"fn": "tracking_reset", "name": "tracking_reset: peso e ripetizioni, durata azzerata", "input": {"tracking": "weight_reps", "sets": [{"weight_kg": 80, "reps": 8, "duration_s": 30, "completed": true}, {"weight_kg": null, "reps": null, "duration_s": null, "completed": false}]}, "expected": [{"weight_kg": 80, "reps": 8, "duration_s": null, "completed": false}, {"weight_kg": null, "reps": null, "duration_s": null, "completed": false}]},
+  {"fn": "tracking_reset", "name": "tracking_reset: sole ripetizioni, peso azzerato", "input": {"tracking": "reps", "sets": [{"weight_kg": 10, "reps": 12, "duration_s": null, "completed": true}]}, "expected": [{"weight_kg": null, "reps": 12, "duration_s": null, "completed": false}]},
+  {"fn": "tracking_reset", "name": "tracking_reset: durata, solo la durata resta", "input": {"tracking": "duration", "sets": [{"weight_kg": 20, "reps": 5, "duration_s": 60, "completed": true}]}, "expected": [{"weight_kg": null, "reps": null, "duration_s": 60, "completed": false}]},
+  {"fn": "tracking_reset", "name": "tracking_reset: nessuna serie", "input": {"tracking": "reps", "sets": []}, "expected": []},
+
+  {"fn": "rest_action", "name": "rest_action: avvio", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": null, "total_s": null, "start_s": 90, "delta_s": null, "skip": false}, "expected": {"ends_at": "2026-10-14T10:01:30+00:00", "total_s": 90}},
+  {"fn": "rest_action", "name": "rest_action: avvio con durata zero", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": null, "total_s": null, "start_s": 0, "delta_s": null, "skip": false}, "expected": {"ends_at": "2026-10-14T10:00:00+00:00", "total_s": 0}},
+  {"fn": "rest_action", "name": "rest_action: avvio sostituisce il timer in corso", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:30+00:00", "total_s": 30, "start_s": 60, "delta_s": null, "skip": false}, "expected": {"ends_at": "2026-10-14T10:01:00+00:00", "total_s": 60}},
+  {"fn": "rest_action", "name": "rest_action: salto", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:30+00:00", "total_s": 30, "start_s": null, "delta_s": null, "skip": true}, "expected": {"ends_at": null, "total_s": null}},
+  {"fn": "rest_action", "name": "rest_action: delta allunga il timer", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:30+00:00", "total_s": 30, "start_s": null, "delta_s": 15, "skip": false}, "expected": {"ends_at": "2026-10-14T10:00:45+00:00", "total_s": 45}},
+  {"fn": "rest_action", "name": "rest_action: delta accorcia il timer", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:01:00+00:00", "total_s": 60, "start_s": null, "delta_s": -20, "skip": false}, "expected": {"ends_at": "2026-10-14T10:00:40+00:00", "total_s": 40}},
+  {"fn": "rest_action", "name": "rest_action: delta che arriva ad adesso chiude il timer", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:30+00:00", "total_s": 30, "start_s": null, "delta_s": -30, "skip": false}, "expected": {"ends_at": null, "total_s": null}},
+  {"fn": "rest_action", "name": "rest_action: delta oltre la fine chiude il timer", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:10+00:00", "total_s": 10, "start_s": null, "delta_s": -60, "skip": false}, "expected": {"ends_at": null, "total_s": null}},
+  {"fn": "rest_action", "name": "rest_action: durata totale minima 1", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:10+00:00", "total_s": 2, "start_s": null, "delta_s": -2, "skip": false}, "expected": {"ends_at": "2026-10-14T10:00:08+00:00", "total_s": 1}},
+  {"fn": "rest_action", "name": "rest_action: delta senza timer", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": null, "total_s": null, "start_s": null, "delta_s": 15, "skip": false}, "expected": {"error": "no rest timer running"}},
+  {"fn": "rest_action", "name": "rest_action: delta su timer scaduto", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T09:59:30+00:00", "total_s": 30, "start_s": null, "delta_s": 15, "skip": false}, "expected": {"error": "no rest timer running"}},
+  {"fn": "rest_action", "name": "rest_action: delta con timer che finisce adesso", "input": {"now": "2026-10-14T10:00:00+00:00", "ends_at": "2026-10-14T10:00:00+00:00", "total_s": 30, "start_s": null, "delta_s": 15, "skip": false}, "expected": {"error": "no rest timer running"}},
+
+  {"fn": "finish_problem", "name": "finish_problem: nessuna serie", "input": {"completed": [], "discard_incomplete": false}, "expected": "empty_workout"},
+  {"fn": "finish_problem", "name": "finish_problem: nessuna serie completata", "input": {"completed": [false, false], "discard_incomplete": true}, "expected": "empty_workout"},
+  {"fn": "finish_problem", "name": "finish_problem: serie non completate senza conferma", "input": {"completed": [true, false], "discard_incomplete": false}, "expected": "incomplete_sets"},
+  {"fn": "finish_problem", "name": "finish_problem: serie non completate con conferma", "input": {"completed": [true, false], "discard_incomplete": true}, "expected": null},
+  {"fn": "finish_problem", "name": "finish_problem: tutte completate", "input": {"completed": [true, true], "discard_incomplete": false}, "expected": null},
+
+  {"fn": "finish_prune", "name": "finish_prune: tiene solo le serie completate", "input": {"completed": [[true, false, true]]}, "expected": [[0, [0, 2]]]},
+  {"fn": "finish_prune", "name": "finish_prune: toglie gli esercizi senza serie completate", "input": {"completed": [[false], [true, true], [false, false]]}, "expected": [[1, [0, 1]]]},
+  {"fn": "finish_prune", "name": "finish_prune: esercizi senza serie completate", "input": {"completed": [[false], [false, false]]}, "expected": []},
+  {"fn": "finish_prune", "name": "finish_prune: nessun esercizio", "input": {"completed": []}, "expected": []}
 ]
