@@ -1,5 +1,6 @@
 """`PUT /api/workouts/{uuid}`: create and replace a whole workout (needs Postgres, except the schema checks)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -10,10 +11,12 @@ import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
-from app.models.workout import Workout, WorkoutSet
-from app.schemas.workout import TemplateIn, WorkoutPutIn, WorkoutPutSet
+from app import main
+from app.models.exercise import Tracking
+from app.models.workout import Workout, WorkoutExercise, WorkoutSet, WorkoutStatus
+from app.schemas.workout import TemplateIn, WorkoutOut, WorkoutPutIn, WorkoutPutSet
 from app.services import templates, workouts
-from app.services.errors import Invalid
+from app.services.errors import Conflict, Invalid, NotFound
 from tests.factories import GYM, http_client, make_exercise, make_finished_workout, make_user
 
 T0 = datetime(2026, 9, 24, 18, 0, tzinfo=UTC)
@@ -284,25 +287,366 @@ def _put_db():
     """Just enough session for `put_workout` when its save is replaced: no rows, no SQL."""
     return SimpleNamespace(
         scalar=AsyncMock(return_value=None), add=lambda _: None, rollback=AsyncMock(),
+        refresh=AsyncMock(),
     )
 
 
-@pytest.mark.parametrize(("constraint", "detail"), [
-    ("ux_workouts_one_in_progress", "a workout is already in progress"),
-    ("workouts_uuid_key", "version_conflict"),
-    ("workout_exercises_uuid_key", "uuid already in use"),
-    ("workout_sets_uuid_key", "uuid already in use"),
-])
-async def test_put_names_the_constraint_its_save_hit(monkeypatch, constraint, detail) -> None:
+class _OrmUser:
+    """The request's user as an ORM object. A rollback expires it, and reading an expired
+    attribute fails here, as it would need I/O (MissingGreenlet) under AsyncSession."""
+
+    def __init__(self) -> None:
+        self._values = {"id": 1, "role": "user", "permissions": GYM}
+        self.expired = False
+
+    def _read(self, name: str):
+        if self.expired:
+            raise AssertionError(f"user.{name} read while expired")
+        return self._values[name]
+
+    @property
+    def id(self) -> int:
+        return self._read("id")
+
+    @property
+    def role(self) -> str:
+        return self._read("role")
+
+    @property
+    def permissions(self) -> list[str]:
+        return self._read("permissions")
+
+    def expire(self) -> None:
+        self.expired = True
+
+    def refresh(self) -> None:
+        self.expired = False
+
+
+def _race_session(user: _OrmUser, scalars: list) -> SimpleNamespace:
+    """A session whose rollback expires `user` and whose refresh makes it readable again."""
     db = _put_db()
-    user = SimpleNamespace(id=1, role="user", permissions=GYM)
+    db.scalar = AsyncMock(side_effect=scalars)
+    db.rollback = AsyncMock(side_effect=user.expire)
+    db.refresh = AsyncMock(side_effect=lambda _: user.refresh())
+    return db
+
+
+def _stored(**overrides) -> Workout:
+    """A stored workout holding the content `_body()` sends, as a transient row (no session)."""
+    fields = {
+        "id": 7, "uuid": uuid4(), "user_id": 1, "version": 5, "name": "Giorno 1",
+        "template_id": None, "status": WorkoutStatus.in_progress, "started_at": T0,
+        "finished_at": None, "rest_ends_at": None, "rest_total_s": None,
+    }
+    fields.update(overrides)
+    return Workout(**fields)
+
+
+USER = SimpleNamespace(id=1, role="user", permissions=GYM)
+COPY = object()  # stands in for the stored `WorkoutOut` a 409 carries
+
+
+def _fake_put(monkeypatch, *, stored=None, other=None):
+    """`put_workout` without a database: the lookups and the save are replaced."""
+    db = _put_db()
     monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(return_value={}))
-    monkeypatch.setattr(workouts, "_save", AsyncMock(side_effect=_integrity(constraint)))
+    monkeypatch.setattr(workouts, "_stored_by_uuid", AsyncMock(return_value=stored))
+    monkeypatch.setattr(workouts, "_other_active", AsyncMock(return_value=other))
+    monkeypatch.setattr(workouts, "workout_out", AsyncMock(return_value=COPY))
+    save = AsyncMock(return_value=COPY)
+    monkeypatch.setattr(workouts, "_save", save)
+    return db, save
+
+
+# --- C6: conflicts answer 409 with the stored copy ----------------------------------------
+
+async def test_put_conflicts_answer_409_with_the_stored_copy(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Put Conflict")
+    workout_uuid = uuid4()
+    url = f"/api/workouts/{workout_uuid}"
+    async with await http_client(db, user) as client:
+        created = await client.put(url, json=_body(name="Giorno 1"))
+        assert created.status_code == 201
+        # four saves with other content take the workout to version 5
+        for version in range(1, 5):
+            saved = await client.put(url, json=_body(
+                base_version=version, name=f"Giorno {version + 1}",
+                exercises=[_item(squat.id, [_set(80, 8)])],
+            ))
+            assert saved.status_code == 200
+        assert saved.json()["version"] == 5
+
+        # a stale version with other content: the copy of the server comes back
+        stale = await client.put(url, json=_body(base_version=4, name="Altro"))
+        assert stale.status_code == 409
+        assert stale.json()["detail"] == "version_conflict"
+        assert stale.json()["current"]["version"] == 5
+        assert stale.json()["current"]["name"] == "Giorno 5"
+
+        # an uuid that no longer exists, with a version: 409 and no copy
+        gone = await client.put(f"/api/workouts/{uuid4()}", json=_body(base_version=2))
+        assert gone.status_code == 409
+        assert gone.json() == {"detail": "version_conflict", "current": None}
+
+        # a second workout in progress: the active one comes back, nothing is written
+        second = await client.put(f"/api/workouts/{uuid4()}", json=_body(name="Seconda"))
+        assert second.status_code == 409
+        assert second.json()["detail"] == "other_active"
+        assert second.json()["current"]["uuid"] == str(workout_uuid)
+
+    stored = await db.scalar(sa.select(Workout.version).where(Workout.uuid == workout_uuid))
+    assert stored == 5
+
+
+# --- C7: another user's uuid is not found -------------------------------------------------
+
+async def test_put_of_another_users_uuid_is_404(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    other = await make_user(db, username="bob", permissions=GYM)
+    theirs = await make_finished_workout(
+        db, other, started_at=T0 - timedelta(days=1), minutes=30, items=[],
+    )
+    async with await http_client(db, user) as client:
+        with_version = await client.put(f"/api/workouts/{theirs.uuid}", json=_body(base_version=1))
+        without = await client.put(f"/api/workouts/{theirs.uuid}", json=_body())
+    assert with_version.status_code == 404
+    assert without.status_code == 404
+
+
+# --- C8: the same body sent again is idempotent -------------------------------------------
+
+async def test_put_resent_with_the_same_content_is_200_and_keeps_the_version(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    squat = await make_exercise(db, name="Zzq Put Resend")
+    workout_uuid = uuid4()
+    url = f"/api/workouts/{workout_uuid}"
+    body = _body(base_version=1, name="Giorno 2", exercises=[_item(squat.id, [_set(80, 8)])])
+    async with await http_client(db, user) as client:
+        assert (await client.put(url, json=_body(name="Giorno 1"))).status_code == 201
+        first = await client.put(url, json=body)
+        assert (first.status_code, first.json()["version"]) == (200, 2)
+
+        again = await client.put(url, json=body)
+    assert (again.status_code, again.json()["version"]) == (200, 2)
+    assert again.json()["id"] == first.json()["id"]
+
+
+# --- R4 and R5 DELETE: `base_version` decides between 204 and 409 -------------------------
+
+async def test_delete_with_base_version_checks_the_stored_version(db, clock) -> None:
+    user = await make_user(db, permissions=GYM)
+    workout_uuid = uuid4()
+    url = f"/api/workouts/{workout_uuid}"
+    async with await http_client(db, user) as client:
+        created = (await client.put(url, json=_body(name="Giorno 1"))).json()
+        assert (await client.put(url, json=_body(base_version=1, name="Giorno 2"))).status_code == 200
+        workout_id = created["id"]
+
+        stale = await client.delete(f"/api/workouts/{workout_id}?base_version=1")
+        assert stale.status_code == 409
+        assert stale.json()["detail"] == "version_conflict"
+        assert stale.json()["current"]["version"] == 2
+        assert (await client.get(f"/api/workouts/{workout_id}")).status_code == 200
+
+        right = await client.delete(f"/api/workouts/{workout_id}?base_version=2")
+        assert right.status_code == 204
+
+        # without the parameter the delete is unconditional, as before
+        fresh = (await client.put(f"/api/workouts/{uuid4()}", json=_body(name="Giorno 3"))).json()
+        plain = await client.delete(f"/api/workouts/{fresh['id']}")
+        assert plain.status_code == 204
+
+
+async def test_conflict_body_is_the_reason_and_the_stored_copy() -> None:
+    """The 409 body the TS client reads: `detail` is the reason, `current` the workout or null."""
+    copy = WorkoutOut(
+        id=7, uuid=uuid4(), version=5, name="Giorno 1", template_id=None,
+        status=WorkoutStatus.in_progress, started_at=T0, finished_at=None,
+        rest_ends_at=None, rest_total_s=None, server_now=T0, exercises=[],
+    )
+    with_copy = await main._conflict(None, Conflict("version_conflict", copy))
+    assert with_copy.status_code == 409
+    body = json.loads(with_copy.body)
+    assert body["detail"] == "version_conflict"
+    assert body["current"]["version"] == 5
+    assert body["current"]["started_at"] == "2026-09-24T18:00:00Z"
+
+    without_copy = await main._conflict(None, Conflict("version_conflict", None))
+    assert json.loads(without_copy.body) == {"detail": "version_conflict", "current": None}
+
+
+# --- R4 and R5 without a database: the checks run before any write ----------------------
+
+async def test_put_with_the_stored_content_is_200_and_writes_nothing(monkeypatch) -> None:
+    db, save = _fake_put(monkeypatch, stored=_stored(version=5))
+    # a stale base_version does not matter when the content is the stored one (R5)
+    saved, created = await workouts.put_workout(
+        db, USER, uuid4(), WorkoutPutIn.model_validate(_body(base_version=1))
+    )
+    assert (saved, created) == (COPY, False)
+    save.assert_not_awaited()
+
+
+async def test_put_with_a_stale_version_is_a_409_with_the_stored_copy(monkeypatch) -> None:
+    db, save = _fake_put(monkeypatch, stored=_stored(version=5))
+    with pytest.raises(Conflict) as raised:
+        await workouts.put_workout(
+            db, USER, uuid4(), WorkoutPutIn.model_validate(_body(base_version=4, name="Altro"))
+        )
+    assert (raised.value.reason, raised.value.current) == ("version_conflict", COPY)
+    save.assert_not_awaited()
+
+
+async def test_put_over_a_finished_workout_with_other_content_is_a_conflict(monkeypatch) -> None:
+    stored = _stored(
+        version=5, status=WorkoutStatus.finished, finished_at=T0 + timedelta(minutes=1),
+    )
+    db, save = _fake_put(monkeypatch, stored=stored)
+    with pytest.raises(Conflict) as raised:
+        # the version matches, but the server already finished it with other content
+        await workouts.put_workout(
+            db, USER, stored.uuid, WorkoutPutIn.model_validate(_body(base_version=5, name="Altro"))
+        )
+    assert (raised.value.reason, raised.value.current) == ("version_conflict", COPY)
+    save.assert_not_awaited()
+
+
+async def test_put_of_a_vanished_uuid_with_a_base_version_is_a_409_without_copy(
+    monkeypatch,
+) -> None:
+    db, save = _fake_put(monkeypatch, stored=None)
+    with pytest.raises(Conflict) as raised:
+        await workouts.put_workout(db, USER, uuid4(), WorkoutPutIn.model_validate(_body(base_version=2)))
+    assert (raised.value.reason, raised.value.current) == ("version_conflict", None)
+    save.assert_not_awaited()
+
+
+async def test_put_of_a_second_in_progress_workout_is_other_active(monkeypatch) -> None:
+    db, save = _fake_put(monkeypatch, stored=None, other=COPY)
+    with pytest.raises(Conflict) as raised:
+        await workouts.put_workout(db, USER, uuid4(), WorkoutPutIn.model_validate(_body()))
+    assert (raised.value.reason, raised.value.current) == ("other_active", COPY)
+    save.assert_not_awaited()
+
+
+# --- a save that hits a unique constraint: named, not guessed ----------------------------
+
+async def test_put_maps_a_race_on_the_one_in_progress_index_to_other_active(
+    monkeypatch, clock,
+) -> None:
+    user = _OrmUser()
+    # the lookups, in order: the uuid before the save, the check before the save, then after
+    # the rollback the other active id and its row (read by `load_workout`)
+    db = _race_session(user, [None, None, 9, _stored(id=9, uuid=uuid4())])
+    monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(return_value={}))
+    monkeypatch.setattr(workouts, "workout_out", AsyncMock(return_value=COPY))
+    monkeypatch.setattr(workouts, "_save", AsyncMock(side_effect=_integrity("ux_workouts_one_in_progress")))
+
+    with pytest.raises(Conflict) as raised:
+        await workouts.put_workout(db, user, uuid4(), WorkoutPutIn.model_validate(_body()))
+    assert (raised.value.reason, raised.value.current) == ("other_active", COPY)
+    db.rollback.assert_awaited_once()
+    db.refresh.assert_awaited_once_with(user)
+
+
+async def test_put_maps_a_creation_race_to_version_conflict_with_the_stored_copy(
+    monkeypatch, clock,
+) -> None:
+    user = _OrmUser()
+    # the other creation of this uuid has other content, so the client merges with it
+    db = _race_session(user, [None, None, 7, _stored(name="Altro")])
+    monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(return_value={}))
+    monkeypatch.setattr(workouts, "workout_out", AsyncMock(return_value=COPY))
+    monkeypatch.setattr(workouts, "_save", AsyncMock(side_effect=_integrity("workouts_uuid_key")))
+
+    with pytest.raises(Conflict) as raised:
+        await workouts.put_workout(db, user, uuid4(), WorkoutPutIn.model_validate(_body()))
+    assert (raised.value.reason, raised.value.current) == ("version_conflict", COPY)
+    db.rollback.assert_awaited_once()
+    db.refresh.assert_awaited_once_with(user)
+
+
+async def test_put_racing_an_identical_creation_is_200_without_a_conflict(
+    monkeypatch, clock,
+) -> None:
+    user = _OrmUser()
+    # the other creation of this uuid has the same content: two identical PUTs, one answer (R5)
+    db = _race_session(user, [None, None, 7, _stored()])
+    monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(return_value={}))
+    monkeypatch.setattr(workouts, "workout_out", AsyncMock(return_value=COPY))
+    monkeypatch.setattr(workouts, "_save", AsyncMock(side_effect=_integrity("workouts_uuid_key")))
+
+    saved, created = await workouts.put_workout(
+        db, user, uuid4(), WorkoutPutIn.model_validate(_body())
+    )
+    assert (saved, created) == (COPY, False)
+    db.refresh.assert_awaited_once_with(user)
+
+
+async def test_put_resent_with_a_clamped_time_is_200_without_a_new_version(
+    monkeypatch, clock,
+) -> None:
+    # a set done before the workout started is stored clamped to `started_at` (R6)
+    stored = _stored(exercises=[WorkoutExercise(
+        exercise_id=1, rest_seconds=90, superset_group=None, note=None, position=0,
+        sets=[WorkoutSet(position=0, weight_kg=80, reps=8, duration_s=None, completed_at=T0)],
+    )])
+    db, save = _fake_put(monkeypatch, stored=stored)
+    monkeypatch.setattr(workouts, "get_visible_exercises", AsyncMock(
+        return_value={1: SimpleNamespace(tracking=Tracking.weight_reps)},
+    ))
+    early = _set(80, 8)
+    early["completed_at"] = (T0 - timedelta(days=1)).isoformat()
+
+    saved, created = await workouts.put_workout(
+        db, USER, uuid4(), WorkoutPutIn.model_validate(_body(exercises=[_item(1, [early])])),
+    )
+    assert (saved, created) == (COPY, False)
+    save.assert_not_awaited()
+
+
+# --- _stored_by_uuid: a row that vanished, and another user's row ------------------------
+
+async def test_stored_by_uuid_is_none_when_the_row_vanished_between_the_reads(monkeypatch) -> None:
+    db = SimpleNamespace(scalar=AsyncMock(side_effect=[7, None]))
+    monkeypatch.setattr(
+        workouts, "load_workout", AsyncMock(side_effect=NotFound("workout not found")),
+    )
+    assert await workouts._stored_by_uuid(db, USER, uuid4()) is None
+
+
+async def test_stored_by_uuid_is_not_found_for_another_users_row(monkeypatch) -> None:
+    db = SimpleNamespace(scalar=AsyncMock(side_effect=[7, 7]))
+    monkeypatch.setattr(
+        workouts, "load_workout", AsyncMock(side_effect=NotFound("workout not found")),
+    )
+    with pytest.raises(NotFound):
+        await workouts._stored_by_uuid(db, USER, uuid4())
+
+
+@pytest.mark.parametrize("constraint", ["workout_exercises_uuid_key", "workout_sets_uuid_key"])
+async def test_put_maps_a_repeated_item_uuid_to_invalid(monkeypatch, constraint) -> None:
+    db, save = _fake_put(monkeypatch)
+    save.side_effect = _integrity(constraint)
 
     with pytest.raises(Invalid) as raised:
-        await workouts.put_workout(db, user, uuid4(), WorkoutPutIn.model_validate(_body()))
-    assert str(raised.value) == detail
+        await workouts.put_workout(db, USER, uuid4(), WorkoutPutIn.model_validate(_body()))
+    assert str(raised.value) == "uuid already in use"
     db.rollback.assert_awaited_once()
+
+
+async def test_put_reads_the_constraint_from_the_message_without_a_driver_name(monkeypatch) -> None:
+    db, save = _fake_put(monkeypatch)
+    # no `constraint_name` on the driver error: the message text is the fallback
+    save.side_effect = IntegrityError(
+        "INSERT", {}, RuntimeError('duplicate key value violates unique constraint "workout_sets_uuid_key"'),
+    )
+
+    with pytest.raises(Invalid) as raised:
+        await workouts.put_workout(db, USER, uuid4(), WorkoutPutIn.model_validate(_body()))
+    assert str(raised.value) == "uuid already in use"
 
 
 async def test_put_re_raises_an_unknown_constraint(monkeypatch) -> None:
@@ -313,3 +657,25 @@ async def test_put_re_raises_an_unknown_constraint(monkeypatch) -> None:
 
     with pytest.raises(IntegrityError):
         await workouts.put_workout(db, user, uuid4(), WorkoutPutIn.model_validate(_body()))
+
+
+# --- delete with base_version, without a database ----------------------------------------
+
+@pytest.mark.parametrize(("base_version", "deleted"), [(4, False), (5, True), (None, True)])
+async def test_delete_checks_base_version_before_deleting(monkeypatch, base_version, deleted) -> None:
+    stored = _stored(version=5)
+    load = AsyncMock(return_value=stored)
+    monkeypatch.setattr(workouts, "load_workout", load)
+    monkeypatch.setattr(workouts, "workout_out", AsyncMock(return_value=COPY))
+    db = SimpleNamespace(delete=AsyncMock(), commit=AsyncMock())
+
+    if deleted:
+        await workouts.delete_workout(db, USER, 7, base_version)
+        db.delete.assert_awaited_once_with(stored)
+        db.commit.assert_awaited_once()
+    else:
+        with pytest.raises(Conflict) as raised:
+            await workouts.delete_workout(db, USER, 7, base_version)
+        assert (raised.value.reason, raised.value.current) == ("version_conflict", COPY)
+        db.delete.assert_not_awaited()
+    load.assert_awaited_once_with(db, USER, 7, for_update=True)

@@ -6,6 +6,11 @@ status codes and `detail` strings the REST API always had), and
 `app.mcp.context.tool_scope` turns them into MCP tool errors.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.schemas.workout import WorkoutOut
+
 
 class ServiceError(Exception):
     """Base class; `str(exc)` is a safe, user-facing message."""
@@ -25,3 +30,13 @@ class PermissionMissing(ServiceError):
     def __init__(self, permission: str) -> None:
         super().__init__(f"Permission {permission} is not enabled for this account")
         self.permission = permission
+
+
+class Conflict(ServiceError):
+    """The write clashes with the stored workout (409). `reason` is the code the client
+    branches on; `current` is the stored copy, or None when there is none to show."""
+
+    def __init__(self, reason: str, current: "WorkoutOut | None") -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.current = current

@@ -52,7 +52,7 @@ from app.schemas.workout import (
     WorkoutSetOut,
     WorkoutStart,
 )
-from app.services.errors import Invalid, NotFound
+from app.services.errors import Conflict, Invalid, NotFound
 from app.services.exercises import exercise_out, get_visible_exercises
 from app.services.gym_rules import (
     DiffExercise,
@@ -72,6 +72,7 @@ from app.services.gym_rules import (
     normalize_supersets,
     rest_action,
     rest_after_completion,
+    same_content,
     set_problem,
     template_diff,
     tracking_reset,
@@ -442,6 +443,29 @@ def _state_of_put(payload: WorkoutPutIn, template_id: int | None) -> StateWorkou
     )
 
 
+def _state_of_stored(workout: Workout) -> StateWorkout:
+    """The stored workout as the content `PUT` sends, for the content comparison (R5)."""
+    return StateWorkout(
+        name=workout.name, template_id=workout.template_id, status=workout.status,
+        started_at=workout.started_at, finished_at=workout.finished_at,
+        rest_ends_at=workout.rest_ends_at, rest_total_s=workout.rest_total_s,
+        exercises=tuple(
+            StateExercise(
+                exercise_id=item.exercise_id, rest_seconds=item.rest_seconds,
+                superset_group=item.superset_group, note=item.note,
+                sets=tuple(
+                    StateSet(
+                        weight_kg=s.weight_kg, reps=s.reps, duration_s=s.duration_s,
+                        completed_at=s.completed_at,
+                    )
+                    for s in item.sets
+                ),
+            )
+            for item in workout.exercises
+        ),
+    )
+
+
 def _sync_sets(
     item: WorkoutExercise, sent: list[WorkoutPutSet], values: tuple[StateSet, ...]
 ) -> list[WorkoutSet]:
@@ -491,23 +515,13 @@ async def put_workout(
     """Create or replace the workout with this uuid from the whole body. Returns the stored
     workout and whether it was created (201 or 200).
 
-    The content is canonicalized and only then the times are clamped (R5, R6): the order
-    matters for the content comparison that the idempotence check will add. The uuid of
-    another user answers 404 through `load_workout`.
+    The content is canonicalized and its times clamped (R5, R6) before the checks, so that
+    the comparison with the stored copy is between what would be stored and what is stored.
+    The checks (R4, R5) all run before the first write. The uuid of another user answers 404.
     """
     ensure_permission(user, Permission.workouts)
-    stored_id = await db.scalar(sa.select(Workout.id).where(Workout.uuid == workout_uuid))
     # The row lock is taken before the version comparison, so two saves cannot both pass it.
-    workout = (
-        None if stored_id is None
-        else await load_workout(db, user, stored_id, for_update=True)
-    )
-    if (workout is None and payload.base_version is not None) or (
-        workout is not None and payload.base_version != workout.version
-    ):
-        # T6 (R4): here the 409 `version_conflict` with `current` (the stored copy, or null),
-        # and before it the idempotence check (R5). Until then a stale write is refused.
-        raise Invalid("version_conflict")
+    workout = await _stored_by_uuid(db, user, workout_uuid, for_update=True)
 
     exercises = await get_visible_exercises(
         db, user, {item.exercise_id for item in payload.exercises}
@@ -523,10 +537,7 @@ async def put_workout(
         )
         if problem:
             raise Invalid(problem)
-    at = now()
-    state = clamp_times(
-        canonical_workout(_state_of_put(payload, None if template is None else template.id)), at
-    )
+    state = canonical_workout(_state_of_put(payload, None if template is None else template.id))
     for entry in state.exercises:
         tracking = exercises[entry.exercise_id].tracking
         for values in entry.sets:
@@ -534,6 +545,22 @@ async def put_workout(
                 problem = set_problem(tracking, values.weight_kg, values.reps, values.duration_s)
                 if problem:
                     raise Invalid(problem)
+    at = now()
+    state = clamp_times(state, at)
+
+    if workout is None:
+        if payload.base_version is not None:
+            # The uuid is gone, or was never stored, but the client has a version of it (R4).
+            raise Conflict("version_conflict", None)
+    elif same_content(state, _state_of_stored(workout)):
+        # Already stored with this content: 200 and no new version, whatever base_version (R5).
+        return await workout_out(db, user, workout), False
+    elif workout.status is WorkoutStatus.finished or payload.base_version != workout.version:
+        raise Conflict("version_conflict", await workout_out(db, user, workout))
+    if payload.status is WorkoutStatus.in_progress:
+        other = await _other_active(db, user, workout_uuid)
+        if other is not None:
+            raise Conflict("other_active", other)
 
     created = workout is None
     if workout is None:
@@ -556,27 +583,71 @@ async def put_workout(
         return await _save(db, user, workout), created
     except IntegrityError as exc:
         await db.rollback()
-        message = _put_conflict_message(exc)
-        if message is None:
+        # The rollback expires `user` as well: refresh it before anything reads it again.
+        await db.refresh(user)
+        constraint = _violated_constraint(exc)
+        if constraint is None:
             raise
-        raise Invalid(message) from exc
+        if constraint == "ux_workouts_one_in_progress":
+            # Another save started a workout after the check above (R4).
+            raise Conflict("other_active", await _other_active(db, user, workout_uuid)) from exc
+        if constraint == "workouts_uuid_key":
+            # Two creations of this uuid raced. The stored one with the same content is the
+            # answer, as R5 says (200); otherwise the client merges with the stored copy.
+            stored = await _stored_by_uuid(db, user, workout_uuid)
+            if stored is None:
+                raise Conflict("version_conflict", None) from exc
+            if same_content(state, _state_of_stored(stored)):
+                return await workout_out(db, user, stored), False
+            raise Conflict("version_conflict", await workout_out(db, user, stored)) from exc
+        raise Invalid("uuid already in use") from exc
 
 
-def _put_conflict_message(exc: IntegrityError) -> str | None:
-    """What a unique constraint hit by the save means. None for an unknown constraint,
-    which is re-raised rather than guessed."""
+_PUT_CONSTRAINTS = (
+    "ux_workouts_one_in_progress",
+    "workouts_uuid_key",
+    "workout_exercises_uuid_key",
+    "workout_sets_uuid_key",
+)
+
+
+def _violated_constraint(exc: IntegrityError) -> str | None:
+    """The unique constraint a save hit, by the name the driver gives it. None for an
+    unknown one, which is re-raised rather than guessed."""
     # The driver's error carries the constraint name; the message text is the fallback.
     cause = getattr(exc.orig, "__cause__", None)
     text = getattr(cause, "constraint_name", None) or str(exc.orig)
-    if "ux_workouts_one_in_progress" in text:
-        # T6: `other_active` 409 with `current` in place of this message.
-        return "a workout is already in progress"
-    if "workouts_uuid_key" in text:
-        # Two creations with the same uuid raced. T6: 409 `version_conflict` with `current`.
-        return "version_conflict"
-    if "workout_exercises_uuid_key" in text or "workout_sets_uuid_key" in text:
-        return "uuid already in use"
-    return None
+    return next((name for name in _PUT_CONSTRAINTS if name in text), None)
+
+
+async def _stored_by_uuid(
+    db: AsyncSession, user: User, workout_uuid: UUID, *, for_update: bool = False
+) -> Workout | None:
+    """The user's workout with this uuid, None when there is none. Another user's uuid is
+    NotFound (C7)."""
+    stored_id = await db.scalar(sa.select(Workout.id).where(Workout.uuid == workout_uuid))
+    if stored_id is None:
+        return None
+    try:
+        return await load_workout(db, user, stored_id, for_update=for_update)
+    except NotFound:
+        if await db.scalar(sa.select(Workout.id).where(Workout.uuid == workout_uuid)) is None:
+            # Deleted between the two reads: there is no workout any more (R4).
+            return None
+        raise
+
+
+async def _other_active(db: AsyncSession, user: User, workout_uuid: UUID) -> WorkoutOut | None:
+    """The user's workout in progress under another uuid, if there is one (`other_active`)."""
+    other_id = await db.scalar(
+        sa.select(Workout.id).where(
+            Workout.user_id == user.id, Workout.status == WorkoutStatus.in_progress,
+            Workout.uuid != workout_uuid,
+        )
+    )
+    if other_id is None:
+        return None
+    return await workout_out(db, user, await load_workout(db, user, other_id))
 
 
 async def rename_workout(
@@ -797,8 +868,15 @@ async def finish_workout(
     return await _save(db, user, workout)
 
 
-async def delete_workout(db: AsyncSession, user: User, workout_id: int) -> None:
-    await db.delete(await load_workout(db, user, workout_id))
+async def delete_workout(
+    db: AsyncSession, user: User, workout_id: int, base_version: int | None = None
+) -> None:
+    """Delete the workout. With `base_version` (an offline undo, R20) the delete goes ahead
+    only if the stored version is still that one; otherwise 409 with the stored copy."""
+    workout = await load_workout(db, user, workout_id, for_update=True)
+    if base_version is not None and base_version != workout.version:
+        raise Conflict("version_conflict", await workout_out(db, user, workout))
+    await db.delete(workout)
     await db.commit()
 
 

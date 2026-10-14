@@ -212,10 +212,12 @@ async def finish(
 @router.delete("/{workout_id}", status_code=204)
 async def delete(
     workout_id: int,
+    base_version: Annotated[int | None, Query(ge=1)] = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> None:
-    await workouts.delete_workout(session, user, workout_id)
+    """Delete (204). With `base_version`, only if the stored version still matches (409 otherwise)."""
+    await workouts.delete_workout(session, user, workout_id, base_version)
 
 
 @router.post("/{workout_id}/apply-to-template", response_model=TemplateOut)

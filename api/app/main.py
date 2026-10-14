@@ -26,7 +26,7 @@ from app.routers import (
     weights,
     workouts,
 )
-from app.services.errors import Invalid, NotFound, PermissionMissing
+from app.services.errors import Conflict, Invalid, NotFound, PermissionMissing
 from app.services.off_client import OffClient
 from app.services.rest_notifier import RestNotifier
 
@@ -69,6 +69,13 @@ async def _invalid(request: Request, exc: Invalid) -> JSONResponse:
 async def _permission_missing(request: Request, exc: PermissionMissing) -> JSONResponse:
     # Same body as the `require_permission` dependency's 403.
     return JSONResponse(status_code=403, content={"detail": "forbidden"})
+
+
+@app.exception_handler(Conflict)
+async def _conflict(request: Request, exc: Conflict) -> JSONResponse:
+    # `current` is the stored workout the client merges against (null when there is none).
+    current = None if exc.current is None else exc.current.model_dump(mode="json")
+    return JSONResponse(status_code=409, content={"detail": exc.reason, "current": current})
 
 
 app.include_router(auth.router)
