@@ -1,7 +1,7 @@
 # Piano: "Errore nel caricamento dei modelli." in modalità aereo nell'IPA
 
 - Data: 2026-10-14
-- Stato: approvato
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: bug
 - Branch: fix/errore-modelli-offline
@@ -84,7 +84,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   - `cd web && npx vitest run src/pages/gym/HistoryPage.offlineError.native.test.tsx`: il test passa;
   - `cd web && npm test`: tutti i test verdi.
 
-### [!] T4. Verifica sull'iPhone
+### [ ] T4. Verifica sull'iPhone
 
 - Copre: C4
 - Rischio: basso
@@ -102,5 +102,6 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 T1 — DONE — review: 1 round, APPROVED. MINOR: GymStartPage.offlineError.native.test.tsx:88-90 attesa `fetchMock` soddisfatta anche da useActiveWorkout e asserzione 'Non disponibile offline' fuori da waitFor (usare findByText); :86 commento non verificato (aggiungere `expect(fetchMock).not.toHaveBeenCalled()` dopo retryConnection). Test non committato da solo: va col commit di T2.
 T2 — DONE — review: 1 round, APPROVED. Note: dopo la correzione `isInvalidated` e `true` (il reducer error lo imposta prima di onError), effetto voluto; la spec dice "resta", impreciso. T1 e T2 nello stesso commit (regola test di regressione).
 T3 — DONE — review: saltata. Test Storico passa con la correzione, fallisce senza (verificato). Suite: 110 file, 799 test verdi.
+Review 1 — APPROVED (0 BLOCKER, 0 MAJOR, 3 MINOR; C4 pendente, T4 manuale su iPhone ancora aperto)
 
 Partenza: dda4bbce54dd6b169b7807b5d7387385ebfe9830 su main
