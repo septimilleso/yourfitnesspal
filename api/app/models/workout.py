@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -116,6 +117,12 @@ class Workout(Base):
     )
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    uuid: Mapped[UUID] = mapped_column(
+        sa.Uuid, unique=True, nullable=False, default=uuid4,
+        server_default=sa.text("gen_random_uuid()"),
+    )
+    # Bumped by every save of a persisted workout; the offline client sends it back.
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1, server_default="1")
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -153,6 +160,10 @@ class WorkoutExercise(Base):
     __tablename__ = "workout_exercises"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    uuid: Mapped[UUID] = mapped_column(
+        sa.Uuid, unique=True, nullable=False, default=uuid4,
+        server_default=sa.text("gen_random_uuid()"),
+    )
     workout_id: Mapped[int] = mapped_column(
         sa.ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -174,6 +185,10 @@ class WorkoutSet(Base):
     __tablename__ = "workout_sets"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    uuid: Mapped[UUID] = mapped_column(
+        sa.Uuid, unique=True, nullable=False, default=uuid4,
+        server_default=sa.text("gen_random_uuid()"),
+    )
     workout_exercise_id: Mapped[int] = mapped_column(
         sa.ForeignKey("workout_exercises.id", ondelete="CASCADE"), nullable=False, index=True
     )

@@ -39,7 +39,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 ### Server
 
-### [~] T1. Migrazione `uuid` e `version`, versione incrementata dalle scritture
+### [x] T1. Migrazione `uuid` e `version`, versione incrementata dalle scritture
 
 - Copre: C1, C2, C11, C41
 - Rischio: alto
@@ -51,7 +51,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   4. Test: endpoint granulare → `version` + 1 e uuid stabile; `notify_due_rests` non cambia `version`; `start_workout` → `version = 1`.
 - Verifica: in locale `cd api && ruff check app tests && python -c "import app.main" && pytest --collect-only -q tests/test_workouts_version.py` senza errori. Pytest sul remoto `tests/test_workouts_version.py tests/test_gym_routers.py tests/test_workouts_live.py tests/test_workouts_finish.py tests/test_rest_notifier.py`: tutti verdi. Sul remoto `alembic downgrade -1 && alembic upgrade head` sul DB `yfp_test` termina senza errori (C11).
 
-### [ ] T2. Fixture condivise per le regole esistenti
+### [~] T2. Fixture condivise per le regole esistenti
 
 - Copre: C12
 - Rischio: basso
@@ -411,5 +411,6 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 - Verifica: ogni punto annotato nel Registro di esecuzione come superato o con il difetto riscontrato.
 
 ## Registro di esecuzione
+T1 — DONE — review: 2 round (MAJOR incremento version in SQL, risolto). Test DB e C11 (downgrade/upgrade + uuid distinti) DA ESEGUIRE SUL REMOTO. avviso nuovo: dipendenze API installate nel Python globale, starlette 0.38.6 in conflitto con streamlit 1.58.0.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main

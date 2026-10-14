@@ -270,18 +270,20 @@ async def workout_out(db: AsyncSession, user: User, workout: Workout) -> Workout
     else:
         diff = await _template_diff(db, user, workout)
     return WorkoutOut(
-        id=workout.id, name=workout.name, template_id=workout.template_id,
+        id=workout.id, uuid=workout.uuid, version=workout.version, name=workout.name,
+        template_id=workout.template_id,
         status=workout.status, started_at=workout.started_at,
         finished_at=workout.finished_at, rest_ends_at=workout.rest_ends_at,
         rest_total_s=workout.rest_total_s, server_now=now(),
         exercises=[
             WorkoutExerciseOut(
-                id=item.id, exercise=exercise_out(item.exercise), rest_seconds=item.rest_seconds,
+                id=item.id, uuid=item.uuid, exercise=exercise_out(item.exercise),
+                rest_seconds=item.rest_seconds,
                 superset_group=item.superset_group, note=item.note,
                 sets=[
                     WorkoutSetOut(
-                        id=s.id, weight_kg=s.weight_kg, reps=s.reps, duration_s=s.duration_s,
-                        completed_at=s.completed_at,
+                        id=s.id, uuid=s.uuid, weight_kg=s.weight_kg, reps=s.reps,
+                        duration_s=s.duration_s, completed_at=s.completed_at,
                         previous=_previous_at(previous.get(item.exercise_id), number),
                         max_set=_best_at(best.get(item.exercise_id), number),
                     )
@@ -295,6 +297,10 @@ async def workout_out(db: AsyncSession, user: User, workout: Workout) -> Workout
 
 
 async def _save(db: AsyncSession, user: User, workout: Workout) -> WorkoutOut:
+    # A workout without id is being created (version starts at 1 from the column default).
+    # The increment is done in SQL so concurrent saves cannot lose one.
+    if workout.id is not None:
+        workout.version = Workout.version + 1
     await db.commit()
     return await workout_out(db, user, await load_workout(db, user, workout.id))
 
@@ -625,6 +631,8 @@ async def save_as_template(
     db.add(template)
     await db.flush()
     workout.template_id = template.id
+    # SQL increment, as in `_save`; `version` is not read from this object after the commit.
+    workout.version = Workout.version + 1
     await db.commit()
     return template_out(await own_template(db, user, template.id))
 

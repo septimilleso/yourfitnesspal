@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -92,6 +93,7 @@ class TemplatePatch(BaseModel):
 
 class WorkoutSetOut(SetValues):
     id: int
+    uuid: UUID
     completed_at: datetime | None
     # Same position in the last finished workout with this exercise.
     previous: SetValues | None
@@ -101,6 +103,7 @@ class WorkoutSetOut(SetValues):
 
 class WorkoutExerciseOut(BaseModel):
     id: int
+    uuid: UUID
     exercise: ExerciseOut
     rest_seconds: int
     superset_group: int | None
@@ -110,6 +113,8 @@ class WorkoutExerciseOut(BaseModel):
 
 class WorkoutOut(BaseModel):
     id: int
+    uuid: UUID
+    version: int
     name: str
     template_id: int | None
     status: WorkoutStatus
