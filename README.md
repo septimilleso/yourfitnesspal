@@ -189,6 +189,8 @@ All routes are under `/api` and require the session cookie unless noted.
 | —        | `/api/templates`               | Create and manage workout templates.                             |
 | —        | `/api/template-folders`        | Organize workout templates in folders.                           |
 | —        | `/api/workouts`                | Run live workouts and review workout history.                    |
+| `PUT`    | `/api/workouts/{uuid}`         | Create or update a workout by uuid. `409` on a version conflict.  |
+| `GET`    | `/api/workouts/offline-snapshot` | Exercises with previous values and maxima, for offline workouts. |
 
 FastAPI mounts its interactive docs at `/docs`, but the session-cookie middleware guards every path
 except the two public ones — so `/docs` answers `401` until you hold a session cookie. In local
@@ -366,7 +368,7 @@ To update, install the new IPA the same way. Things to know about a free account
 - **Native haptics** are used when a set is completed and when the rest ends.
 - **The UI is inside the IPA.** Server changes reach the app as soon as the API is deployed, but any
   UI change needs a new tag and a new IPA.
-- **Offline, read-only.** The app opens without a connection and shows the data it loaded online
+- **Offline.** The app opens without a connection and shows the data it loaded online
   before: today's diary, the week, gym, workout history and stats. When data is offline, an amber
   dot appears in the header of the screens that have data. Tapping it shows when the data was last
   updated: `Offline, dati delle <time>`, or `Offline, dati del <day> alle <time>` for older data.
@@ -380,12 +382,24 @@ To update, install the new IPA the same way. Things to know about a free account
   - Screens with no data offline show "Non disponibile offline".
   - Data tied to the date has a limit: if the last update was yesterday, offline today's diary and
     the 7, 30 and 90 day statistics (which end today) are not available. Yesterday's diary is.
-  - Changes need a connection and are not queued. A live workout session is not available offline.
+  - Everything except gym workouts needs a connection to change, and is not queued.
   - Settings shows a line such as `Dati offline: circa 420 KB, salvati alle 14:05`, with the size and
     time of the offline cache, or `Dati offline: nessuno` when there is no cache.
   - After installing, and after each new IPA, open the app once with a connection before the cache
     is available. A first launch without a connection cannot show data.
   - The cache is cleared on logout or when the session is revoked.
+- **Offline workouts.** A workout can be run entirely offline: start it from a template or from an
+  empty one, add exercises from the catalogue on the phone, complete sets, use the rest timer and
+  finish. Each change is saved on the phone and sent to the server automatically when the connection
+  is back. Finished workouts the server does not have yet are listed at the top of Storico with the
+  label "Da sincronizzare" (or "Conflitto" or "Errore di sincronizzazione"), and the Palestra tab
+  shows a badge with their number until they are synced.
+- **Conflicts.** If the same workout was also changed on the web, a dialog shows both copies when the
+  connection returns, and you choose which one to keep. Cancelling a workout the server already has
+  is queued as well; if the server copy changed in the meantime, it goes to the same dialog instead
+  of being deleted.
+- **Data kept on the phone.** Unsynced workouts are removed only when you confirm logout (the dialog
+  says how many will be lost) or when the app is uninstalled. An expired session keeps them.
 
 ### Local builds and CI
 
