@@ -3,7 +3,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { gymKeys, type Workout } from "../api/gym";
+import {
+  clearGymStore,
+  dispatch,
+  getSnapshot,
+  setClockOffset,
+  startEmptyWorkout,
+} from "../native/gymStore";
 
 const platform = vi.hoisted(() => ({ native: true }));
 const localNotifications = vi.hoisted(() => ({
@@ -23,6 +29,7 @@ const pushLib = vi.hoisted(() => ({
   pushAvailability: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({ useMe: vi.fn(), useHasPermission: vi.fn(() => false) }));
+const filesystem = vi.hoisted(() => ({ deleteFile: vi.fn(), writeFile: vi.fn(), readFile: vi.fn(), stat: vi.fn(), rename: vi.fn() }));
 
 vi.mock("../native/platform", () => ({ isNative: () => platform.native }));
 vi.mock("@capacitor/local-notifications", () => ({ LocalNotifications: localNotifications }));
@@ -30,6 +37,11 @@ vi.mock("../native/restNotifications", () => restNotifications);
 vi.mock("../lib/push", () => pushLib);
 vi.mock("../api/push", () => ({ getPushConfig: vi.fn(), subscribePush: vi.fn() }));
 vi.mock("../auth/AuthContext", () => auth);
+vi.mock("@capacitor/filesystem", () => ({
+  Filesystem: filesystem,
+  Directory: { Library: "LIBRARY" },
+  Encoding: { UTF8: "utf8" },
+}));
 vi.mock("./RestAlertSetting", () => ({
   default: () => <p>versione web</p>,
 }));
@@ -38,22 +50,6 @@ import NativeRestAlertSetting from "./NativeRestAlertSetting";
 import SettingsPage from "../pages/SettingsPage";
 
 const permissionMessage = /Permesso notifiche negato: riabilitalo in Impostazioni iOS › Notifiche › YFP/;
-
-function workout(): Workout {
-  return {
-    id: 7,
-    name: "Giorno 2",
-    template_id: null,
-    status: "in_progress",
-    started_at: "2026-10-12T10:00:00.000Z",
-    finished_at: null,
-    rest_ends_at: "2026-10-12T10:01:00.000Z",
-    rest_total_s: 60,
-    server_now: "2026-10-12T10:00:30.000Z",
-    exercises: [],
-    template_diff: [],
-  };
-}
 
 function renderSetting(queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(
@@ -71,9 +67,11 @@ function toggle() {
 describe("NativeRestAlertSetting", () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     platform.native = true;
+    filesystem.deleteFile.mockResolvedValue(undefined);
+    await clearGymStore();
     fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchSpy);
     localNotifications.checkPermissions.mockResolvedValue({ display: "prompt" });
@@ -115,18 +113,21 @@ describe("NativeRestAlertSetting", () => {
     await waitFor(() => expect(toggle()).toBeChecked());
   });
 
-  it("syncs the cached active workout after enabling", async () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const active = workout();
-    queryClient.setQueryData(gymKeys.active, active);
-    renderSetting(queryClient);
+  it("schedules the rest notification from the store when switched on during a rest (C37)", async () => {
+    const { state } = startEmptyWorkout() as { ok: true; state: { uuid: string } };
+    dispatch(state.uuid, { type: "restStart", seconds: 90 });
+    setClockOffset(60_000);
+    renderSetting();
 
     fireEvent.click(await screen.findByRole("switch", { name: "Avviso fine riposo" }));
 
-    await waitFor(() => expect(restNotifications.syncRestNotification).toHaveBeenCalledWith(active));
+    await waitFor(() =>
+      expect(restNotifications.syncRestNotification).toHaveBeenCalledWith(getSnapshot().active?.workout, 60_000),
+    );
+    expect(restNotifications.syncRestNotification.mock.calls[0][0]).toMatchObject({ rest_ends_at: expect.any(String) });
   });
 
-  it("does not sync when there is no cached active workout yet", async () => {
+  it("does not sync when there is no active workout in the store", async () => {
     renderSetting();
     fireEvent.click(await screen.findByRole("switch", { name: "Avviso fine riposo" }));
 

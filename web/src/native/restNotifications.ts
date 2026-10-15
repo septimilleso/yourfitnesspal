@@ -12,6 +12,9 @@ const ALERTS_KEY = "yfp.restAlerts";
 const SOUND_FILE = "rest-bell.wav";
 const REST_URL = "/gym/workout";
 
+/** Ciò che serve alla notifica: nome e fine del riposo. `server_now` serve solo senza `offsetMs`. */
+export type RestSource = Pick<Workout, "name" | "rest_ends_at"> & { server_now?: string };
+
 export async function getRestAlertsEnabled(): Promise<boolean> {
   if (!isNative()) return false;
   const { value } = await Preferences.get({ key: ALERTS_KEY });
@@ -27,10 +30,12 @@ async function cancelPending(): Promise<void> {
   await LocalNotifications.cancel({ notifications: [{ id: REST_NOTIFICATION_ID }] });
 }
 
-async function applyRestNotification(workout: Workout | null): Promise<void> {
+async function applyRestNotification(workout: RestSource | null, offsetMs: number | undefined): Promise<void> {
   const restEndsAt = workout?.rest_ends_at ? Date.parse(workout.rest_ends_at) : NaN;
-  // Il riposo è sul clock del server: lo riportiamo al clock del telefono con lo stesso offset di RestTimerBar.
-  const fireAt = workout ? restEndsAt - clockOffsetMs(workout.server_now, Date.now()) : NaN;
+  // Il riposo è sul clock del server: lo riportiamo al clock del telefono con lo scarto salvato nello stato locale
+  // (R11) o, se non c'è, con lo stesso offset di RestTimerBar calcolato da `server_now`.
+  const offset = offsetMs ?? (workout?.server_now ? clockOffsetMs(workout.server_now, Date.now()) : NaN);
+  const fireAt = workout ? restEndsAt - offset : NaN;
 
   if (!workout || !Number.isFinite(fireAt) || fireAt <= Date.now()) {
     await cancelPending();
@@ -64,9 +69,9 @@ async function applyRestNotification(workout: Workout | null): Promise<void> {
 // Le chiamate si susseguono in ordine: due sync sovrapposte non devono lasciare una notifica orfana.
 let queue: Promise<void> = Promise.resolve();
 
-export function syncRestNotification(workout: Workout | null): Promise<void> {
+export function syncRestNotification(workout: RestSource | null, offsetMs?: number): Promise<void> {
   if (!isNative()) return Promise.resolve();
-  const next = queue.then(() => applyRestNotification(workout));
+  const next = queue.then(() => applyRestNotification(workout, offsetMs));
   queue = next.catch(() => undefined);
   return next;
 }
