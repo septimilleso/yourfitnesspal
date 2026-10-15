@@ -91,6 +91,38 @@ describe("rest notifications on the native platform", () => {
     expect(notifications[0].schedule.at.getTime()).toBe(NOW + 30_000);
   });
 
+  it("uses the given clock offset instead of server_now (C23: scarto +60 s)", async () => {
+    const { syncRestNotification } = await loadModule();
+    // Il server è avanti di 60 s: il riposo di 90 s finisce sul clock del server a NOW + 150 s, sul telefono a NOW + 90 s.
+    const restEndsAt = new Date(NOW + 60_000 + 90_000).toISOString();
+
+    await syncRestNotification({ name: "Giorno 1", rest_ends_at: restEndsAt }, 60_000);
+
+    const [{ notifications }] = localNotifications.schedule.mock.calls[0];
+    expect(notifications[0].schedule.at.getTime()).toBe(NOW + 90_000);
+  });
+
+  it("schedules the same instant after an app restart 30 s into the rest (C23)", async () => {
+    const { syncRestNotification } = await loadModule();
+    const restEndsAt = new Date(NOW + 60_000 + 90_000).toISOString();
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 30_000);
+
+    await syncRestNotification({ name: "Giorno 1", rest_ends_at: restEndsAt }, 60_000);
+
+    const [{ notifications }] = localNotifications.schedule.mock.calls[0];
+    expect(notifications[0].schedule.at.getTime()).toBe(NOW + 90_000);
+    expect(notifications[0].schedule.at.getTime() - Date.now()).toBe(60_000);
+  });
+
+  it("uses the fixed notification id 4101 (C37)", async () => {
+    const { syncRestNotification } = await loadModule();
+
+    await syncRestNotification(workout());
+
+    const [{ notifications }] = localNotifications.schedule.mock.calls[0];
+    expect(notifications[0].id).toBe(4101);
+  });
+
   it("uses the plain title when the workout has no name", async () => {
     const { syncRestNotification } = await loadModule();
 

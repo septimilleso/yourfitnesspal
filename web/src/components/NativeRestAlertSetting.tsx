@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { LocalNotifications } from "@capacitor/local-notifications";
 
-import { gymKeys, type Workout } from "../api/gym";
+import { getSnapshot } from "../native/gymStore";
 import {
   cancelRestNotification,
   getRestAlertsEnabled,
@@ -14,7 +13,6 @@ const permissionMessage = "Permesso notifiche negato: riabilitalo in Impostazion
 
 /** Avviso fine riposo nell'IPA: notifiche locali al posto del Web Push. Stessa struttura visiva di RestAlertSetting. */
 export default function NativeRestAlertSetting() {
-  const queryClient = useQueryClient();
   const [subscribed, setSubscribed] = useState(false);
   const [checked, setChecked] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -59,9 +57,9 @@ export default function NativeRestAlertSetting() {
           return;
         }
         await setRestAlertsEnabled(true);
-        // Il workspace attivo può essere già in cache: lo programmiamo subito, senza aspettare la prossima risposta.
-        const workout = queryClient.getQueryData<Workout | null>(gymKeys.active);
-        if (workout !== undefined) await syncRestNotification(workout);
+        // Lo stato locale è la sorgente dell'allenamento attivo: se c'è un riposo lo programmiamo subito.
+        const { active, clockOffsetMs } = getSnapshot();
+        if (active !== null) await syncRestNotification(active.workout, clockOffsetMs);
         setSubscribed(true);
       }
     } catch {

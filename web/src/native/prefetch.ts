@@ -9,6 +9,7 @@ import {
   fetchGymCount,
   fetchGymStats,
   fetchHistoryPage,
+  fetchOfflineSnapshot,
   fetchPerformedExercises,
   fetchTemplate,
   fetchTemplates,
@@ -114,6 +115,8 @@ export async function runPrefetchRound(queryClient: QueryClient): Promise<Prefet
         ),
       );
     }),
+    // Snapshot per Precedente e Max offline (R25): persistito, non prunabile, e indipendente dallo stato locale.
+    load(gymKeys.offlineSnapshot, () => fetchOfflineSnapshot()),
   ];
 
   const copyTasks: Task[] = [

@@ -1,10 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "roles": {
-    "planning":       { "model": "opus",             "effort": "high" },
-    "implementation": { "model": "claude-haiku-5-5", "effort": "high" },
-    "review":         { "model": "opus",             "effort": "medium" }
+    "planning":       { "model": "opus",   "effort": "high" },
+    "implementation": { "model": "haiku",  "effort": "high" },
+    "review":         { "model": "sonnet", "effort": "medium" }
   },
-  "commit": "per-task",
+  "escalation": [
+    { "model": "sonnet", "effort": "medium" },
+    { "model": "opus",   "effort": "high" }
+  ],
+  "blockSize": 3,
+  "commit": "per-block",
   "testCommand": "cd web && npm test"
 }

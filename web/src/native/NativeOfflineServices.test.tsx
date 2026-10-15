@@ -13,6 +13,7 @@ import { meWith, type Reply, type RouteContext, routeFetch } from "../test/prefe
 import { resetConnectivityForTests, startConnectivityRecovery } from "./connectivity";
 import NativeBridge from "./NativeBridge";
 import NativeOfflineServices from "./NativeOfflineServices";
+import { startGymSync } from "./gymSync";
 import { resetPrefetchSchedulerForTests, startPrefetch } from "./prefetchScheduler";
 import { clearToken, getToken, setToken } from "./session";
 
@@ -49,6 +50,10 @@ vi.mock("./prefetchScheduler", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./prefetchScheduler")>();
   return { ...actual, startPrefetch: vi.fn(actual.startPrefetch) };
 });
+vi.mock("./gymSync", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./gymSync")>();
+  return { ...actual, startGymSync: vi.fn(actual.startGymSync) };
+});
 // La campanella è una richiesta a /sounds: la escludiamo, così la prima richiesta di fetch è /auth/me.
 vi.mock("./restNotifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./restNotifications")>();
@@ -68,7 +73,8 @@ function meReply({ init }: RouteContext): Reply {
 }
 
 function setupFetch(overrides: Parameters<typeof routeFetch>[0] = {}): void {
-  routed = routeFetch({ "/auth/me": meReply, ...overrides });
+  // Nessun allenamento attivo sul server (204): è la risposta che il sync dell'apertura riceve (R17).
+  routed = routeFetch({ "/auth/me": meReply, "/workouts/active": { status: 204 }, ...overrides });
   vi.stubGlobal("fetch", routed.fetch);
 }
 
@@ -152,7 +158,25 @@ describe("NativeOfflineServices sul montaggio", () => {
     expect(stopPrefetch).toHaveBeenCalledTimes(1);
   });
 
-  it("web: non avvia né la ripresa né il precarico", () => {
+  it("nativo: avvia il sync della palestra con il client di React Query e lo ferma allo smontaggio", () => {
+    setupFetch();
+    const stopGymSync = vi.fn();
+    vi.mocked(startGymSync).mockReturnValueOnce(stopGymSync);
+
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <NativeOfflineServices />
+      </QueryClientProvider>,
+    );
+    expect(startGymSync).toHaveBeenCalledTimes(1);
+    expect(startGymSync).toHaveBeenCalledWith(queryClient);
+    expect(stopGymSync).not.toHaveBeenCalled();
+
+    unmount();
+    expect(stopGymSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("web: non avvia né la ripresa né il precarico né il sync", () => {
     setupFetch();
     platform.native = false;
 
@@ -164,6 +188,7 @@ describe("NativeOfflineServices sul montaggio", () => {
     unmount();
     expect(startConnectivityRecovery).not.toHaveBeenCalled();
     expect(startPrefetch).not.toHaveBeenCalled();
+    expect(startGymSync).not.toHaveBeenCalled();
     expect(routed.urls).toEqual([]);
   });
 });
@@ -176,15 +201,17 @@ describe("precarico avviato dai servizi nativi", () => {
   it("la prima richiesta è /auth/me e il giro parte solo dopo la sua risposta e 2 secondi di idle", async () => {
     setupFetch();
     render(app(queryClient));
-    expect(routed.fetch.mock.calls[0]?.[0]).toBe("/api/auth/me");
-    expect(routed.urls).toEqual(["/auth/me"]);
+    expect(routed.urls).toContain("/auth/me");
+    // La GET dell'attivo (sync, R17) non fa parte del precarico: si toglie dalla sequenza.
+    const prefetchUrls = () => routed.urls.filter((url) => url !== "/workouts/active");
+    expect(prefetchUrls()).toEqual(["/auth/me"]);
 
     await advance(1999);
-    expect(routed.urls).toEqual(["/auth/me"]);
+    expect(prefetchUrls()).toEqual(["/auth/me"]);
 
     await advance(1);
     await settle();
-    expect(routed.urls).toEqual(
+    expect(prefetchUrls()).toEqual(
       expect.arrayContaining([
         "/diary/day/2026-10-13",
         "/diary/day/2026-10-12",

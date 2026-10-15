@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
-import { currentMode, rememberPath } from "../lib/appMode";
+import { currentMode, modeFromPath, rememberPath } from "../lib/appMode";
 import { artIcon, pattern, type DietIcon, type GymIcon } from "../lib/art";
 import ActivityTracker from "./ActivityTracker";
 import ActiveWorkoutBar from "./gym/ActiveWorkoutBar";
+import SyncConflictDialog from "./gym/SyncConflictDialog";
 import SettingsBackdrop from "./SettingsBackdrop";
 
 interface Tab {
@@ -69,6 +70,8 @@ function AppShell() {
       <Outlet />
       <ActivityTracker />
       {canGym && <ActiveWorkoutBar />}
+      {/* Conflitto di sync (R18): solo nell'IPA e nelle pagine di Palestra; la sessione lo mostra da sola. */}
+      {modeFromPath(pathname) === "gym" && <SyncConflictDialog />}
       <nav
         aria-label="Navigazione principale"
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/80 bg-app/85 backdrop-blur-xl pb-[var(--safe-bottom)]"

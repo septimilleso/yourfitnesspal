@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   useActiveWorkout,
@@ -11,6 +12,7 @@ import {
   usePatchTemplate,
   useRenameFolder,
   useStartWorkout,
+  useTemplate,
   useTemplates,
   type TemplateSummary,
   type TemplatesResponse,
@@ -30,6 +32,7 @@ vi.mock("../../api/gym", async () => {
     useDuplicateTemplate: vi.fn(),
     useDeleteTemplate: vi.fn(),
     usePatchTemplate: vi.fn(),
+    useTemplate: vi.fn(),
   };
 });
 vi.mock("../../components/ModeSwitch", () => ({ default: () => null }));
@@ -52,6 +55,18 @@ function renderPage() {
   return render(
     <MemoryRouter>
       <GymStartPage />
+    </MemoryRouter>,
+  );
+}
+
+// Con le rotte di uscita, per vedere dove porta l'avvio.
+function renderWithSession() {
+  return render(
+    <MemoryRouter initialEntries={["/gym"]}>
+      <Routes>
+        <Route path="/gym" element={<GymStartPage />} />
+        <Route path="/gym/workout" element={<div>live session page</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -98,5 +113,71 @@ describe("GymStartPage", () => {
     vi.mocked(useActiveWorkout).mockReturnValue({ data: { id: 3 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useActiveWorkout>);
     renderPage();
     expect(screen.getByRole("button", { name: "Riprendi allenamento" })).toBeInTheDocument();
+  });
+
+  describe("starting a workout", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    function startMutation() {
+      const start = vi.fn((_templateId: number | null, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
+      vi.mocked(useStartWorkout).mockReturnValue({ mutate: start, isPending: false } as unknown as ReturnType<typeof useStartWorkout>);
+      return start;
+    }
+
+    it("starts an empty workout and opens the live session", async () => {
+      const start = startMutation();
+      renderWithSession();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Inizia un allenamento vuoto" }));
+
+      expect(start).toHaveBeenCalledWith(null, expect.anything());
+      expect(await screen.findByText("live session page")).toBeInTheDocument();
+    });
+
+    it("starts from a template picked in the preview", async () => {
+      const start = startMutation();
+      mockTemplates({ data: { folders: [], templates: [pushTemplate] } });
+      vi.mocked(useTemplate).mockReturnValue({
+        data: { id: 1, name: "Push A", exercises: [] },
+        isLoading: false,
+        isError: false,
+      } as unknown as ReturnType<typeof useTemplate>);
+      renderWithSession();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Push A" }));
+      await user.click(screen.getByRole("button", { name: "Inizia allenamento" }));
+
+      expect(start).toHaveBeenCalledWith(1, expect.anything());
+      expect(await screen.findByText("live session page")).toBeInTheDocument();
+    });
+
+    it("resumes the running workout after confirmation, without starting another", async () => {
+      const start = startMutation();
+      vi.mocked(useActiveWorkout).mockReturnValue({ data: { id: 3 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useActiveWorkout>);
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      renderWithSession();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Riprendi allenamento" }));
+
+      expect(confirm).toHaveBeenCalledWith("C'è già un allenamento in corso. Vuoi riprenderlo?");
+      expect(start).not.toHaveBeenCalled();
+      expect(await screen.findByText("live session page")).toBeInTheDocument();
+    });
+
+    it("stays on the start page when resuming is not confirmed", async () => {
+      const start = startMutation();
+      vi.mocked(useActiveWorkout).mockReturnValue({ data: { id: 3 }, isLoading: false, isError: false } as unknown as ReturnType<typeof useActiveWorkout>);
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      renderWithSession();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Riprendi allenamento" }));
+
+      expect(start).not.toHaveBeenCalled();
+      expect(screen.queryByText("live session page")).not.toBeInTheDocument();
+    });
   });
 });

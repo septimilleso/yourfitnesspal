@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 
-import { useActiveWorkout } from "../../api/gym";
 import { elapsedLabel } from "../../lib/gym";
 import { useNow } from "../../lib/useNow";
+import { useActiveSession } from "../../native/localSession";
 
 /** Green strip above the tab bar while a workout is live, on every page of
- * both sections; tapping it reopens the session. */
+ * both sections; tapping it reopens the session. In the app it reads the local state. */
 function ActiveWorkoutBar() {
-  const { data: workout } = useActiveWorkout();
+  const { data: workout } = useActiveSession();
   const now = useNow(1000);
   if (!workout) return null;
   return (

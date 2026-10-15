@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { Folder, TemplateSummary } from "../../api/gym";
+import type { Folder, Template, TemplateSummary } from "../../api/gym";
 import {
-  useActiveWorkout,
   useCreateFolder,
   useDeleteFolder,
   useDeleteTemplate,
@@ -21,6 +20,8 @@ import TemplateCard from "../../components/gym/TemplateCard";
 import TemplatePreviewSheet from "../../components/gym/TemplatePreviewSheet";
 import { mascot } from "../../lib/art";
 import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import { startLocalWorkout, useActiveSession } from "../../native/localSession";
+import { isNative } from "../../native/platform";
 
 const folderIcon = (
   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
@@ -34,7 +35,7 @@ function GymStartPage() {
   const navigate = useNavigate();
   const templates = useTemplates();
   const templatesUnavailable = useOfflineUnavailable(templates);
-  const active = useActiveWorkout();
+  const active = useActiveSession();
   const start = useStartWorkout();
   const createFolder = useCreateFolder();
   const renameFolder = useRenameFolder();
@@ -46,12 +47,19 @@ function GymStartPage() {
   const [movingId, setMovingId] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<number[]>([]);
 
-  function startWorkout(templateId: number | null) {
+  function startWorkout(template: Template | null) {
     if (active.data) {
       if (window.confirm("C'è già un allenamento in corso. Vuoi riprenderlo?")) navigate("/gym/workout");
       return;
     }
-    start.mutate(templateId, { onSuccess: () => navigate("/gym/workout") });
+    // Nell'IPA l'avvio è un'azione sullo stato locale: non aspetta il server.
+    if (isNative()) {
+      const error = startLocalWorkout(template);
+      if (error === null) navigate("/gym/workout");
+      else window.alert(error);
+      return;
+    }
+    start.mutate(template?.id ?? null, { onSuccess: () => navigate("/gym/workout") });
   }
 
   function newFolder() {
@@ -198,7 +206,7 @@ function GymStartPage() {
           templateId={previewId}
           starting={start.isPending}
           onClose={() => setPreviewId(null)}
-          onStart={(id) => startWorkout(id)}
+          onStart={(template) => startWorkout(template)}
           onEdit={(id) => navigate(`/gym/templates/${id}`)}
         />
       )}

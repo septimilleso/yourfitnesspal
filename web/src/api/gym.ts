@@ -101,6 +101,8 @@ export interface TemplateInput {
 
 export interface WorkoutSet extends SetValues {
   id: number;
+  /** Stable id shared with the offline client; absent on responses that predate it. */
+  uuid?: string;
   completed_at: string | null;
   /** Same position in the last finished workout with this exercise. */
   previous: SetValues | null;
@@ -110,6 +112,7 @@ export interface WorkoutSet extends SetValues {
 
 export interface WorkoutExercise {
   id: number;
+  uuid?: string;
   exercise: Exercise;
   rest_seconds: number;
   superset_group: number | null;
@@ -119,6 +122,9 @@ export interface WorkoutExercise {
 
 export interface Workout {
   id: number;
+  uuid?: string;
+  /** Bumped by every saved change; the offline client sends it back as `base_version`. */
+  version?: number;
   name: string;
   template_id: number | null;
   status: "in_progress" | "finished";
@@ -202,6 +208,58 @@ export interface LayoutItem {
 
 export type RestAction = { start_s: number } | { delta_s: number } | { skip: true };
 
+/** One exercise of the offline snapshot, with what Precedente and Max show for it. */
+export interface SnapshotExercise {
+  exercise: Exercise;
+  /** Rest of the last finished appearance; null if the exercise has none. */
+  rest_seconds: number | null;
+  /** Completed sets of the last finished appearance, in order; empty if none. */
+  previous: SetValues[];
+  /** Best completed set per position across finished workouts; empty if none. */
+  max: SetValues[];
+}
+
+/** `GET /api/workouts/offline-snapshot`: the phone's Precedente and Max source. */
+export interface OfflineSnapshot {
+  /** Server clock at response time, as in `Workout.server_now`. */
+  server_now: string;
+  exercises: SnapshotExercise[];
+}
+
+/** A set in `PUT /api/workouts/{uuid}`; its `uuid` pairs it with the stored row. */
+export interface WorkoutPutSet extends SetValues {
+  uuid: string;
+  completed_at: string | null;
+}
+
+export interface WorkoutPutExercise {
+  uuid: string;
+  exercise_id: number;
+  rest_seconds: number;
+  superset_group: number | null;
+  note: string | null;
+  sets: WorkoutPutSet[];
+}
+
+/** Body of `PUT /api/workouts/{uuid}`: the whole workout, in order. `base_version` is null only for a workout the server has never seen. */
+export interface WorkoutPutBody {
+  base_version: number | null;
+  name: string;
+  template_id: number | null;
+  status: "in_progress" | "finished";
+  started_at: string;
+  finished_at: string | null;
+  rest_ends_at: string | null;
+  rest_total_s: number | null;
+  exercises: WorkoutPutExercise[];
+}
+
+/** 409 body of the workout endpoints: `detail` is the reason, `current` the stored workout or null. */
+export interface ConflictBody {
+  detail: string;
+  current: Workout | null;
+}
+
 export const gymKeys = {
   exercises: (filters: ExerciseFilters) => ["gym", "exercises", filters] as const,
   exercise: (id: number) => ["gym", "exercise", id] as const,
@@ -215,6 +273,7 @@ export const gymKeys = {
   statsExercises: ["gym", "stats", "exercises"] as const,
   progress: (id: number, start: string, end: string) =>
     ["gym", "stats", "progress", id, start, end] as const,
+  offlineSnapshot: ["gym", "offline-snapshot"] as const,
 };
 
 function exercisesPath(filters: ExerciseFilters): string {
@@ -344,11 +403,15 @@ export const useDeleteFolder = () =>
 
 // ---- workouts ----
 
+/** `GET /workouts/active`. 204 (no live workout) comes back as `undefined`; here it is null. */
+export async function fetchActiveWorkout(): Promise<Workout | null> {
+  return (await client.get<Workout | undefined>("/workouts/active")) ?? null;
+}
+
 export function useActiveWorkout(enabled = true) {
   return useQuery({
     queryKey: gymKeys.active,
-    // 204 (no live workout) comes back as `undefined`; react-query needs null.
-    queryFn: async () => (await client.get<Workout | undefined>("/workouts/active")) ?? null,
+    queryFn: fetchActiveWorkout,
     enabled,
   });
 }
@@ -548,4 +611,21 @@ export function useDeleteWorkout() {
       void queryClient.invalidateQueries({ queryKey: ["gym", "stats"] });
     },
   });
+}
+
+// ---- offline sync ----
+
+export function fetchOfflineSnapshot() {
+  return client.get<OfflineSnapshot>("/workouts/offline-snapshot");
+}
+
+/** Creates (201) or replaces (200) the whole workout; a 409 arrives as `ApiError` with a `ConflictBody`. */
+export function putWorkout(uuid: string, body: WorkoutPutBody) {
+  return client.put<Workout>(`/workouts/${uuid}`, body);
+}
+
+/** Deletes the workout only if its stored version is still `baseVersion` (409 otherwise). Without it, deletes always (R18, other_active). */
+export function deleteWorkoutChecked(id: number, baseVersion?: number) {
+  const query = baseVersion === undefined ? "" : `?base_version=${baseVersion}`;
+  return client.delete<void>(`/workouts/${id}${query}`);
 }

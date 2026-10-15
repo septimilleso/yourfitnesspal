@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useApplyToTemplate, useDeleteWorkout, useSaveAsTemplate, useWorkout } from "../../api/gym";
@@ -7,6 +7,8 @@ import OfflineUnavailable from "../../components/OfflineUnavailable";
 import ActionMenu from "../../components/gym/ActionMenu";
 import { durationLabel, formatSet, workoutDateLabel } from "../../lib/gym";
 import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
+import { getSnapshot, removeTemplateProposal } from "../../native/gymStore";
+import { isNative } from "../../native/platform";
 
 /** A finished workout. With `?summary=1` (right after "Termina") it is the
  * end-of-workout summary: if the sets differ from the template it offers to
@@ -24,6 +26,16 @@ function WorkoutDetailPage() {
   const saveAs = useSaveAsTemplate();
   const remove = useDeleteWorkout();
   const [keepTemplate, setKeepTemplate] = useState(false);
+  const [offerUpdate, setOfferUpdate] = useState(false);
+
+  // Nell'IPA la proposta di un riepilogo chiuso prima del sync si consuma alla prima valutazione, anche nel riepilogo
+  // (il sync può riuscire a riepilogo aperto e portare qui con ?summary=1): compare una sola volta (R19).
+  useEffect(() => {
+    if (!isNative() || workout === undefined) return;
+    if (!getSnapshot().templateProposals.includes(workout.id)) return;
+    removeTemplateProposal(workout.id);
+    setOfferUpdate(workout.template_diff.length > 0);
+  }, [workout]);
 
   function saveAsTemplate() {
     if (!workout) return;
@@ -36,7 +48,7 @@ function WorkoutDetailPage() {
     remove.mutate(workoutId, { onSuccess: () => navigate("/gym/history", { replace: true }) });
   }
 
-  const showDiff = summary && !keepTemplate && (workout?.template_diff.length ?? 0) > 0;
+  const showDiff = (summary || offerUpdate) && !keepTemplate && (workout?.template_diff.length ?? 0) > 0;
 
   return (
     <div>

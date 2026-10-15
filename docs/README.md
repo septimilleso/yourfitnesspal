@@ -2,8 +2,9 @@
 
 Documentazione del flusso devflow.
 
-- `features/<AAAA-MM-GG>-<slug>/`: una cartella per feature o bug, con `brainstorm.md`, `spec.md`, `plan.md`, `review.md`. Il campo `Tipo` in `spec.md` distingue feature e bug.
+- `features/<AAAA-MM-GG>-<slug>/plan.md`: obiettivo, criteri, task, registro e review di una feature o di un bug. Il campo `Tipo` li distingue. Le feature di devflow 0.3 hanno anche `brainstorm.md`, `spec.md` e `review.md`.
+- `Stato` del piano: `bozza`, `approvato`, `completato`.
 - `decisions/NNNN-<slug>.md`: decisioni architetturali (ADR).
-- `workflow.config.json`: modello ed effort per ruolo (planning, implementation, review), politica di commit e comando di test.
+- `workflow.config.json`: modelli ed effort per ruolo (planning, implementation, review), escalation, dimensione dei blocchi, politica di commit e comando di test.
 
 Le cartelle `superpowers/` e `plans/` contengono spec e piani del flusso precedente.

@@ -1,13 +1,13 @@
 import { Fragment } from "react";
 
 import type { WorkoutExercise } from "../../api/gym";
-import { gymApi, useLiveMutation } from "../../api/gym";
 import { FIELD_META, formatDuration, restLabel, setFields, setGridColumns } from "../../lib/gym";
+import { keyOf, type LiveSession } from "../../lib/liveSession";
 import ActionMenu, { type Action } from "./ActionMenu";
 import SetRow from "./SetRow";
 
 interface WorkoutExerciseCardProps {
-  workoutId: number;
+  session: LiveSession;
   item: WorkoutExercise;
   /** Exercise-level menu, built by the page (it knows the whole layout). */
   actions: Action[];
@@ -15,12 +15,8 @@ interface WorkoutExerciseCardProps {
   onPickRest: () => void;
 }
 
-function WorkoutExerciseCard({ workoutId, item, actions, onShowExercise, onPickRest }: WorkoutExerciseCardProps) {
-  const patchSet = useLiveMutation(gymApi.patchSet);
-  const completeSet = useLiveMutation(gymApi.completeSet);
-  const uncompleteSet = useLiveMutation(gymApi.uncompleteSet);
-  const deleteSet = useLiveMutation(gymApi.deleteSet);
-  const addSet = useLiveMutation(gymApi.addSet);
+function WorkoutExerciseCard({ session, item, actions, onShowExercise, onPickRest }: WorkoutExerciseCardProps) {
+  const exerciseUuid = keyOf(item);
   const fields = setFields(item.exercise.tracking);
   const inSuperset = item.superset_group !== null;
 
@@ -56,15 +52,15 @@ function WorkoutExerciseCard({ workoutId, item, actions, onShowExercise, onPickR
 
       <div className="mt-1 space-y-1">
         {item.sets.map((set, index) => (
-          <Fragment key={set.id}>
+          <Fragment key={keyOf(set)}>
             <SetRow
               index={index}
               tracking={item.exercise.tracking}
               set={set}
-              onSave={(values) => patchSet.mutate({ workoutId, id: set.id, values })}
-              onComplete={(values) => completeSet.mutate({ workoutId, id: set.id, values })}
-              onUncomplete={() => uncompleteSet.mutate({ workoutId, id: set.id })}
-              onDelete={() => deleteSet.mutate({ workoutId, id: set.id })}
+              onSave={(values) => session.patchSet(keyOf(set), values)}
+              onComplete={(values) => session.completeSet(keyOf(set), values)}
+              onUncomplete={() => session.uncompleteSet(keyOf(set))}
+              onDelete={() => session.deleteSet(keyOf(set))}
             />
             {item.rest_seconds > 0 && (
               <button
@@ -84,7 +80,7 @@ function WorkoutExerciseCard({ workoutId, item, actions, onShowExercise, onPickR
 
       <button
         type="button"
-        onClick={() => addSet.mutate({ workoutId, exerciseId: item.id })}
+        onClick={() => session.addSet(exerciseUuid)}
         className="mt-2 w-full rounded-lg bg-slate-100 py-2 text-[15px] font-semibold text-slate-700 active:bg-slate-200"
       >
         + Aggiungi serie ({restLabel(item.rest_seconds)})

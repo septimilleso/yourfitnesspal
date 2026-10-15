@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 
 import { offlineTimeParts } from "../lib/offlineTime";
 import { isOffline, subscribeConnectivity } from "../native/connectivity";
+import { getSnapshot, subscribe, syncBadgeCount } from "../native/gymStore";
 import { isNative } from "../native/platform";
 
 const BUBBLE_MS = 4000;
@@ -49,6 +50,8 @@ function NativeOfflineIndicator({ className }: OfflineIndicatorProps) {
     [queryClient],
   );
   const shownAt = useSyncExternalStore(subscribeQueries, () => oldestShownUpdatedAt(queryClient));
+  // Allenamenti di palestra da sincronizzare: il fumetto li riporta (R23).
+  const unsynced = syncBadgeCount(useSyncExternalStore(subscribe, getSnapshot));
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
@@ -74,11 +77,12 @@ function NativeOfflineIndicator({ className }: OfflineIndicatorProps) {
       window.innerWidth - SCREEN_MARGIN - bubble.width,
     );
     setBubbleShift(fitted - centered);
-  }, [open, offline, shownAt]);
+  }, [open, offline, shownAt, unsynced]);
 
   if (!offline || shownAt === null) return null;
 
-  const text = shownText(shownAt, new Date());
+  const text =
+    shownText(shownAt, new Date()) + (unsynced > 0 ? ` · ${unsynced} da sincronizzare` : "");
 
   return (
     <span ref={anchorRef} className={className ?? "relative inline-flex"}>

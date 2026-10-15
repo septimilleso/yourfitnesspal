@@ -5,10 +5,12 @@ import { getMe, logout, type Me } from "../api/auth";
 import type { Permission } from "../lib/permissions";
 import { unsubscribeDeviceOnLogout } from "../lib/push";
 import { retryOnlyNetwork } from "../lib/queryClient";
+import { clearGymStore, getSnapshot, pendingCount } from "../native/gymStore";
+import { confirmGymUser } from "../native/gymSync";
 import { isNative } from "../native/platform";
 import { clearPersistedQueryCache } from "../native/queryPersistence";
 import { cancelRestNotification } from "../native/restNotifications";
-import { clearToken } from "../native/session";
+import { clearToken, getToken } from "../native/session";
 
 const AuthContext = createContext<Me | null | undefined>(undefined);
 
@@ -17,8 +19,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={me.data}>{children}</AuthContext.Provider>;
 }
 
+// Ogni risposta riuscita di `["me"]` dice a chi appartiene lo stato locale della palestra, prima di ogni invio (R21).
+async function fetchMe(): Promise<Me> {
+  const token = getToken();
+  const me = await getMe();
+  if (isNative()) confirmGymUser(me.id, token);
+  return me;
+}
+
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: getMe, retry: isNative() ? retryOnlyNetwork : false, staleTime: 5 * 60_000 });
+  return useQuery({ queryKey: ["me"], queryFn: fetchMe, retry: isNative() ? retryOnlyNetwork : false, staleTime: 5 * 60_000 });
 }
 
 export function useHasPermission(permission: Permission) {
@@ -37,6 +47,12 @@ export function useLogout() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return async () => {
+    if (isNative()) {
+      // Allenamenti non sincronizzati: uscendo andranno persi. Annullando non succede nulla (R21).
+      const pending = pendingCount(getSnapshot());
+      if (pending > 0 && !window.confirm(`Ci sono ${pending} allenamenti non sincronizzati: uscendo andranno persi`)) return;
+      await clearGymStore();
+    }
     try {
       await unsubscribeDeviceOnLogout();
     } catch {
@@ -53,6 +69,8 @@ export function useLogout() {
       }
       // Il token va rimosso prima del file: una scrittura in mezzo non deve ricreare il file con la sessione vecchia.
       await clearToken().catch(() => undefined);
+      // Una rilettura del file tra la prima cancellazione e il token rimosso non deve riportare l'allenamento in memoria.
+      await clearGymStore();
       await clearPersistedQueryCache().catch(() => undefined);
     } else {
       await logout();

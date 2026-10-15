@@ -6,6 +6,7 @@ the full workout so the SPA can replace its cached copy.
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.schemas.workout import (
     FinishIn,
     HistoryPage,
     LayoutIn,
+    OfflineSnapshot,
     RestIn,
     SaveAsTemplateIn,
     SetPatch,
@@ -24,6 +26,7 @@ from app.schemas.workout import (
     WorkoutExerciseAdd,
     WorkoutExercisePatch,
     WorkoutOut,
+    WorkoutPutIn,
     WorkoutRename,
     WorkoutStart,
 )
@@ -40,6 +43,15 @@ async def active(
     if workout is None:
         return Response(status_code=204)
     return workout
+
+
+# Declared before `/{workout_id}`, which would otherwise capture this path.
+@router.get("/offline-snapshot", response_model=OfflineSnapshot)
+async def offline_snapshot(
+    session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)
+) -> OfflineSnapshot:
+    """Precedente and Max of the user's exercises, for the offline client."""
+    return await workouts.offline_snapshot(session, user)
 
 
 @router.get("", response_model=HistoryPage)
@@ -59,6 +71,20 @@ async def start(
     user: User = Depends(get_current_user),
 ) -> WorkoutOut:
     return await workouts.start_workout(session, user, payload)
+
+
+@router.put("/{workout_uuid}", response_model=WorkoutOut)
+async def put(
+    workout_uuid: UUID,
+    payload: WorkoutPutIn,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> WorkoutOut:
+    """Create (201) or replace (200) the whole workout, the offline client's save."""
+    workout, created = await workouts.put_workout(session, user, workout_uuid, payload)
+    response.status_code = 201 if created else 200
+    return workout
 
 
 @router.get("/{workout_id}", response_model=WorkoutOut)
@@ -196,10 +222,12 @@ async def finish(
 @router.delete("/{workout_id}", status_code=204)
 async def delete(
     workout_id: int,
+    base_version: Annotated[int | None, Query(ge=1)] = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> None:
-    await workouts.delete_workout(session, user, workout_id)
+    """Delete (204). With `base_version`, only if the stored version still matches (409 otherwise)."""
+    await workouts.delete_workout(session, user, workout_id, base_version)
 
 
 @router.post("/{workout_id}/apply-to-template", response_model=TemplateOut)

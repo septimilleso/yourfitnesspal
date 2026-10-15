@@ -2,7 +2,7 @@
 
 - Data: 2026-10-06
 - Tipo: bug
-- Stato: approvata
+- Stato: approvato
 
 ## Sintomo
 

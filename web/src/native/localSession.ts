@@ -1,0 +1,281 @@
+// Sessione di allenamento dell'IPA (C17–C21): lo stato locale dello store letto e modificato dalla UI.
+// Ogni operazione è un dispatch sull'allenamento attivo, senza richieste di rete. Nel browser
+// `useActiveSession` resta `useActiveWorkout` e la sessione è `useServerSession`.
+import { useQuery } from "@tanstack/react-query";
+import { useContext, useState, useSyncExternalStore } from "react";
+
+import { ApiError } from "../api/client";
+import {
+  type Exercise,
+  type OfflineSnapshot,
+  type Template,
+  type Workout,
+  type WorkoutExercise,
+  deleteWorkoutChecked,
+  fetchOfflineSnapshot,
+  gymKeys,
+  useActiveWorkout,
+} from "../api/gym";
+import { liveErrorText } from "../lib/gym";
+import { isoOffset } from "../lib/gymRules";
+import {
+  type PreviousAndMax,
+  type SessionAction,
+  type SessionExercise,
+  previousAndMax,
+  previousFirst,
+} from "../lib/gymSession";
+import { LiveErrorContext } from "../lib/liveErrors";
+import type { LiveSession } from "../lib/liveSession";
+import { isOffline } from "./connectivity";
+import {
+  type GymEntry,
+  dispatch,
+  getSnapshot,
+  removeEntry,
+  startEmptyWorkout,
+  startWorkoutFromTemplate,
+  subscribe,
+} from "./gymStore";
+import { cancelLocal, confirmedServerId, syncNow } from "./gymSync";
+import { isNative } from "./platform";
+
+/** Allenamento attivo per la UI: `data` è null se non c'è, undefined mentre il web lo carica. */
+export interface ActiveSession {
+  data: Workout | null | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  isPlaceholderData?: boolean;
+  fetchStatus?: string;
+}
+
+// Termina aspetta il sync al massimo questo tempo (R19): oltre, il sync va avanti da solo e si apre il riepilogo locale.
+const SYNC_WAIT_MS = 5000;
+
+// Voce in fase di Termina. Dopo il dispatch è già tra i finiti, ma la pagina resta sull'allenamento fino all'esito
+// del sync: senza questo, l'allenamento sparirebbe per qualche secondo. La copia è quella del momento di Termina,
+// così resta visibile anche quando il sync la toglie dallo store.
+let finishingEntry: GymEntry | null = null;
+const finishingListeners = new Set<() => void>();
+
+function subscribeFinishing(listener: () => void): () => void {
+  finishingListeners.add(listener);
+  return () => {
+    finishingListeners.delete(listener);
+  };
+}
+
+function setFinishingEntry(entry: GymEntry | null): void {
+  finishingEntry = entry;
+  for (const listener of finishingListeners) listener();
+}
+
+// Campi che lo snapshot non porta: un esercizio fuori dallo snapshot ha solo nome, tracking e id.
+const BLANK_EXERCISE: Omit<Exercise, "id" | "name" | "tracking"> = {
+  equipment: null,
+  primary_muscles: [],
+  secondary_muscles: [],
+  category: null,
+  custom: false,
+};
+
+// Id del server che l'allenamento o l'esercizio non hanno ancora: la UI li riconosce per uuid, quindi 0 è un segnaposto.
+const UNSENT_ID = 0;
+
+function exerciseView(
+  exercise: SessionExercise,
+  snapshot: OfflineSnapshot | null,
+  marks: Map<string, PreviousAndMax>,
+): WorkoutExercise {
+  const known = snapshot?.exercises.find((item) => item.exercise.id === exercise.exercise_id)?.exercise;
+  return {
+    id: exercise.id ?? UNSENT_ID,
+    uuid: exercise.uuid,
+    exercise: { ...BLANK_EXERCISE, ...known, id: exercise.exercise_id, name: exercise.name, tracking: exercise.tracking },
+    rest_seconds: exercise.rest_seconds,
+    superset_group: exercise.superset_group,
+    note: exercise.note,
+    sets: exercise.sets.map((set) => {
+      const mark = marks.get(set.uuid);
+      return {
+        id: set.id ?? UNSENT_ID,
+        uuid: set.uuid,
+        weight_kg: set.weight_kg,
+        reps: set.reps,
+        duration_s: set.duration_s,
+        completed_at: set.completed_at,
+        previous: mark?.previous ?? null,
+        max_set: mark?.max ?? null,
+      };
+    }),
+  };
+}
+
+/**
+ * Lo stato locale nella forma che la UI legge da `GET /workouts/active`. Precedente e Max vengono da
+ * `previousAndMax` (ultima risposta del server o snapshot). `server_now` è l'orologio del telefono corretto
+ * con lo scarto noto.
+ */
+function workoutView(entry: GymEntry, snapshot: OfflineSnapshot | null, clockOffsetMs: number): Workout {
+  const { workout } = entry;
+  const marks = previousAndMax(entry, snapshot);
+  return {
+    id: workout.id ?? UNSENT_ID,
+    uuid: workout.uuid,
+    version: workout.version ?? undefined,
+    name: workout.name,
+    template_id: workout.template_id,
+    status: workout.status,
+    started_at: workout.started_at,
+    finished_at: workout.finished_at,
+    rest_ends_at: workout.rest_ends_at,
+    rest_total_s: workout.rest_total_s,
+    server_now: isoOffset(Date.now() + clockOffsetMs),
+    exercises: workout.exercises.map((exercise) => exerciseView(exercise, snapshot, marks)),
+    template_diff: [],
+  };
+}
+
+interface LocalState {
+  /** L'allenamento attivo, o quello in fase di Termina finché il sync non ha dato l'esito. */
+  entry: GymEntry | null;
+  finishing: boolean;
+  snapshot: OfflineSnapshot | null;
+  clockOffsetMs: number;
+}
+
+// Stato dello store e snapshot in cache. La query è disattivata: legge la cache e non fa richieste.
+function useLocalState(): LocalState {
+  const store = useSyncExternalStore(subscribe, getSnapshot);
+  const finishing = useSyncExternalStore(subscribeFinishing, () => finishingEntry);
+  const snapshot = useQuery({ queryKey: gymKeys.offlineSnapshot, queryFn: fetchOfflineSnapshot, enabled: false }).data;
+  return {
+    entry: store.active ?? finishing,
+    finishing: finishing !== null,
+    snapshot: snapshot ?? null,
+    clockOffsetMs: store.clockOffsetMs,
+  };
+}
+
+function useLocalActive(): ActiveSession {
+  const { entry, snapshot, clockOffsetMs } = useLocalState();
+  const data = entry === null ? null : workoutView(entry, snapshot, clockOffsetMs);
+  return { data, isLoading: false, isError: false, isPlaceholderData: false };
+}
+
+function useServerActive(): ActiveSession {
+  return useActiveWorkout();
+}
+
+/**
+ * Allenamento attivo per la UI: nell'IPA dallo stato locale, nel browser `useActiveWorkout` come prima.
+ * La piattaforma non cambia mentre l'app gira: il ramo è sempre lo stesso, quindi gli hook restano nello stesso ordine.
+ */
+export function useActiveSession(): ActiveSession {
+  return isNative() ? useLocalActive() : useServerActive();
+}
+
+// DELETE dell'allenamento sincronizzato, come oggi (R20). Vero se il server non lo ha più: anche il 404, già sparito.
+// Ogni altro errore dà falso e l'annullamento passa dalla coda del sync.
+async function deleteOnServer(id: number): Promise<boolean> {
+  try {
+    await deleteWorkoutChecked(id);
+    return true;
+  } catch (error) {
+    return error instanceof ApiError && error.status === 404;
+  }
+}
+
+/** Avvio nell'IPA: un dispatch sullo store, senza rete. Restituisce il messaggio d'errore, o null se è partito. */
+export function startLocalWorkout(template: Template | null): string | null {
+  const outcome = template === null ? startEmptyWorkout() : startWorkoutFromTemplate(template);
+  return outcome.ok ? null : outcome.error;
+}
+
+/**
+ * Sessione locale per la pagina: ogni operazione è un'azione del reducer sull'allenamento attivo. Un errore del
+ * reducer va al toast con `liveErrorText`. Null se non c'è un allenamento attivo.
+ */
+export function useLocalSession(): LiveSession | null {
+  const report = useContext(LiveErrorContext);
+  const { entry, finishing, snapshot, clockOffsetMs } = useLocalState();
+  const [cancelling, setCancelling] = useState(false);
+  if (entry === null) return null;
+
+  const uuid = entry.workout.uuid;
+  const previousFirstOf = (exerciseUuid: string) => {
+    const exercise = entry.workout.exercises.find((item) => item.uuid === exerciseUuid);
+    return exercise ? previousFirst(exercise.exercise_id, snapshot) : null;
+  };
+  function act(action: SessionAction): void {
+    // Durante l'attesa del sync di Termina l'allenamento è già chiuso: le modifiche non si applicano.
+    if (finishing) return;
+    const result = dispatch(uuid, action);
+    if (!result.ok) report(liveErrorText(result.error));
+  }
+
+  return {
+    workout: workoutView(entry, snapshot, clockOffsetMs),
+    clockOffsetMs,
+    isFinishing: finishing,
+    isCancelling: cancelling,
+
+    rename: (name) => act({ type: "rename", name }),
+    addExercises: (exercises) => act({ type: "addExercises", exercises, snapshot }),
+    replaceExercise: (exerciseUuid, exercise) => act({ type: "replaceExercise", exerciseUuid, exercise }),
+    removeExercise: (exerciseUuid) => act({ type: "removeExercise", exerciseUuid }),
+    setNote: (exerciseUuid, note) => act({ type: "setNote", exerciseUuid, note }),
+    setRest: (exerciseUuid, seconds) => act({ type: "setRest", exerciseUuid, seconds }),
+    setLayout: (layout) => act({ type: "setLayout", layout }),
+    addSet: (exerciseUuid) => act({ type: "addSet", exerciseUuid, previousFirst: previousFirstOf(exerciseUuid) }),
+    patchSet: (setUuid, values) => act({ type: "patchSet", setUuid, values }),
+    completeSet: (setUuid, values) => act({ type: "completeSet", setUuid, values }),
+    uncompleteSet: (setUuid) => act({ type: "uncompleteSet", setUuid }),
+    deleteSet: (setUuid) => act({ type: "deleteSet", setUuid }),
+    restStart: (seconds) => act({ type: "restStart", seconds }),
+    restDelta: (seconds) => act({ type: "restDelta", seconds }),
+    restSkip: () => act({ type: "restSkip" }),
+
+    finish(discardIncomplete, callbacks) {
+      if (finishing) return;
+      const result = dispatch(uuid, { type: "finish", discardIncomplete });
+      if (!result.ok) {
+        callbacks.onError(liveErrorText(result.error));
+        return;
+      }
+      setFinishingEntry(getSnapshot().finished.find((item) => item.workout.uuid === uuid) ?? null);
+      void syncNow(uuid, SYNC_WAIT_MS)
+        .then((outcome) => {
+          // Il riepilogo va al server solo se il sync è riuscito in tempo (R19); altrimenti resta quello locale.
+          const id = outcome === "synced" ? confirmedServerId(uuid) : null;
+          callbacks.onSuccess({ id, uuid });
+        })
+        // Anche se onSuccess lancia, Termina deve tornare disponibile.
+        .finally(() => setFinishingEntry(null));
+    },
+    // Annullamento (R20): con rete e già sincronizzato, DELETE come oggi e poi rimozione locale. In tutti gli altri
+    // casi, e se il DELETE non riesce, si passa da `cancelLocal`: l'annullamento resta in attesa e il sync lo invia al
+    // ritorno della rete con la versione nota (un 409 porta al conflitto di R18). La rimozione e la navigazione
+    // avvengono nello stesso passo, così la pagina non mostra "Nessun allenamento in corso" per un istante.
+    cancel(callbacks) {
+      if (finishing || cancelling) return;
+      const done = () => {
+        setCancelling(false);
+        callbacks.onSuccess();
+      };
+      const active = getSnapshot().active;
+      if (active === null || active.workout.uuid !== uuid) return done();
+      const { id } = active.workout;
+      if (isOffline() || active.baseVersion === null || id === null) {
+        cancelLocal(uuid);
+        return done();
+      }
+      setCancelling(true);
+      void deleteOnServer(id).then((deleted) => {
+        if (deleted) removeEntry(uuid);
+        else cancelLocal(uuid);
+        done();
+      });
+    },
+  };
+}

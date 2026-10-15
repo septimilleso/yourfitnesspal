@@ -221,10 +221,15 @@ const LIVE_ERRORS: Record<string, string> = {
   incomplete_sets: "Ci sono serie non completate",
 };
 
+/** Testo per l'utente di un messaggio di errore della sessione (server o reducer locale). */
+export function liveErrorText(message: string): string {
+  return LIVE_ERRORS[message] ?? message;
+}
+
 export function liveErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 422) return "Valori non validi";
-    return LIVE_ERRORS[error.message] ?? error.message;
+    return liveErrorText(error.message);
   }
   return "Non salvato: controlla la connessione";
 }

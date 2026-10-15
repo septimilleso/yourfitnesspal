@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useHasPermission } from "../auth/AuthContext";
@@ -6,6 +7,8 @@ import SettingsButton from "./SettingsButton";
 import WeightButton from "./WeightButton";
 import { type AppMode, currentMode, lastPath } from "../lib/appMode";
 import { artIcon } from "../lib/art";
+import { getSnapshot, subscribe, syncBadgeCount } from "../native/gymStore";
+import { isNative } from "../native/platform";
 
 const MODES: { mode: AppMode; label: string }[] = [
   { mode: "diet", label: "Dieta" },
@@ -17,6 +20,9 @@ function ModeSwitch() {
   const canGym = useHasPermission("workouts.use");
   const { pathname, search } = useLocation();
   const mode = currentMode(pathname);
+  const store = useSyncExternalStore(subscribe, getSnapshot);
+  // Solo nell'IPA: nel browser lo store è vuoto (R23).
+  const unsynced = isNative() ? syncBadgeCount(store) : 0;
   if (!canGym && pathname === "/settings") return null;
   return (
     <div className="relative mx-auto flex min-h-[48px] max-w-2xl items-center justify-center px-14 pt-2">
@@ -41,6 +47,15 @@ function ModeSwitch() {
                   className="mr-1 inline-block h-5 w-5 align-middle"
                 />
                 {item.label}
+                {item.mode === "gym" && unsynced > 0 && (
+                  <span
+                    role="img"
+                    aria-label={unsynced === 1 ? "1 allenamento da sincronizzare" : `${unsynced} allenamenti da sincronizzare`}
+                    className="ml-1 inline-flex min-w-[1.25rem] justify-center rounded-full bg-amber-500 px-1 text-[11px] font-bold leading-5 text-white"
+                  >
+                    {unsynced}
+                  </span>
+                )}
               </Link>
             ))}
           </div>
