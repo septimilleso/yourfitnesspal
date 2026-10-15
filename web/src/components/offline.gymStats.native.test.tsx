@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -190,14 +191,19 @@ describe("ExerciseList offline", () => {
 });
 
 describe("ExercisePicker offline", () => {
-  it("con il catalogo in pausa mostra il messaggio e il pulsante Aggiungi resta disabilitato", () => {
+  // R14: offline il selettore cerca tra gli esercizi già sul dispositivo, senza più la query del catalogo.
+  it("senza esercizi in cache mostra l'elenco locale vuoto, non il messaggio, e il pulsante Aggiungi resta disabilitato", () => {
     mockAllQueries(pausedQuery());
 
-    render(<ExercisePicker onPick={vi.fn()} onClose={vi.fn()} />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ExercisePicker onPick={vi.fn()} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
 
-    expect(screen.getByText("Non disponibile offline")).toBeInTheDocument();
+    expect(screen.getByText("Nessun esercizio trovato.")).toBeInTheDocument();
+    expect(screen.queryByText("Non disponibile offline")).not.toBeInTheDocument();
     expect(screen.queryByText("Caricamento...")).not.toBeInTheDocument();
-    expect(screen.queryByText("Nessun esercizio trovato.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aggiungi (0)" })).toBeDisabled();
   });
 });
