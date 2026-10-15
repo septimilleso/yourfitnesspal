@@ -29,6 +29,7 @@ import {
   replaceEntry,
   restoreEntry,
   setClockOffset,
+  setGymUserId,
   subscribe,
 } from "./gymStore";
 import { getToken } from "./session";
@@ -238,6 +239,18 @@ const deletesInFlight = new Set<number>();
 const deleteErrors = new Set<number>();
 // Client di React Query per `syncNow`, che riceve solo uuid e timeout. Lo imposta `startGymSync`.
 let activeClient: QueryClient | null = null;
+// Token con cui `["me"]` ha confermato l'utente dello stato locale (R21). Finché il token in uso non è confermato
+// non si inviano PUT né DELETE e non si adotta nulla: uno stato di un altro utente non deve arrivare al server.
+let confirmedToken: string | null = null;
+// Riavvia il giro di sync (adozione e invii), impostato da `startGymSync` e usato da `confirmGymUser`.
+let kickSync: (() => void) | null = null;
+
+// Uno stato senza proprietario (userId null) non ha dati di nessun utente: dopo il logout lo store è vuoto.
+function identityConfirmed(): boolean {
+  const token = getToken();
+  if (token === null) return false;
+  return token === confirmedToken || getSnapshot().userId === null;
+}
 
 function finishedTime(entry: GymEntry): number {
   return Date.parse(entry.workout.finished_at ?? "") || 0;
@@ -253,6 +266,8 @@ function isSendable(entry: GymEntry, retryErrors: boolean): boolean {
 function sendOnce(uuid: string, queryClient: QueryClient): Promise<SyncOutcome> {
   const running = inFlight.get(uuid);
   if (running !== undefined) return running;
+  // Senza identità confermata la voce resta da inviare: il giro riparte con la conferma di `["me"]`.
+  if (!identityConfirmed()) return Promise.resolve("pending");
   const sending = syncEntry(uuid, queryClient).finally(() => inFlight.delete(uuid));
   inFlight.set(uuid, sending);
   return sending;
@@ -285,9 +300,9 @@ async function sendDelete(pending: PendingDelete): Promise<SyncOutcome> {
 }
 
 // Un giro: prima gli annullamenti in attesa (R20), poi i finiti in ordine di fine, poi l'attivo (R15).
-// Si ferma alla rete assente e al 401.
+// Si ferma alla rete assente, al 401 e a un'identità non ancora confermata.
 async function sendQueue(queryClient: QueryClient, retryErrors: boolean): Promise<void> {
-  if (getToken() === null || isOffline() || !onlineManager.isOnline()) return;
+  if (!identityConfirmed() || isOffline() || !onlineManager.isOnline()) return;
   for (const pending of getSnapshot().pendingDeletes) {
     // Lo stesso annullamento non parte due volte: un giro sovrapposto lo salta mentre il DELETE è in volo, e non
     // rispedisce quello già concluso (lo store non lo ha più). Un 4xx si ritenta solo con `retryErrors`.
@@ -409,6 +424,8 @@ function applyAdoption(server: Workout | null, seen: SeenState): AdoptOutcome {
  */
 export async function adoptServerActive(): Promise<AdoptOutcome> {
   if (getToken() === null) return "unauthorized";
+  // Token non ancora confermato da `["me"]`: l'attivo del server potrebbe essere di un altro utente. Si riprova dopo.
+  if (!identityConfirmed()) return "failed";
   if (isOffline() || !onlineManager.isOnline()) return "failed";
   const seen = seenState();
   let server: Workout | null;
@@ -446,6 +463,8 @@ export function startGymSync(queryClient: QueryClient): () => void {
       await sendQueue(queryClient, retryErrors);
     })().catch(() => undefined);
   };
+  const kick = () => run(true, true);
+  kickSync = kick;
 
   const unsubscribeStore = subscribe(() => {
     clearTimeout(settle);
@@ -467,7 +486,22 @@ export function startGymSync(queryClient: QueryClient): () => void {
     unsubscribeConnectivity();
     document.removeEventListener("visibilitychange", onVisibilityChange);
     if (activeClient === queryClient) activeClient = null;
+    if (kickSync === kick) kickSync = null;
   };
+}
+
+/**
+ * Chiamata a ogni risposta riuscita di `["me"]`, con il token che l'ha richiesta (R21). Lo stato locale passa a
+ * quell'utente: se era di un altro si svuota senza invii. Poi il sync riparte. Un token diverso da quello in uso
+ * non conta: la risposta riguarda una sessione già chiusa.
+ */
+export function confirmGymUser(userId: number, token: string | null): void {
+  if (token === null || token !== getToken()) return;
+  setGymUserId(userId);
+  // Un rinnovo di `["me"]` con lo stesso token non riavvia il giro: serve solo alla prima conferma.
+  if (confirmedToken === token) return;
+  confirmedToken = token;
+  kickSync?.();
 }
 
 // Ripete l'invio solo se durante il volo sono arrivate modifiche e il server ha accettato la revisione inviata
@@ -550,7 +584,7 @@ export async function resolveConflict(uuid: string, choice: "local" | "server"):
     return copy === null ? "missing" : "synced";
   }
   const queryClient = activeClient;
-  if (queryClient === null) return "pending";
+  if (queryClient === null || !identityConfirmed()) return "pending";
   const baseVersion = reason === "other_active" ? entry.baseVersion : (current?.version ?? null);
   if (reason === "other_active" && current !== null) {
     const stopped = await removeOtherActive(current.id);

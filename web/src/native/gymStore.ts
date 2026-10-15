@@ -515,3 +515,15 @@ export function setClockOffset(ms: number): void {
   if (!Number.isFinite(ms) || ms === data.clockOffsetMs) return;
   commit({ ...data, clockOffsetMs: ms });
 }
+
+/**
+ * Voci locali che il server non ha ancora (R21, R23): i finiti, l'attivo con modifiche in attesa o in conflitto o
+ * in errore, e gli annullamenti in attesa. Un annullamento conta una volta, anche se porta la copia del telefono:
+ * quella copia non è più tra i finiti o l'attivo.
+ */
+export function pendingCount(store: GymStoreData): number {
+  const { active } = store;
+  const activeUnsynced =
+    active !== null && (active.revision !== active.sentRevision || active.sync === "conflict" || active.sync === "error");
+  return store.finished.length + (activeUnsynced ? 1 : 0) + store.pendingDeletes.length;
+}
