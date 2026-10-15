@@ -9,6 +9,7 @@ import type {
   GymCount,
   GymStats,
   HistoryPage,
+  OfflineSnapshot,
   PerformedExercise,
   Template,
   TemplatesResponse,
@@ -94,6 +95,22 @@ export function historyPage(before: string | null): HistoryPage {
   };
 }
 
+// Uno snapshot con un esercizio che ha storia (Precedente e Max) e uno che non ne ha.
+export function offlineSnapshotFixture(): OfflineSnapshot {
+  return {
+    server_now: "2026-10-13T08:00:00.000Z",
+    exercises: [
+      {
+        exercise: exerciseFixture(1),
+        rest_seconds: 90,
+        previous: [{ weight_kg: 80, reps: 8, duration_s: null }],
+        max: [{ weight_kg: 80, reps: 8, duration_s: null }],
+      },
+      { exercise: exerciseFixture(2), rest_seconds: null, previous: [], max: [] },
+    ],
+  };
+}
+
 function templatesFixture(): TemplatesResponse {
   const templates = Array.from({ length: TEMPLATE_COUNT }, (_, i) => ({
     id: i + 1,
@@ -175,6 +192,7 @@ function fixtureFor(path: string): Reply {
   if (pathname.startsWith("/templates/")) return ok(templateFixture(Number(id)));
   if (pathname === "/exercises") return ok(EXERCISE_LIST);
   if (pathname === "/workouts") return ok(historyPage(searchParams.get("before")));
+  if (pathname === "/workouts/offline-snapshot") return ok(offlineSnapshotFixture());
   if (pathname.startsWith("/workouts/") && /^\d+$/.test(id)) return ok(workoutFixture(Number(id)));
   if (pathname === "/stats/gym/count") return ok(GYM_COUNT);
   if (pathname === "/stats/gym") return ok({ start, end, workouts: 0, volume_kg: 0, avg_duration_min: null, weeks: [] } satisfies GymStats);

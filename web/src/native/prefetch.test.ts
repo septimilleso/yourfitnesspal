@@ -5,13 +5,21 @@ import type { HistoryPage } from "../api/gym";
 import { EMPTY_FILTERS, gymKeys } from "../api/gym";
 import { createQueryClient } from "../lib/queryClient";
 import { PRESETS, presetPeriod } from "../lib/stats";
-import { historyPage, meWith, routeFetch, WORKOUT_IDS, workoutFixture } from "../test/prefetchFixtures";
+import {
+  historyPage,
+  meWith,
+  offlineSnapshotFixture,
+  routeFetch,
+  WORKOUT_IDS,
+  workoutFixture,
+} from "../test/prefetchFixtures";
 import { runPrefetchRound } from "./prefetch";
 import { flushQueryPersistenceForTests, startQueryPersistence } from "./queryPersistence";
 import { clearToken, setToken } from "./session";
 
 const preferences = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), remove: vi.fn() }));
 const filesystem = vi.hoisted(() => ({ writeFile: vi.fn(), readFile: vi.fn(), deleteFile: vi.fn() }));
+const gymStore = vi.hoisted(() => ({ getSnapshot: vi.fn(), subscribe: vi.fn(), dispatch: vi.fn() }));
 
 vi.mock("@capacitor/preferences", () => ({ Preferences: preferences }));
 vi.mock("@capacitor/filesystem", () => ({
@@ -20,6 +28,7 @@ vi.mock("@capacitor/filesystem", () => ({
   Encoding: { UTF8: "utf8" },
 }));
 vi.mock("./platform", () => ({ isNative: () => true }));
+vi.mock("./gymStore", () => gymStore);
 
 const TODAY = "2026-10-13";
 const YESTERDAY = "2026-10-12";
@@ -55,6 +64,7 @@ function expectedKeys(): unknown[][] {
     ...PERIODS.map((p) => ["gym", "stats", "range", p.start, TODAY]),
     ["gym", "stats", "exercises"],
     ...PERIODS.map((p) => ["gym", "stats", "progress", 1, p.start, TODAY]),
+    ["gym", "offline-snapshot"],
     ["saved-weeks", "list"],
     ...Array.from({ length: 10 }, (_, i) => ["saved-weeks", "detail", i + 1]),
   ];
@@ -80,6 +90,7 @@ function expectedUrls(): string[] {
     ...PERIODS.map((p) => `/stats/gym?start=${p.start}&end=${TODAY}`),
     "/stats/gym/exercises",
     ...PERIODS.map((p) => `/stats/gym/exercises/1?start=${p.start}&end=${TODAY}`),
+    "/workouts/offline-snapshot",
     "/saved-weeks",
     ...Array.from({ length: 10 }, (_, i) => `/saved-weeks/${i + 1}`),
   ];
@@ -230,7 +241,7 @@ describe("runPrefetchRound: dettagli saltati e pulizia (C9)", () => {
 
     expect(queryClient.getQueryData(gymKeys.history)).toBe(initial);
     expect(queryClient.getQueryData<InfiniteData<HistoryPage>>(gymKeys.history)?.pages).toHaveLength(2);
-    expect(sortedJson(routed.urls.filter((url) => url.startsWith("/workouts/")))).toEqual(
+    expect(sortedJson(routed.urls.filter((url) => /^\/workouts\/\d+$/.test(url)))).toEqual(
       sortedJson(LAST_20_IDS.map((id) => `/workouts/${id}`)),
     );
   });
@@ -253,6 +264,55 @@ describe("runPrefetchRound: dettagli saltati e pulizia (C9)", () => {
     await runRound();
 
     expect(queryClient.getQueryData(gymKeys.active)).toBe(active);
+  });
+});
+
+describe("runPrefetchRound: snapshot offline (C38)", () => {
+  it("con workouts.use mette lo snapshot in cache e nel file dopo il giro", async () => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    const stop = startQueryPersistence(queryClient);
+
+    await runRound();
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushQueryPersistenceForTests();
+
+    expect(queryClient.getQueryData(gymKeys.offlineSnapshot)).toEqual(offlineSnapshotFixture());
+    expect(filesystem.writeFile).toHaveBeenCalledTimes(1);
+    const written = JSON.parse(filesystem.writeFile.mock.calls[0][0].data) as {
+      state: { queries: { queryKey: unknown[]; state: { data: unknown } }[] };
+    };
+    const persisted = written.state.queries.find(
+      (query) => JSON.stringify(query.queryKey) === JSON.stringify(gymKeys.offlineSnapshot),
+    );
+    expect(persisted?.state.data).toEqual(offlineSnapshotFixture());
+    stop();
+  });
+
+  it("non legge né scrive l'allenamento attivo, né lo store né il file della palestra", async () => {
+    const active = { id: 99, status: "in_progress" };
+    queryClient.setQueryData(gymKeys.active, active);
+
+    await runRound();
+
+    expect(queryClient.getQueryData(gymKeys.active)).toBe(active);
+    expect(routed.urls.some((url) => url.includes("/workouts/active"))).toBe(false);
+    expect(gymStore.getSnapshot).not.toHaveBeenCalled();
+    expect(gymStore.dispatch).not.toHaveBeenCalled();
+    const gymFileCalls = [
+      ...filesystem.readFile.mock.calls,
+      ...filesystem.writeFile.mock.calls,
+      ...filesystem.deleteFile.mock.calls,
+    ].filter(([options]) => String(options?.path).startsWith("yfp/gym-local"));
+    expect(gymFileCalls).toEqual([]);
+  });
+
+  it("senza workouts.use non chiede lo snapshot e non lo mette in cache", async () => {
+    queryClient.setQueryData(["me"], meWith(["diary.copy"]));
+
+    await runRound();
+
+    expect(routed.urls).not.toContain("/workouts/offline-snapshot");
+    expect(queryClient.getQueryData(gymKeys.offlineSnapshot)).toBeUndefined();
   });
 });
 
