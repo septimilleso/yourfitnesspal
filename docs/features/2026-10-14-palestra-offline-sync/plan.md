@@ -268,7 +268,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
 
 ### UI
 
-### [ ] T21. Test di caratterizzazione della sessione web
+### [x] T21. Test di caratterizzazione della sessione web
 
 - Copre: C40, C44
 - Rischio: basso
@@ -442,5 +442,7 @@ T18 — DONE — review: 1 round, APPROVED. Suite web 121 file, 1105 verdi. DEVI
 T19 — DONE — review: 1 round, APPROVED. Suite web 121 file, 1113 verdi (verificata dall'orchestratore). Fuori lista, deciso dall'orchestratore: `web/src/components/NativeRestAlertSetting.tsx` (+test) leggeva ancora la query cache `gymKeys.active`: ora legge lo store (getSnapshot) e chiama syncRestNotification(workout, clockOffsetMs). API: `syncRestNotification(workout: RestSource | null, offsetMs?)`. NativeBridge si iscrive a gymStore, deduplica su (nome, rest_ends_at, clockOffsetMs). C23/C37/C46 verificati nei test; riavvio dopo 30 s testato con Date.now mockato, DA VERIFICARE SU iPHONE (T33). MINOR rimasti: (a) NativeBridge.tsx:18-21 la chiave include clockOffsetMs ma setClockOffset cambia a ogni PUT accettato/adozione (gymSync.ts:160,438) → cancel+schedule della 4101 a ogni sync: mettere clockOffsetMs nella chiave solo con rest_ends_at non null e arrotondarlo al secondo, o correggere il commento; (b) NativeBridge.tsx:29 con store vuoto al mount nessun cancel: una 4101 residua da sessione precedente (file corrotto, primo avvio dopo l'aggiornamento) può suonare a vuoto, non è regressione (opzionale: syncFromStore() sempre al mount, aggiornando il test); (c) manca test 'store vuoto al mount, poi loadGymStore con riposo in corso → schedule'.
 
 T20 — DONE — review: 1 round, APPROVED. Suite web 121 file, 1116 verdi. Aggiunto `load(gymKeys.offlineSnapshot, () => fetchOfflineSnapshot())` in gymTasks (prefetch.ts:119); cachePrune.ts e queryPersistence.ts invariati (chiave non prunabile, persistita: verificato dal reviewer). Test C9 'storico aperto': filtro '/workouts/' → /^\/workouts\/\d+$/ (lo snapshot lo catturava). CLIENT-CORE T9-T20 COMPLETO. MINOR rimasti: (a) prefetch.test.ts:22,299-300 il mock di ./gymStore è guardia debole (prefetch.ts non importa il modulo): usare vi.mock che lancia o controllo statico del sorgente, e spy su getQueryData per gymKeys.active; (b) cachePrune.test.ts: aggiungere [["gym","offline-snapshot"], false] alla tabella di isPrunableKey.
+
+T21 — DONE — review: saltata. Suite web 124 file, 1143 verdi (+27). Nessun file di produzione toccato; helper di test nuovo `web/src/test/liveSession.tsx` (fixture, stub fetch che registra le richieste non GET, render di WorkoutPage). Per T22: WorkoutExerciseCard.test e WorkoutPage.actions.test usano gli hook veri con fetch stubbato (devono restare verdi invariati); ActiveWorkoutBar.test e GymStartPage.test mockano gli hook come i test esistenti (in GymStartPage si asserisce l'argomento di start.mutate, non il POST). Su web fetch rifiuta con TypeError (non NetworkError): il test del toast usa NetworkError, liveErrorMessage mappa entrambi. La riga 'Riposo' della card compare dopo ogni serie. Il toast su NetworkError ritarda ~3 s per i retry di useLiveMutation (timeout test 10 s).
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main
