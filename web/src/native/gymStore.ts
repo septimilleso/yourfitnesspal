@@ -45,6 +45,11 @@ export interface GymEntry {
   conflict: GymConflict | null;
   /** Ultima risposta del server per questo allenamento: sorgente di Precedente e Max (R13). */
   lastServer: Workout | null;
+  /**
+   * Il riepilogo locale si è chiuso prima della sincronizzazione: la proposta "Aggiorna modello" va fatta dopo (R19).
+   * Opzionale: i file scritti prima di questo campo restano validi.
+   */
+  templateProposal?: boolean;
 }
 
 /**
@@ -222,7 +227,8 @@ function isEntry(value: unknown): value is GymEntry {
     Number.isInteger(value.sentRevision) &&
     SYNC_STATES.includes(value.sync) &&
     (value.conflict === null || isRecord(value.conflict)) &&
-    (value.lastServer === null || isRecord(value.lastServer))
+    (value.lastServer === null || isRecord(value.lastServer)) &&
+    (value.templateProposal === undefined || typeof value.templateProposal === "boolean")
   );
 }
 
@@ -509,6 +515,26 @@ export function restoreEntry(entry: GymEntry): void {
 
 export function setTemplateProposals(ids: number[]): void {
   commit({ ...data, templateProposals: [...new Set(ids)] });
+}
+
+/** Toglie l'id dalle proposte "Aggiorna modello": la proposta si mostra una sola volta (R19). */
+export function removeTemplateProposal(id: number): void {
+  if (!data.templateProposals.includes(id)) return;
+  commit({ ...data, templateProposals: data.templateProposals.filter((item) => item !== id) });
+}
+
+/**
+ * Segna un finito ancora locale: il suo riepilogo si è chiuso prima della sincronizzazione (R19). Restituisce false se
+ * la voce non è tra i finiti o è già segnata.
+ */
+export function markTemplateProposal(uuid: string): boolean {
+  const index = data.finished.findIndex((entry) => entry.workout.uuid === uuid);
+  if (index === -1 || data.finished[index].templateProposal === true) return false;
+  commit({
+    ...data,
+    finished: data.finished.map((entry, i) => (i === index ? { ...entry, templateProposal: true } : entry)),
+  });
+  return true;
 }
 
 export function setClockOffset(ms: number): void {

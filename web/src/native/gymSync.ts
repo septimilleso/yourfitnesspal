@@ -30,6 +30,7 @@ import {
   restoreEntry,
   setClockOffset,
   setGymUserId,
+  setTemplateProposals,
   subscribe,
 } from "./gymStore";
 import { getToken } from "./session";
@@ -170,6 +171,8 @@ function applyAccepted(uuid: string, sentRevision: number, server: Workout, quer
   if (unchanged && entry.workout.status === "finished") {
     // Finito confermato: lo mette la cache dello Storico e lo tolgono dallo stato locale (R16).
     confirmedIds.set(uuid, server.id);
+    // Riepilogo chiuso prima del sync: la proposta "Aggiorna modello" passa all'id del server (R19).
+    if (entry.templateProposal === true) setTemplateProposals([...getSnapshot().templateProposals, server.id]);
     queryClient.setQueryData(gymKeys.workout(server.id), server);
     void queryClient.invalidateQueries({ queryKey: gymKeys.history });
     void queryClient.invalidateQueries({ queryKey: ["gym", "stats"] });

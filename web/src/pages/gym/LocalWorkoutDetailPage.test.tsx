@@ -97,6 +97,7 @@ function renderAt(path: string) {
           <Route path="/gym/history/local/:uuid" element={<LocalWorkoutDetailPage />} />
           <Route path="/gym/history/:id" element={<Probe name="server" />} />
           <Route path="/gym/history" element={<Probe name="storico" />} />
+          <Route path="/gym/workout" element={<Probe name="sessione" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -174,6 +175,15 @@ describe("riepilogo locale di un allenamento finito", () => {
 
     expect(screen.getByText("server: /gym/history/9?summary=1")).toBeInTheDocument();
     expect(getSnapshot().finished).toHaveLength(0);
+  });
+
+  it("un allenamento tornato attivo non è un finito: il riepilogo porta alla sessione", () => {
+    const started = startWorkoutFromTemplate(PUSH);
+    if (!started.ok) throw new Error(started.error);
+
+    renderAt(`/gym/history/local/${started.state.uuid}?summary=1`);
+
+    expect(screen.getByText("sessione: /gym/workout")).toBeInTheDocument();
   });
 
   it("un uuid senza voce locale né conferma porta allo Storico", () => {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { type Template, fetchTemplate, gymKeys } from "../../api/gym";
@@ -8,13 +8,14 @@ import { durationLabel, formatSet, workoutDateLabel } from "../../lib/gym";
 import { type DiffExercise, templateDiff } from "../../lib/gymRules";
 import type { SessionWorkout } from "../../lib/gymSession";
 import { confirmedServerId } from "../../native/gymSync";
-import { type GymEntry, type GymStoreData, getSnapshot, subscribe } from "../../native/gymStore";
+import { type GymEntry, type GymStoreData, getSnapshot, markTemplateProposal, subscribe } from "../../native/gymStore";
+import { isNative } from "../../native/platform";
 
 // Un allenamento finito solo sul telefono (R19, R22): il riepilogo è letto dallo stato locale, senza richieste.
 // Quando il server conferma la fine, la rotta passa a quella dello Storico.
 
+// Solo i finiti: un allenamento tornato attivo (conflitto risolto con la copia del server) si riprende dalla sessione.
 function entryOf(store: GymStoreData, uuid: string): GymEntry | undefined {
-  if (store.active?.workout.uuid === uuid) return store.active;
   return store.finished.find((entry) => entry.workout.uuid === uuid);
 }
 
@@ -58,7 +59,14 @@ function LocalWorkoutDetailPage() {
     enabled: false,
   });
 
+  // Il riepilogo locale segna subito l'allenamento: la proposta "Aggiorna modello" comparirà dopo il sync (R19), anche
+  // se l'app si chiude prima. Idempotente, quindi lo StrictMode che ripete l'effetto non cambia nulla.
+  useEffect(() => {
+    if (summary && isNative()) markTemplateProposal(uuid);
+  }, [summary, uuid]);
+
   if (entry === undefined) {
+    if (store.active?.workout.uuid === uuid) return <Navigate to="/gym/workout" replace />;
     // Uscita dallo stato locale: il server l'ha confermata (si va al suo dettaglio) oppure l'allenamento non c'è più.
     const serverId = confirmedServerId(uuid);
     if (serverId === null) return <Navigate to="/gym/history" replace />;

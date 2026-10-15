@@ -697,6 +697,57 @@ describe("validazione della forma dell'allenamento attivo", () => {
   });
 });
 
+describe("proposta Aggiorna modello (R19)", () => {
+  it("markTemplateProposal segna solo un finito locale, una volta sola", async () => {
+    fs.files.set(STORE_PATH, storeWithFinished({}));
+    const store = await loadModule();
+    await store.loadGymStore();
+
+    expect(store.markTemplateProposal("f1")).toBe(true);
+    expect(store.getSnapshot().finished[0].templateProposal).toBe(true);
+    expect(store.markTemplateProposal("f1")).toBe(false);
+    expect(store.markTemplateProposal("non-esiste")).toBe(false);
+  });
+
+  it("markTemplateProposal non segna l'allenamento attivo", async () => {
+    fs.files.set(STORE_PATH, storeWithActive([{ uuid: "e1", sets: [{ uuid: "s1" }] }]));
+    const store = await loadModule();
+    await store.loadGymStore();
+
+    expect(store.markTemplateProposal("w1")).toBe(false);
+    expect(store.getSnapshot().active?.templateProposal).toBeUndefined();
+  });
+
+  it("removeTemplateProposal toglie solo l'id indicato", async () => {
+    const store = await loadModule();
+    store.setTemplateProposals([1, 2]);
+
+    store.removeTemplateProposal(1);
+    store.removeTemplateProposal(99);
+
+    expect(store.getSnapshot().templateProposals).toEqual([2]);
+  });
+
+  it("il segno sopravvive al riavvio, e un file senza il campo resta valido", async () => {
+    fs.files.set(STORE_PATH, storeWithFinished({ templateProposal: true }));
+    const store = await loadModule();
+    await store.loadGymStore();
+
+    expect(store.getSnapshot().finished[0].templateProposal).toBe(true);
+    expect(fs.Filesystem.rename).not.toHaveBeenCalled();
+  });
+
+  it("un campo templateProposal che non è un booleano rende il file corrotto", async () => {
+    fs.files.set(STORE_PATH, storeWithFinished({ templateProposal: "sì" }));
+    const store = await loadModule();
+
+    await store.loadGymStore();
+
+    expect(store.getSnapshot().finished).toHaveLength(0);
+    expect(fs.Filesystem.rename.mock.calls[0][0].to).toMatch(CORRUPT);
+  });
+});
+
 describe("scrittura prima del caricamento", () => {
   it("una modifica prima di loadGymStore non scrive e non tocca il file esistente", async () => {
     vi.useFakeTimers();
@@ -753,6 +804,29 @@ function storeJson(templateProposals: number[]): string {
     finished: [],
     pendingDeletes: [],
     templateProposals,
+  });
+}
+
+function storeWithFinished(extra: Record<string, unknown>): string {
+  return JSON.stringify({
+    schema: 1,
+    userId: null,
+    clockOffsetMs: 0,
+    active: null,
+    finished: [
+      {
+        workout: { uuid: "f1", exercises: [] },
+        baseVersion: 2,
+        revision: 1,
+        sentRevision: 1,
+        sync: "pending",
+        conflict: null,
+        lastServer: null,
+        ...extra,
+      },
+    ],
+    pendingDeletes: [],
+    templateProposals: [],
   });
 }
 
