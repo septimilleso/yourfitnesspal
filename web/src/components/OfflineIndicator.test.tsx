@@ -2,15 +2,28 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { type QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Exercise, Template } from "../api/gym";
 import { client } from "../api/client";
 import { createQueryClient } from "../lib/queryClient";
 import { reportNetworkFailure, reportNetworkSuccess, resetConnectivityForTests } from "../native/connectivity";
+import { clearGymStore, dispatch, startWorkoutFromTemplate } from "../native/gymStore";
 import NativeOfflineServices from "../native/NativeOfflineServices";
 import OfflineIndicator from "./OfflineIndicator";
 
 const platform = vi.hoisted(() => ({ native: true }));
 
 vi.mock("../native/platform", () => ({ isNative: () => platform.native }));
+vi.mock("@capacitor/filesystem", () => ({
+  Filesystem: {
+    writeFile: vi.fn(),
+    readFile: vi.fn(),
+    stat: vi.fn(),
+    deleteFile: vi.fn(),
+    rename: vi.fn(),
+  },
+  Directory: { Library: "LIBRARY" },
+  Encoding: { UTF8: "utf8" },
+}));
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -257,6 +270,93 @@ describe("OfflineIndicator sull'IPA", () => {
 
     expect(screen.getByText("Diary nuovi")).toBeInTheDocument();
     expect(indicatorButton(/Offline/)).not.toBeInTheDocument();
+  });
+});
+
+const PANCA: Exercise = {
+  id: 1,
+  name: "Panca piana",
+  equipment: "bilanciere",
+  primary_muscles: ["petto"],
+  secondary_muscles: [],
+  category: null,
+  tracking: "weight_reps",
+  custom: false,
+};
+
+const PUSH: Template = {
+  id: 3,
+  name: "Push A",
+  folder_id: null,
+  last_used_at: null,
+  exercises: [
+    {
+      id: 11,
+      exercise: PANCA,
+      rest_seconds: 90,
+      superset_group: null,
+      note: null,
+      sets: [{ weight_kg: 80, reps: 8, duration_s: null }],
+    },
+  ],
+};
+
+/** Un allenamento finito solo sul telefono. */
+function finishedLocally() {
+  const started = startWorkoutFromTemplate(PUSH);
+  if (!started.ok) throw new Error(started.error);
+  const { uuid, exercises } = started.state;
+  const done = dispatch(uuid, {
+    type: "completeSet",
+    setUuid: exercises[0].sets[0].uuid,
+    values: { weight_kg: 80, reps: 8, duration_s: null },
+  });
+  if (!done.ok) throw new Error(done.error);
+  const finished = dispatch(uuid, { type: "finish", discardIncomplete: true });
+  if (!finished.ok) throw new Error(finished.error);
+}
+
+// Solo il puntino, senza NativeOfflineServices: il sync non deve partire in questi test.
+function DiaryObserver() {
+  useQuery({ queryKey: ["diary"], queryFn: () => new Promise<string>(() => undefined), enabled: false });
+  return null;
+}
+
+describe("OfflineIndicator con allenamenti da sincronizzare (C36)", () => {
+  beforeEach(async () => {
+    await clearGymStore();
+    queryClient.setQueryData(["diary"], "vecchi", { updatedAt: localTime(2026, 9, 12, 14, 5) });
+  });
+
+  it("il fumetto termina con '· N da sincronizzare'", () => {
+    finishedLocally();
+    finishedLocally();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <OfflineIndicator />
+        <DiaryObserver />
+      </QueryClientProvider>,
+    );
+
+    act(() => reportNetworkFailure());
+    const dot = screen.getByRole("button", { name: /· 2 da sincronizzare$/ });
+    fireEvent.click(dot);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/· 2 da sincronizzare$/);
+  });
+
+  it("senza allenamenti da sincronizzare il testo è quello di sempre", () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <OfflineIndicator />
+        <DiaryObserver />
+      </QueryClientProvider>,
+    );
+
+    act(() => reportNetworkFailure());
+
+    expect(screen.getByRole("button", { name: /Offline, dati delle 14:05$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /da sincronizzare/ })).not.toBeInTheDocument();
   });
 });
 

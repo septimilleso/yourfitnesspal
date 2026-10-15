@@ -553,3 +553,13 @@ export function pendingCount(store: GymStoreData): number {
     active !== null && (active.revision !== active.sentRevision || active.sync === "conflict" || active.sync === "error");
   return store.finished.length + (activeUnsynced ? 1 : 0) + store.pendingDeletes.length;
 }
+
+/**
+ * Numero per il badge di "Palestra" (R23): i finiti non sincronizzati più l'attivo in conflitto o in errore. Non è
+ * `pendingCount` (dialogo di logout): qui non contano le modifiche in attesa né gli annullamenti.
+ */
+export function syncBadgeCount(store: GymStoreData): number {
+  const { active } = store;
+  const activeProblem = active !== null && (active.sync === "conflict" || active.sync === "error");
+  return store.finished.length + (activeProblem ? 1 : 0);
+}

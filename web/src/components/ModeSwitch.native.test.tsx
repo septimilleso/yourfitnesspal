@@ -4,17 +4,29 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Workout } from "../api/gym";
+import type { Exercise, Template, Workout } from "../api/gym";
 import { useApplyToTemplate, useDeleteWorkout, useSaveAsTemplate, useWorkout } from "../api/gym";
 import { useHasPermission, useMe } from "../auth/AuthContext";
 import { createQueryClient } from "../lib/queryClient";
 import { reportNetworkFailure, resetConnectivityForTests } from "../native/connectivity";
+import { clearGymStore, dispatch, patchEntry, startWorkoutFromTemplate } from "../native/gymStore";
 import SearchPage from "../pages/SearchPage";
 import SettingsPage from "../pages/SettingsPage";
 import WorkoutDetailPage from "../pages/gym/WorkoutDetailPage";
 import ModeSwitch from "./ModeSwitch";
 
 vi.mock("../native/platform", () => ({ isNative: () => true }));
+vi.mock("@capacitor/filesystem", () => ({
+  Filesystem: {
+    writeFile: vi.fn(),
+    readFile: vi.fn(),
+    stat: vi.fn(),
+    deleteFile: vi.fn(),
+    rename: vi.fn(),
+  },
+  Directory: { Library: "LIBRARY" },
+  Encoding: { UTF8: "utf8" },
+}));
 
 // Le richieste di Cerca restano in sospeso: nessun dato, quindi il puntino legge solo la query osservata dal test.
 vi.mock("../api/client", async () => {
@@ -210,5 +222,88 @@ describe("puntino offline nelle intestazioni", () => {
     expect(screen.getByRole("status")).toHaveStyle({ marginLeft: "-75px" });
     rect.mockRestore();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: screenWidth });
+  });
+});
+
+const PANCA: Exercise = {
+  id: 1,
+  name: "Panca piana",
+  equipment: "bilanciere",
+  primary_muscles: ["petto"],
+  secondary_muscles: [],
+  category: null,
+  tracking: "weight_reps",
+  custom: false,
+};
+
+const PUSH: Template = {
+  id: 3,
+  name: "Push A",
+  folder_id: null,
+  last_used_at: null,
+  exercises: [
+    {
+      id: 11,
+      exercise: PANCA,
+      rest_seconds: 90,
+      superset_group: null,
+      note: null,
+      sets: [{ weight_kg: 80, reps: 8, duration_s: null }],
+    },
+  ],
+};
+
+/** Un allenamento da PUSH finito sul telefono: resta in attesa di sincronizzazione. */
+function finishedLocally(): string {
+  const started = startWorkoutFromTemplate(PUSH);
+  if (!started.ok) throw new Error(started.error);
+  const { uuid, exercises } = started.state;
+  const done = dispatch(uuid, {
+    type: "completeSet",
+    setUuid: exercises[0].sets[0].uuid,
+    values: { weight_kg: 80, reps: 8, duration_s: null },
+  });
+  if (!done.ok) throw new Error(done.error);
+  const finished = dispatch(uuid, { type: "finish", discardIncomplete: true });
+  if (!finished.ok) throw new Error(finished.error);
+  return uuid;
+}
+
+describe("badge da sincronizzare sul segmento Palestra", () => {
+  beforeEach(async () => {
+    await clearGymStore();
+    vi.mocked(useHasPermission).mockReturnValue(true);
+  });
+
+  it("C36: con due allenamenti finiti non sincronizzati mostra 2 con nome accessibile", () => {
+    finishedLocally();
+    finishedLocally();
+    renderIn("/gym", <ModeSwitch />);
+
+    const badge = screen.getByRole("img", { name: "2 allenamenti da sincronizzare" });
+    expect(badge).toHaveTextContent("2");
+    expect(screen.getByRole("link", { name: /Palestra/ })).toContainElement(badge);
+  });
+
+  it("con un allenamento in conflitto sul telefono lo conta, al singolare", () => {
+    const started = startWorkoutFromTemplate(PUSH);
+    if (!started.ok) throw new Error(started.error);
+    patchEntry(started.state.uuid, { sync: "conflict", conflict: { reason: "other_active", current: null } });
+    renderIn("/gym", <ModeSwitch />);
+
+    expect(screen.getByRole("img", { name: "1 allenamento da sincronizzare" })).toHaveTextContent("1");
+  });
+
+  it("con zero allenamenti da sincronizzare il badge non c'è", () => {
+    renderIn("/gym", <ModeSwitch />);
+
+    expect(screen.queryByRole("img", { name: /da sincronizzare/ })).not.toBeInTheDocument();
+  });
+
+  it("il badge c'è anche nelle pagine della dieta, perché il segmento è lo stesso", () => {
+    finishedLocally();
+    renderIn("/", <ModeSwitch />);
+
+    expect(screen.getByRole("img", { name: "1 allenamento da sincronizzare" })).toBeInTheDocument();
   });
 });

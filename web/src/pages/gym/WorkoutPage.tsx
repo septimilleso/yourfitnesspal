@@ -9,6 +9,7 @@ import ExerciseDetailSheet from "../../components/gym/ExerciseDetailSheet";
 import ExercisePicker from "../../components/gym/ExercisePicker";
 import RestPicker from "../../components/gym/RestPicker";
 import RestTimerBar from "../../components/gym/RestTimerBar";
+import SyncConflictDialog from "../../components/gym/SyncConflictDialog";
 import WorkoutExerciseCard from "../../components/gym/WorkoutExerciseCard";
 import { elapsedLabel, linkWithNext, moveItem, unlinkFromGroup } from "../../lib/gym";
 import { LiveErrorContext } from "../../lib/liveErrors";
@@ -37,6 +38,7 @@ function WorkoutPage() {
   return (
     <LiveErrorContext.Provider value={setToast}>
       <WorkoutSession />
+      <SyncConflictDialog />
       {toast && (
         <div
           role="alert"

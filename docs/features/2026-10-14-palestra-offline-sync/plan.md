@@ -342,7 +342,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   2. In tutti gli altri casi: `cancelLocal(uuid)` di T17 e navigazione a `/gym`. La notifica viene cancellata (T19).
 - Verifica: `cd web && npx vitest run src/pages/gym/WorkoutPage.local.native.test.tsx src/native/gymConflict.test.ts`, risultato atteso: C33 (nessuna richiesta al ritorno della rete) e C53 verdi.
 
-### [ ] T28. Storico con gli allenamenti da sincronizzare
+### [x] T28. Storico con gli allenamenti da sincronizzare
 
 - Copre: C35, C49
 - Rischio: alto
@@ -353,7 +353,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Il dettaglio locale non ha `ActionMenu`.
 - Verifica: `cd web && npx vitest run src/pages/gym/HistoryPage.local.native.test.tsx src/pages/gym/HistoryPage.test.tsx src/pages/gym/WorkoutDetailPage.test.tsx`, risultato atteso: C35 verde, test esistenti di Storico e dettaglio invariati (C49).
 
-### [ ] T29. Badge su "Palestra" e testo del puntino
+### [x] T29. Badge su "Palestra" e testo del puntino
 
 - Copre: C36
 - Rischio: alto
@@ -364,7 +364,7 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   3. Testo del puntino con " · N da sincronizzare".
 - Verifica: `cd web && npx vitest run src/components`, risultato atteso: C36 verde, test esistenti di `ModeSwitch` e `OfflineIndicator` invariati.
 
-### [ ] T30. Dialogo di conflitto
+### [x] T30. Dialogo di conflitto
 
 - Copre: C29, C30
 - Rischio: alto
@@ -456,5 +456,7 @@ T25 — DONE — review: 1 round, APPROVED. Suite web 127 file, 1162 verdi. `use
 T26 — DONE — review: 2 round (MAJOR marcatura solo allo smontaggio del riepilogo: se iOS chiude l'app a riepilogo aperto la proposta si perdeva → ora marcatura al montaggio con effect idempotente (summary=1, solo IPA) e consumo dell'id in WorkoutDetailPage anche con summary=1; test 'app chiusa', 'sync a riepilogo aperto → replace → riquadro una volta', 'uuid attivo → /gym/workout'). Suite web 128 file, 1177 verdi. DEVIAZIONE accettata: la marcatura è un campo opzionale `templateProposal?: boolean` su GymEntry (persistito nello stesso file, SCHEMA_VERSION invariato, validazione tollerante in isEntry), non una lista di uuid; API gymStore: `markTemplateProposal(uuid)` (solo finiti, idempotente), `removeTemplateProposal(id)`; gymSync.applyAccepted: alla conferma di un finito marcato l'id del server entra in `templateProposals` (dopo confirmedIds.set, prima di removeEntry). gymStore.test.ts esteso (fuori lista). Chiuso MINOR (d) di T25 (entryOf solo in finished; attiva → Navigate /gym/workout). MINOR di T25 (a),(b),(c) ANCORA APERTI. Nota: la durabilità della marcatura segue quella della fine (flush 1 s). Il test 'app chiusa' verifica il file scritto da flushGymStore, non un reload reale (T33).
 
 T27 — DONE — review: 1 round, APPROVED. Suite web 128 file, 1182 verdi. `useLocalSession().cancel` reale: con rete (connectivity.isOffline) e voce sincronizzata (id e baseVersion non null) → DELETE /workouts/{id} SENZA base_version ('come oggi', R20) poi removeEntry e navigazione /gym; ogni errore diverso da 404 (rete, 401, 5xx, 409) ripiega su cancelLocal(uuid) di T17; 404 = riuscito; offline o mai sincronizzato → cancelLocal. isCancelling con useState (pulsante disabilitato durante il DELETE). Notifica cancellata con l'attivo (verificato nel test, T19). MINOR rimasti: (a) localSession.ts:267 il DELETE online non controlla identityConfirmed() (T18): con token di altro utente il 404 è trattato come riuscito e la voce locale viene tolta prima che confirmGymUser svuoti lo store (finestra breve, nessun rischio per il server) → passare da cancelLocal se l'identità non è confermata (esportare un controllo da gymSync) o accettare; (b) :272 callbacks.onSuccess naviga anche se la pagina è smontata (stesso schema del MINOR (b) di T25); (c) :267 DECISIONE DA PRENDERE: con rete una voce in sync 'conflict' con id/baseVersion va nel DELETE senza versione e cancella la copia del server che l'utente non ha ancora visto nel dialogo di R18; rientra nel 'come oggi' di R20 ma per prudenza si può usare cancelLocal per sync==='conflict'; (d) test mancanti nel ramo online per 404 (riuscito: voce tolta, nessun annullamento in coda) e 401 (ripiego su cancelLocal); (e) PUT in volo durante il DELETE online non coperto da test: analisi del reviewer = stato finale coerente (niente sul server né in locale), trascurabile.
+
+T28-T30 — DONE — haiku/high; review finale non per task. Verifica orchestratore: vitest src/components + src/pages/gym 57 file, 404 test verdi. API: gymStore `syncBadgeCount` (finiti + attivo in conflict/error; `pendingCount` del logout invariato); `SyncConflictDialog` in AppShell (rotte /gym) e in WorkoutPage, solo IPA, legge le voci `sync: "conflict"` (409 del DELETE rimette la copia del telefono con restoreEntry, PendingDelete.entry non usato). LocalWorkoutDetailPage non modificato (già soddisfa il passo 3). NOTE da decidere: (a) il dialogo non ha chiusura temporanea: sulle pagine /gym copre lo schermo finché non si sceglie; (b) badge al singolare per N=1 ("1 allenamento da sincronizzare"), il piano dice "N allenamenti"; (c) badge nel browser non coperto da test (isNative mockato). Avvisi: nessuno nuovo.
 
 Partenza: e92ca5d2d142cfa071bd685f5916b273e98df1fc su main
