@@ -624,7 +624,8 @@ export function putWorkout(uuid: string, body: WorkoutPutBody) {
   return client.put<Workout>(`/workouts/${uuid}`, body);
 }
 
-/** Deletes the workout only if its stored version is still `baseVersion` (409 otherwise). */
-export function deleteWorkoutChecked(id: number, baseVersion: number) {
-  return client.delete<void>(`/workouts/${id}?base_version=${baseVersion}`);
+/** Deletes the workout only if its stored version is still `baseVersion` (409 otherwise). Without it, deletes always (R18, other_active). */
+export function deleteWorkoutChecked(id: number, baseVersion?: number) {
+  const query = baseVersion === undefined ? "" : `?base_version=${baseVersion}`;
+  return client.delete<void>(`/workouts/${id}${query}`);
 }

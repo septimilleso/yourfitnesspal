@@ -47,10 +47,14 @@ export interface GymEntry {
   lastServer: Workout | null;
 }
 
-/** Annullamento offline di un allenamento già sincronizzato: parte al ritorno della rete (R20). */
+/**
+ * Annullamento di un allenamento già sincronizzato: parte al ritorno della rete (R20). `entry` è la copia del
+ * telefono, che serve al conflitto se il server rifiuta il DELETE (R18).
+ */
 export interface PendingDelete {
   id: number;
   baseVersion: number;
+  entry?: GymEntry;
 }
 
 /** Forma dello store, schema 1. Un solo `active` alla volta. */
@@ -223,7 +227,12 @@ function isEntry(value: unknown): value is GymEntry {
 }
 
 function isPendingDelete(value: unknown): value is PendingDelete {
-  return isRecord(value) && typeof value.id === "number" && typeof value.baseVersion === "number";
+  return (
+    isRecord(value) &&
+    typeof value.id === "number" &&
+    typeof value.baseVersion === "number" &&
+    (value.entry === undefined || isEntry(value.entry))
+  );
 }
 
 function isStore(value: unknown): value is GymStoreData {
@@ -469,6 +478,33 @@ export function addPendingDelete(item: PendingDelete): void {
 export function removePendingDelete(id: number): void {
   if (!data.pendingDeletes.some((pending) => pending.id === id)) return;
   commit({ ...data, pendingDeletes: data.pendingDeletes.filter((pending) => pending.id !== id) });
+}
+
+/**
+ * Sostituisce la copia locale con quella del server (R18, scelta "copia del server"). Una copia in corso diventa
+ * l'attivo; `null` (finita o assente sul server) toglie la voce locale. Non sostituisce un attivo diverso: in quel
+ * caso restituisce false e non cambia nulla.
+ */
+export function replaceEntry(uuid: string, server: GymEntry | null): boolean {
+  const { active, finished } = data;
+  const localActive = active !== null && active.workout.uuid === uuid ? null : active;
+  const finishedLeft = finished.filter((entry) => entry.workout.uuid !== uuid);
+  if (localActive === active && finishedLeft.length === finished.length) return false;
+  if (server !== null && localActive !== null) return false;
+  commit({ ...data, active: server ?? localActive, finished: finishedLeft });
+  return true;
+}
+
+/**
+ * Riporta una voce tolta da un annullamento che il server ha rifiutato (R20): diventa l'attivo se è libero,
+ * altrimenti resta tra i finiti in attesa di una scelta (R18).
+ */
+export function restoreEntry(entry: GymEntry): void {
+  const { uuid } = entry.workout;
+  // Già presente (un ripristino doppio): non si duplica.
+  if (data.active?.workout.uuid === uuid || data.finished.some((item) => item.workout.uuid === uuid)) return;
+  if (data.active === null) commit({ ...data, active: entry });
+  else commit({ ...data, finished: [...data.finished, entry] });
 }
 
 export function setTemplateProposals(ids: number[]): void {

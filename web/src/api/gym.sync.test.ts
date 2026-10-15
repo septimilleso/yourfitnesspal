@@ -97,6 +97,14 @@ describe("offline sync requests", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/workouts/12?base_version=3");
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "DELETE" });
   });
+
+  it("deleteWorkoutChecked without a version deletes with no query parameter (other_active, R18)", async () => {
+    fetchMock.mockResolvedValue(response(204));
+
+    await expect(deleteWorkoutChecked(12)).resolves.toBeUndefined();
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/workouts/12");
+  });
 });
 
 describe("gymKeys.offlineSnapshot", () => {

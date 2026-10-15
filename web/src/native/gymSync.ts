@@ -4,7 +4,15 @@
 import { type QueryClient, onlineManager } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
-import { type ConflictBody, type Workout, type WorkoutPutBody, fetchActiveWorkout, gymKeys, putWorkout } from "../api/gym";
+import {
+  type ConflictBody,
+  type Workout,
+  type WorkoutPutBody,
+  deleteWorkoutChecked,
+  fetchActiveWorkout,
+  gymKeys,
+  putWorkout,
+} from "../api/gym";
 import type { SessionWorkout } from "../lib/gymSession";
 import { clockOffsetMs } from "../lib/restTimer";
 import { isOffline, subscribeConnectivity } from "./connectivity";
@@ -12,10 +20,14 @@ import {
   type GymConflict,
   type GymEntry,
   type PendingDelete,
+  addPendingDelete,
   adoptActiveEntry,
   getSnapshot,
   patchEntry,
   removeEntry,
+  removePendingDelete,
+  replaceEntry,
+  restoreEntry,
   setClockOffset,
   subscribe,
 } from "./gymStore";
@@ -131,7 +143,18 @@ function setSync(uuid: string, sync: GymEntry["sync"]): void {
 // 200 o 201. `sentRevision` è la revisione inviata: se nel frattempo ce ne sono state altre, restano in attesa del prossimo invio.
 function applyAccepted(uuid: string, sentRevision: number, server: Workout, queryClient: QueryClient): SyncOutcome {
   const entry = findEntry(uuid);
-  if (entry === undefined) return "missing";
+  if (entry === undefined) {
+    // Annullato mentre il PUT era in volo: il server ha la copia appena scritta, quindi l'annullamento va inviato con la sua versione (R20).
+    if (cancelledInFlight.delete(uuid)) {
+      const pending = getSnapshot().pendingDeletes.find((item) => item.id === server.id);
+      addPendingDelete({
+        id: server.id,
+        baseVersion: required(server.version, "version"),
+        entry: pending?.entry ?? entryFromServer(server),
+      });
+    }
+    return "missing";
+  }
   const unchanged = entry.revision === sentRevision;
   setClockOffset(clockOffsetMs(server.server_now, Date.now()));
   if (unchanged && entry.workout.status === "finished") {
@@ -190,6 +213,7 @@ export async function syncEntry(uuid: string, queryClient: QueryClient): Promise
   try {
     server = await putWorkout(uuid, bodyOf(entry));
   } catch (error) {
+    cancelledInFlight.delete(uuid);
     return applyFailure(uuid, error);
   }
   try {
@@ -206,6 +230,12 @@ export async function syncEntry(uuid: string, queryClient: QueryClient): Promise
 const SETTLE_MS = 1000;
 // Al più un `PUT` in volo per uuid: chi ne chiede un altro aspetta quello già partito.
 const inFlight = new Map<string, Promise<SyncOutcome>>();
+// Allenamenti annullati mentre il loro `PUT` era in volo: la risposta decide se c'è da annullare anche sul server.
+const cancelledInFlight = new Set<string>();
+// Annullamenti con il DELETE in volo (per id): un giro sovrapposto non li rispedisce.
+const deletesInFlight = new Set<number>();
+// Annullamenti rifiutati con un 4xx: si ritentano solo con `retryErrors`, come i PUT in errore (R16).
+const deleteErrors = new Set<number>();
 // Client di React Query per `syncNow`, che riceve solo uuid e timeout. Lo imposta `startGymSync`.
 let activeClient: QueryClient | null = null;
 
@@ -228,9 +258,55 @@ function sendOnce(uuid: string, queryClient: QueryClient): Promise<SyncOutcome> 
   return sending;
 }
 
-// Un giro: prima i finiti in ordine di fine, poi l'attivo (R15). Si ferma alla rete assente e al 401.
+// DELETE con la versione nota (R20). 404: l'allenamento è già sparito, è come riuscito. 409: la copia del
+// server è cambiata, e la copia del telefono torna in conflitto con `current` senza altri DELETE (R18).
+async function sendDelete(pending: PendingDelete): Promise<SyncOutcome> {
+  try {
+    await deleteWorkoutChecked(pending.id, pending.baseVersion);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      removePendingDelete(pending.id);
+      return "synced";
+    }
+    if (error instanceof ApiError && error.status === 401) return "unauthorized";
+    if (error instanceof ApiError && error.status === 409) {
+      removePendingDelete(pending.id);
+      // Un annullamento creato dal codice porta sempre la copia del telefono (cancelLocal, applyAccepted). Senza copia
+      // il caso è solo teorico: non ci sono file salvati di questo tipo, e l'annullamento si chiude senza conflitto.
+      if (pending.entry !== undefined) restoreEntry({ ...pending.entry, sync: "conflict", conflict: conflictOf(error) });
+      return "conflict";
+    }
+    // Altro 4xx: errore di sincronizzazione, non si ritenta a ogni trigger.
+    if (error instanceof ApiError && error.status < 500) return "error";
+    return "pending";
+  }
+  removePendingDelete(pending.id);
+  return "synced";
+}
+
+// Un giro: prima gli annullamenti in attesa (R20), poi i finiti in ordine di fine, poi l'attivo (R15).
+// Si ferma alla rete assente e al 401.
 async function sendQueue(queryClient: QueryClient, retryErrors: boolean): Promise<void> {
   if (getToken() === null || isOffline() || !onlineManager.isOnline()) return;
+  for (const pending of getSnapshot().pendingDeletes) {
+    // Lo stesso annullamento non parte due volte: un giro sovrapposto lo salta mentre il DELETE è in volo, e non
+    // rispedisce quello già concluso (lo store non lo ha più). Un 4xx si ritenta solo con `retryErrors`.
+    if (deletesInFlight.has(pending.id) || !getSnapshot().pendingDeletes.some((item) => item.id === pending.id)) continue;
+    if (!retryErrors && deleteErrors.has(pending.id)) continue;
+    // Un PUT in volo dello stesso allenamento va prima: il suo esito dà la versione da cancellare.
+    if (pending.entry !== undefined && inFlight.has(pending.entry.workout.uuid)) continue;
+    // Segnato prima dell'await: un giro sovrapposto che arriva ora lo trova già in volo.
+    deletesInFlight.add(pending.id);
+    let outcome: SyncOutcome;
+    try {
+      outcome = await sendDelete(pending);
+    } finally {
+      deletesInFlight.delete(pending.id);
+    }
+    if (outcome === "error") deleteErrors.add(pending.id);
+    else deleteErrors.delete(pending.id);
+    if (outcome === "unauthorized" || isOffline() || !onlineManager.isOnline()) return;
+  }
   const { active, finished } = getSnapshot();
   const order = [...finished].sort((a, b) => finishedTime(a) - finishedTime(b));
   if (active !== null) order.push(active);
@@ -426,4 +502,60 @@ export async function syncNow(uuid: string, timeoutMs: number): Promise<SyncOutc
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Annulla l'allenamento locale (R20). Mai sincronizzato: si toglie solo in locale, anche offline. Già sincronizzato:
+ * si toglie e resta un annullamento in attesa, con la versione nota, che parte al ritorno della rete.
+ */
+export function cancelLocal(uuid: string): boolean {
+  const entry = findEntry(uuid);
+  if (entry === undefined) return false;
+  removeEntry(uuid);
+  if (inFlight.has(uuid)) cancelledInFlight.add(uuid);
+  if (entry.baseVersion === null || entry.workout.id === null) return true;
+  addPendingDelete({ id: entry.workout.id, baseVersion: entry.baseVersion, entry });
+  return true;
+}
+
+// DELETE senza versione dell'altro allenamento in corso (R18). 404: è già sparito. Restituisce l'esito se la scelta si ferma.
+async function removeOtherActive(id: number): Promise<SyncOutcome | null> {
+  try {
+    await deleteWorkoutChecked(id);
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    if (error instanceof ApiError && error.status === 401) return "unauthorized";
+    return "conflict";
+  }
+}
+
+/**
+ * Applica la scelta dell'utente su un conflitto (R18). "local": con `version_conflict` si reinvia con la versione
+ * di `current` (o null); con `other_active` si annulla prima l'altro allenamento e poi si reinvia. "server": la copia
+ * del server prende il posto di quella locale. Se la scelta non riesce il conflitto resta e si può riprovare.
+ */
+export async function resolveConflict(uuid: string, choice: "local" | "server"): Promise<SyncOutcome> {
+  const entry = findEntry(uuid);
+  if (entry === undefined || entry.sync !== "conflict" || entry.conflict === null) return "missing";
+  const { reason, current } = entry.conflict;
+  if (choice === "server") {
+    let copy: GymEntry | null;
+    try {
+      copy = current?.status === "in_progress" ? entryFromServer(current) : null;
+    } catch {
+      return "error";
+    }
+    if (!replaceEntry(uuid, copy)) return "conflict";
+    return copy === null ? "missing" : "synced";
+  }
+  const queryClient = activeClient;
+  if (queryClient === null) return "pending";
+  const baseVersion = reason === "other_active" ? entry.baseVersion : (current?.version ?? null);
+  if (reason === "other_active" && current !== null) {
+    const stopped = await removeOtherActive(current.id);
+    if (stopped !== null) return stopped;
+  }
+  patchEntry(uuid, { baseVersion, sync: "pending", conflict: null });
+  return sendOnce(uuid, queryClient);
 }
