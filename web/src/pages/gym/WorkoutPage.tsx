@@ -173,7 +173,9 @@ function LiveWorkout({ session }: { session: LiveSession }) {
     }
     if (pending > 0 && !window.confirm(`Ci sono ${pending} serie non completate. Verranno scartate.`)) return;
     session.finish(pending > 0, {
-      onSuccess: (finished) => navigate(`/gym/history/${finished.id}?summary=1`, { replace: true }),
+      // Senza id il server non ha ancora confermato la fine (solo nell'IPA): il riepilogo è quello locale (R19).
+      onSuccess: ({ id, uuid }) =>
+        navigate(id === null ? `/gym/history/local/${uuid}?summary=1` : `/gym/history/${id}?summary=1`, { replace: true }),
       onError: report,
     });
   }

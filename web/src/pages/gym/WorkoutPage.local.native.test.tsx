@@ -1,7 +1,7 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../api/gym";
 import { createQueryClient } from "../../lib/queryClient";
 import { reportNetworkFailure, resetConnectivityForTests } from "../../native/connectivity";
+import type { SyncOutcome } from "../../native/gymSync";
 import {
   clearGymStore,
   dispatch,
@@ -21,6 +22,7 @@ import {
   startWorkoutFromTemplate,
 } from "../../native/gymStore";
 import GymStartPage from "./GymStartPage";
+import LocalWorkoutDetailPage from "./LocalWorkoutDetailPage";
 import WorkoutPage from "./WorkoutPage";
 
 // Sessione locale dell'IPA (C17–C21): ogni azione è un dispatch sullo stato locale, senza richieste di rete.
@@ -34,11 +36,24 @@ const filesystem = vi.hoisted(() => ({
   rename: vi.fn(),
 }));
 
+// Termina aspetta il sync: qui l'esito è quello scelto dal test, e la conferma del server è `sync.confirmedId`.
+const sync = vi.hoisted(() => ({
+  syncNow: vi.fn((_uuid: string, _timeoutMs: number): Promise<SyncOutcome | "timeout"> =>
+    Promise.resolve<SyncOutcome | "timeout">("pending"),
+  ),
+  confirmedId: null as number | null,
+}));
+
 vi.mock("../../native/platform", () => ({ isNative: () => platform.native }));
 vi.mock("@capacitor/filesystem", () => ({
   Filesystem: filesystem,
   Directory: { Library: "LIBRARY" },
   Encoding: { UTF8: "utf8" },
+}));
+vi.mock("../../native/gymSync", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../native/gymSync")>()),
+  syncNow: (uuid: string, timeoutMs: number) => sync.syncNow(uuid, timeoutMs),
+  confirmedServerId: () => sync.confirmedId,
 }));
 vi.mock("../../components/ModeSwitch", () => ({ default: () => <div data-testid="mode-switch" /> }));
 // Il selettore esercizi è ancora quello online (T24): qui si sceglie senza passare dalla sua ricerca.
@@ -278,5 +293,108 @@ describe("sessione locale nell'IPA", () => {
 
     expect(within(card("Squat")).getByRole("button", { name: "Usa precedente serie 1" })).toHaveTextContent("—");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/** Mostra il percorso raggiunto dal dettaglio del server, che in questi test è solo una rotta di arrivo. */
+function ServerDetailProbe() {
+  const location = useLocation();
+  return (
+    <p>
+      server: {location.pathname}
+      {location.search}
+    </p>
+  );
+}
+
+function renderWorkoutRoutes() {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/gym/workout"]}>
+        <Routes>
+          <Route path="/gym/workout" element={<WorkoutPage />} />
+          <Route path="/gym/history/local/:uuid" element={<LocalWorkoutDetailPage />} />
+          <Route path="/gym/history/:id" element={<ServerDetailProbe />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("Termina nell'IPA", () => {
+  const originalConfirm = window.confirm;
+
+  beforeEach(() => {
+    sync.syncNow.mockImplementation(() => Promise.resolve<SyncOutcome | "timeout">("pending"));
+    sync.confirmedId = null;
+    window.confirm = vi.fn(() => true);
+  });
+
+  afterEach(() => {
+    window.confirm = originalConfirm;
+  });
+
+  it("C31: senza sync in tempo si apre il riepilogo locale con le sole serie completate", async () => {
+    sync.syncNow.mockResolvedValue("timeout");
+    const uuid = startFromTemplate(PUSH);
+    renderWorkoutRoutes();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Completa serie 1" }));
+    await user.click(screen.getByRole("button", { name: "Termina" }));
+
+    expect(await screen.findByText("Potrai aggiornare il modello dopo la sincronizzazione")).toBeInTheDocument();
+    expect(sync.syncNow).toHaveBeenCalledWith(uuid, 5000);
+    expect(screen.getByRole("heading", { name: "Allenamento completato" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Panca piana" })).getAllByRole("listitem")).toHaveLength(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("C32: con rete il sync riesce in tempo e si apre il dettaglio del server con ?summary=1", async () => {
+    sync.syncNow.mockResolvedValue("synced");
+    sync.confirmedId = 9;
+    const uuid = startFromTemplate(PUSH);
+    renderWorkoutRoutes();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Completa serie 1" }));
+    await user.click(screen.getByRole("button", { name: "Completa serie 2" }));
+    await user.click(screen.getByRole("button", { name: "Termina" }));
+
+    expect(await screen.findByText("server: /gym/history/9?summary=1")).toBeInTheDocument();
+    expect(sync.syncNow).toHaveBeenCalledWith(uuid, 5000);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("un conflitto non è un successo: si apre il riepilogo locale", async () => {
+    sync.syncNow.mockResolvedValue("conflict");
+    sync.confirmedId = 9;
+    startFromTemplate(PUSH);
+    renderWorkoutRoutes();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Completa serie 1" }));
+    await user.click(screen.getByRole("button", { name: "Termina" }));
+
+    expect(await screen.findByText("Potrai aggiornare il modello dopo la sincronizzazione")).toBeInTheDocument();
+    expect(screen.queryByText("server: /gym/history/9?summary=1")).not.toBeInTheDocument();
+  });
+
+  it("durante l'attesa del sync l'allenamento resta visibile e Termina è disabilitato", async () => {
+    let resolveSync: (outcome: SyncOutcome | "timeout") => void = () => undefined;
+    sync.syncNow.mockImplementation(() => new Promise((resolve) => (resolveSync = resolve)));
+    startFromTemplate(PUSH);
+    renderWorkoutRoutes();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Completa serie 1" }));
+    await user.click(screen.getByRole("button", { name: "Termina" }));
+
+    expect(screen.getByRole("textbox", { name: "Nome allenamento" })).toBeInTheDocument();
+    expect(screen.queryByText("Nessun allenamento in corso.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Termina" })).toBeDisabled();
+
+    resolveSync("timeout");
+    expect(await screen.findByText("Potrai aggiornare il modello dopo la sincronizzazione")).toBeInTheDocument();
   });
 });

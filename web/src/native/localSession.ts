@@ -33,6 +33,7 @@ import {
   startWorkoutFromTemplate,
   subscribe,
 } from "./gymStore";
+import { confirmedServerId, syncNow } from "./gymSync";
 import { isNative } from "./platform";
 
 /** Allenamento attivo per la UI: `data` è null se non c'è, undefined mentre il web lo carica. */
@@ -44,8 +45,29 @@ export interface ActiveSession {
   fetchStatus?: string;
 }
 
-// Termina e Annulla nell'IPA arrivano con T25 e T27: fino ad allora rispondono con un errore, senza cambiare nulla.
+// Annulla nell'IPA arriva con T27: fino ad allora risponde con un errore, senza cambiare nulla.
 const NOT_YET_LOCAL = "Non ancora disponibile nell'app";
+
+// Termina aspetta il sync al massimo questo tempo (R19): oltre, il sync va avanti da solo e si apre il riepilogo locale.
+const SYNC_WAIT_MS = 5000;
+
+// Voce in fase di Termina. Dopo il dispatch è già tra i finiti, ma la pagina resta sull'allenamento fino all'esito
+// del sync: senza questo, l'allenamento sparirebbe per qualche secondo. La copia è quella del momento di Termina,
+// così resta visibile anche quando il sync la toglie dallo store.
+let finishingEntry: GymEntry | null = null;
+const finishingListeners = new Set<() => void>();
+
+function subscribeFinishing(listener: () => void): () => void {
+  finishingListeners.add(listener);
+  return () => {
+    finishingListeners.delete(listener);
+  };
+}
+
+function setFinishingEntry(entry: GymEntry | null): void {
+  finishingEntry = entry;
+  for (const listener of finishingListeners) listener();
+}
 
 // Campi che lo snapshot non porta: un esercizio fuori dallo snapshot ha solo nome, tracking e id.
 const BLANK_EXERCISE: Omit<Exercise, "id" | "name" | "tracking"> = {
@@ -114,7 +136,9 @@ function workoutView(entry: GymEntry, snapshot: OfflineSnapshot | null, clockOff
 }
 
 interface LocalState {
+  /** L'allenamento attivo, o quello in fase di Termina finché il sync non ha dato l'esito. */
   entry: GymEntry | null;
+  finishing: boolean;
   snapshot: OfflineSnapshot | null;
   clockOffsetMs: number;
 }
@@ -122,8 +146,14 @@ interface LocalState {
 // Stato dello store e snapshot in cache. La query è disattivata: legge la cache e non fa richieste.
 function useLocalState(): LocalState {
   const store = useSyncExternalStore(subscribe, getSnapshot);
+  const finishing = useSyncExternalStore(subscribeFinishing, () => finishingEntry);
   const snapshot = useQuery({ queryKey: gymKeys.offlineSnapshot, queryFn: fetchOfflineSnapshot, enabled: false }).data;
-  return { entry: store.active, snapshot: snapshot ?? null, clockOffsetMs: store.clockOffsetMs };
+  return {
+    entry: store.active ?? finishing,
+    finishing: finishing !== null,
+    snapshot: snapshot ?? null,
+    clockOffsetMs: store.clockOffsetMs,
+  };
 }
 
 function useLocalActive(): ActiveSession {
@@ -156,7 +186,7 @@ export function startLocalWorkout(template: Template | null): string | null {
  */
 export function useLocalSession(): LiveSession | null {
   const report = useContext(LiveErrorContext);
-  const { entry, snapshot, clockOffsetMs } = useLocalState();
+  const { entry, finishing, snapshot, clockOffsetMs } = useLocalState();
   if (entry === null) return null;
 
   const uuid = entry.workout.uuid;
@@ -165,6 +195,8 @@ export function useLocalSession(): LiveSession | null {
     return exercise ? previousFirst(exercise.exercise_id, snapshot) : null;
   };
   function act(action: SessionAction): void {
+    // Durante l'attesa del sync di Termina l'allenamento è già chiuso: le modifiche non si applicano.
+    if (finishing) return;
     const result = dispatch(uuid, action);
     if (!result.ok) report(liveErrorText(result.error));
   }
@@ -172,7 +204,7 @@ export function useLocalSession(): LiveSession | null {
   return {
     workout: workoutView(entry, snapshot, clockOffsetMs),
     clockOffsetMs,
-    isFinishing: false,
+    isFinishing: finishing,
     isCancelling: false,
 
     rename: (name) => act({ type: "rename", name }),
@@ -191,7 +223,21 @@ export function useLocalSession(): LiveSession | null {
     restDelta: (seconds) => act({ type: "restDelta", seconds }),
     restSkip: () => act({ type: "restSkip" }),
 
-    finish: (_discardIncomplete, callbacks) => callbacks.onError(NOT_YET_LOCAL),
+    finish(discardIncomplete, callbacks) {
+      if (finishing) return;
+      const result = dispatch(uuid, { type: "finish", discardIncomplete });
+      if (!result.ok) {
+        callbacks.onError(liveErrorText(result.error));
+        return;
+      }
+      setFinishingEntry(getSnapshot().finished.find((item) => item.workout.uuid === uuid) ?? null);
+      void syncNow(uuid, SYNC_WAIT_MS).then((outcome) => {
+        // Il riepilogo va al server solo se il sync è riuscito in tempo (R19); altrimenti resta quello locale.
+        const id = outcome === "synced" ? confirmedServerId(uuid) : null;
+        callbacks.onSuccess({ id, uuid });
+        setFinishingEntry(null);
+      });
+    },
     cancel: (callbacks) => callbacks.onError(NOT_YET_LOCAL),
   };
 }

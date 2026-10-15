@@ -112,6 +112,15 @@ function sessionFromServer(server: Workout): SessionWorkout {
   };
 }
 
+// Id del server dei finiti confermati in questa sessione dell'app: quando la voce esce dallo store, il riepilogo
+// locale lo cerca qui per passare alla rotta del server (R19). Solo in memoria: dopo un riavvio la voce non c'è più.
+const confirmedIds = new Map<string, number>();
+
+/** Id del server di un finito confermato dal server, o null se la conferma non c'è (ancora). */
+export function confirmedServerId(uuid: string): number | null {
+  return confirmedIds.get(uuid) ?? null;
+}
+
 // Modifiche arrivate durante il volo: lo stato locale resta com'è, ma prende gli id del server.
 function withServerIds(local: SessionWorkout, server: Workout): SessionWorkout {
   const exerciseIds = new Map<string, number>();
@@ -160,6 +169,7 @@ function applyAccepted(uuid: string, sentRevision: number, server: Workout, quer
   setClockOffset(clockOffsetMs(server.server_now, Date.now()));
   if (unchanged && entry.workout.status === "finished") {
     // Finito confermato: lo mette la cache dello Storico e lo tolgono dallo stato locale (R16).
+    confirmedIds.set(uuid, server.id);
     queryClient.setQueryData(gymKeys.workout(server.id), server);
     void queryClient.invalidateQueries({ queryKey: gymKeys.history });
     void queryClient.invalidateQueries({ queryKey: ["gym", "stats"] });

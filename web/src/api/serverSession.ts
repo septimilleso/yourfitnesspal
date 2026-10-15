@@ -106,7 +106,7 @@ export function useServerSession(workout: Workout): LiveSession {
       finishMutation.mutate(
         { workoutId, discardIncomplete },
         {
-          onSuccess: (finished) => callbacks.onSuccess({ id: finished.id }),
+          onSuccess: (finished) => callbacks.onSuccess({ id: finished.id, uuid: keyOf(workout) }),
           onError: (error) => callbacks.onError(liveErrorMessage(error)),
         },
       );

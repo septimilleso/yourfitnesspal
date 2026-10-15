@@ -39,6 +39,7 @@ export interface LiveSession {
   restStart(seconds: number): void;
   restDelta(seconds: number): void;
   restSkip(): void;
-  finish(discardIncomplete: boolean, callbacks: LiveCallbacks<{ id: number }>): void;
+  /** `id` è quello del server se la fine è già confermata (sempre sul web; nell'IPA solo se il sync arriva in tempo, R19). */
+  finish(discardIncomplete: boolean, callbacks: LiveCallbacks<{ id: number | null; uuid: string }>): void;
   cancel(callbacks: LiveCallbacks<void>): void;
 }
