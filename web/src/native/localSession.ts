@@ -2,14 +2,16 @@
 // Ogni operazione è un dispatch sull'allenamento attivo, senza richieste di rete. Nel browser
 // `useActiveSession` resta `useActiveWorkout` e la sessione è `useServerSession`.
 import { useQuery } from "@tanstack/react-query";
-import { useContext, useSyncExternalStore } from "react";
+import { useContext, useState, useSyncExternalStore } from "react";
 
+import { ApiError } from "../api/client";
 import {
   type Exercise,
   type OfflineSnapshot,
   type Template,
   type Workout,
   type WorkoutExercise,
+  deleteWorkoutChecked,
   fetchOfflineSnapshot,
   gymKeys,
   useActiveWorkout,
@@ -25,15 +27,17 @@ import {
 } from "../lib/gymSession";
 import { LiveErrorContext } from "../lib/liveErrors";
 import type { LiveSession } from "../lib/liveSession";
+import { isOffline } from "./connectivity";
 import {
   type GymEntry,
   dispatch,
   getSnapshot,
+  removeEntry,
   startEmptyWorkout,
   startWorkoutFromTemplate,
   subscribe,
 } from "./gymStore";
-import { confirmedServerId, syncNow } from "./gymSync";
+import { cancelLocal, confirmedServerId, syncNow } from "./gymSync";
 import { isNative } from "./platform";
 
 /** Allenamento attivo per la UI: `data` è null se non c'è, undefined mentre il web lo carica. */
@@ -44,9 +48,6 @@ export interface ActiveSession {
   isPlaceholderData?: boolean;
   fetchStatus?: string;
 }
-
-// Annulla nell'IPA arriva con T27: fino ad allora risponde con un errore, senza cambiare nulla.
-const NOT_YET_LOCAL = "Non ancora disponibile nell'app";
 
 // Termina aspetta il sync al massimo questo tempo (R19): oltre, il sync va avanti da solo e si apre il riepilogo locale.
 const SYNC_WAIT_MS = 5000;
@@ -174,6 +175,17 @@ export function useActiveSession(): ActiveSession {
   return isNative() ? useLocalActive() : useServerActive();
 }
 
+// DELETE dell'allenamento sincronizzato, come oggi (R20). Vero se il server non lo ha più: anche il 404, già sparito.
+// Ogni altro errore dà falso e l'annullamento passa dalla coda del sync.
+async function deleteOnServer(id: number): Promise<boolean> {
+  try {
+    await deleteWorkoutChecked(id);
+    return true;
+  } catch (error) {
+    return error instanceof ApiError && error.status === 404;
+  }
+}
+
 /** Avvio nell'IPA: un dispatch sullo store, senza rete. Restituisce il messaggio d'errore, o null se è partito. */
 export function startLocalWorkout(template: Template | null): string | null {
   const outcome = template === null ? startEmptyWorkout() : startWorkoutFromTemplate(template);
@@ -187,6 +199,7 @@ export function startLocalWorkout(template: Template | null): string | null {
 export function useLocalSession(): LiveSession | null {
   const report = useContext(LiveErrorContext);
   const { entry, finishing, snapshot, clockOffsetMs } = useLocalState();
+  const [cancelling, setCancelling] = useState(false);
   if (entry === null) return null;
 
   const uuid = entry.workout.uuid;
@@ -205,7 +218,7 @@ export function useLocalSession(): LiveSession | null {
     workout: workoutView(entry, snapshot, clockOffsetMs),
     clockOffsetMs,
     isFinishing: finishing,
-    isCancelling: false,
+    isCancelling: cancelling,
 
     rename: (name) => act({ type: "rename", name }),
     addExercises: (exercises) => act({ type: "addExercises", exercises, snapshot }),
@@ -238,6 +251,29 @@ export function useLocalSession(): LiveSession | null {
         setFinishingEntry(null);
       });
     },
-    cancel: (callbacks) => callbacks.onError(NOT_YET_LOCAL),
+    // Annullamento (R20): con rete e già sincronizzato, DELETE come oggi e poi rimozione locale. In tutti gli altri
+    // casi, e se il DELETE non riesce, si passa da `cancelLocal`: l'annullamento resta in attesa e il sync lo invia al
+    // ritorno della rete con la versione nota (un 409 porta al conflitto di R18). La rimozione e la navigazione
+    // avvengono nello stesso passo, così la pagina non mostra "Nessun allenamento in corso" per un istante.
+    cancel(callbacks) {
+      if (finishing || cancelling) return;
+      const done = () => {
+        setCancelling(false);
+        callbacks.onSuccess();
+      };
+      const active = getSnapshot().active;
+      if (active === null || active.workout.uuid !== uuid) return done();
+      const { id } = active.workout;
+      if (isOffline() || active.baseVersion === null || id === null) {
+        cancelLocal(uuid);
+        return done();
+      }
+      setCancelling(true);
+      void deleteOnServer(id).then((deleted) => {
+        if (deleted) removeEntry(uuid);
+        else cancelLocal(uuid);
+        done();
+      });
+    },
   };
 }

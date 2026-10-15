@@ -1,5 +1,5 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,16 +11,20 @@ import {
   type TemplateSummary,
   gymKeys,
 } from "../../api/gym";
+import { ApiError } from "../../api/client";
 import { createQueryClient } from "../../lib/queryClient";
-import { reportNetworkFailure, resetConnectivityForTests } from "../../native/connectivity";
-import type { SyncOutcome } from "../../native/gymSync";
+import { reportNetworkFailure, reportNetworkSuccess, resetConnectivityForTests } from "../../native/connectivity";
+import NativeBridge from "../../native/NativeBridge";
+import { type SyncOutcome, startGymSync } from "../../native/gymSync";
 import {
   clearGymStore,
   dispatch,
   getSnapshot,
+  patchEntry,
   startEmptyWorkout,
   startWorkoutFromTemplate,
 } from "../../native/gymStore";
+import { clearToken, setToken } from "../../native/session";
 import GymStartPage from "./GymStartPage";
 import LocalWorkoutDetailPage from "./LocalWorkoutDetailPage";
 import WorkoutPage from "./WorkoutPage";
@@ -35,6 +39,13 @@ const filesystem = vi.hoisted(() => ({
   deleteFile: vi.fn(),
   rename: vi.fn(),
 }));
+const preferences = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), remove: vi.fn() }));
+const api = vi.hoisted(() => ({ deleteWorkoutChecked: vi.fn() }));
+const restNotifications = vi.hoisted(() => ({
+  syncRestNotification: vi.fn<(workout: unknown, offsetMs?: number) => Promise<void>>(() => Promise.resolve()),
+  installNotificationSound: vi.fn(() => Promise.resolve()),
+}));
+const localNotifications = vi.hoisted(() => ({ addListener: vi.fn(() => Promise.resolve({ remove: vi.fn() })) }));
 
 // Termina aspetta il sync: qui l'esito è quello scelto dal test, e la conferma del server è `sync.confirmedId`.
 const sync = vi.hoisted(() => ({
@@ -49,6 +60,13 @@ vi.mock("@capacitor/filesystem", () => ({
   Filesystem: filesystem,
   Directory: { Library: "LIBRARY" },
   Encoding: { UTF8: "utf8" },
+}));
+vi.mock("@capacitor/preferences", () => ({ Preferences: preferences }));
+vi.mock("@capacitor/local-notifications", () => ({ LocalNotifications: localNotifications }));
+vi.mock("../../native/restNotifications", () => restNotifications);
+vi.mock("../../api/gym", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api/gym")>()),
+  deleteWorkoutChecked: api.deleteWorkoutChecked,
 }));
 vi.mock("../../native/gymSync", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../native/gymSync")>()),
@@ -396,5 +414,161 @@ describe("Termina nell'IPA", () => {
 
     resolveSync("timeout");
     expect(await screen.findByText("Potrai aggiornare il modello dopo la sincronizzazione")).toBeInTheDocument();
+  });
+});
+
+/** Il percorso di arrivo dopo l'annullamento, e la navigazione verso di esso. */
+function renderCancel() {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/gym/workout"]}>
+        <NativeBridge />
+        <Routes>
+          <Route path="/gym/workout" element={<WorkoutPage />} />
+          <Route path="/gym" element={<p>Pagina dei modelli</p>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+// Allenamento già sincronizzato: id 42 e versione 1, senza modifiche in attesa.
+function markSynced(uuid: string): void {
+  const active = getSnapshot().active;
+  if (active === null || active.workout.uuid !== uuid) throw new Error("allenamento non attivo");
+  patchEntry(uuid, {
+    baseVersion: 1,
+    sentRevision: active.revision,
+    sync: "synced",
+    workout: { ...active.workout, id: 42 },
+  });
+}
+
+/** Richieste che scrivono (PUT, DELETE) passate al fetch: con la rete assente devono restare zero. */
+function writeRequests(): RequestInit[] {
+  const calls = fetchMock.mock.calls as unknown as [unknown, RequestInit | undefined][];
+  return calls.map(([, init]) => init ?? {}).filter((init) => (init.method ?? "GET") !== "GET");
+}
+
+/** Lascia girare il sync e le promise dopo un cambio di rete. */
+async function letNetworkWork(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
+describe("Annulla allenamento nell'IPA", () => {
+  const originalConfirm = window.confirm;
+  let stopSync: (() => void) | undefined;
+
+  beforeEach(async () => {
+    window.confirm = vi.fn(() => true);
+    // Con la rete tornata il sync legge l'attivo del server: una risposta 204 (nessun attivo) dice che la rete c'è.
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    api.deleteWorkoutChecked.mockReset();
+    api.deleteWorkoutChecked.mockResolvedValue(undefined);
+    restNotifications.syncRestNotification.mockClear();
+    await setToken("tok-annulla");
+  });
+
+  afterEach(async () => {
+    stopSync?.();
+    stopSync = undefined;
+    window.confirm = originalConfirm;
+    await clearToken();
+  });
+
+  it("C33: un allenamento mai sincronizzato annullato offline sparisce e al ritorno della rete non parte nessuna richiesta", async () => {
+    startFromTemplate(PUSH);
+    stopSync = startGymSync(queryClient);
+    renderCancel();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Annulla allenamento" }));
+
+    expect(await screen.findByText("Pagina dei modelli")).toBeInTheDocument();
+    expect(getSnapshot().active).toBeNull();
+    expect(getSnapshot().pendingDeletes).toHaveLength(0);
+
+    reportNetworkSuccess();
+    await letNetworkWork();
+
+    expect(writeRequests()).toHaveLength(0);
+    expect(api.deleteWorkoutChecked).not.toHaveBeenCalled();
+  });
+
+  it("la notifica di riposo si cancella con l'annullamento", async () => {
+    const uuid = startFromTemplate(PUSH);
+    dispatch(uuid, { type: "restStart", seconds: 90 });
+    renderCancel();
+    const user = userEvent.setup();
+    expect(restNotifications.syncRestNotification.mock.calls.at(-1)?.[0]).toMatchObject({ name: "Push A" });
+
+    await user.click(screen.getByRole("button", { name: "Annulla allenamento" }));
+
+    expect(await screen.findByText("Pagina dei modelli")).toBeInTheDocument();
+    expect(restNotifications.syncRestNotification.mock.calls.at(-1)?.[0]).toBeNull();
+  });
+
+  it("C53: annullato offline un allenamento sincronizzato sparisce subito; alla rete il DELETE con la versione nota dà conflitto, senza altri DELETE", async () => {
+    const uuid = startFromTemplate(PUSH);
+    markSynced(uuid);
+    stopSync = startGymSync(queryClient);
+    renderCancel();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Annulla allenamento" }));
+
+    expect(await screen.findByText("Pagina dei modelli")).toBeInTheDocument();
+    expect(getSnapshot().active).toBeNull();
+    expect(getSnapshot().pendingDeletes).toEqual([expect.objectContaining({ id: 42, baseVersion: 1 })]);
+    await letNetworkWork();
+    expect(api.deleteWorkoutChecked).not.toHaveBeenCalled();
+
+    api.deleteWorkoutChecked.mockRejectedValueOnce(
+      new ApiError(409, "version_conflict", { detail: "version_conflict", current: null }),
+    );
+    reportNetworkSuccess();
+    await letNetworkWork();
+
+    expect(api.deleteWorkoutChecked).toHaveBeenCalledTimes(1);
+    expect(api.deleteWorkoutChecked).toHaveBeenCalledWith(42, 1);
+    expect(getSnapshot().pendingDeletes).toHaveLength(0);
+    expect(getSnapshot().active).toMatchObject({ sync: "conflict", conflict: { reason: "version_conflict" }, workout: { uuid, id: 42 } });
+
+    reportNetworkFailure();
+    reportNetworkSuccess();
+    await letNetworkWork();
+    expect(api.deleteWorkoutChecked).toHaveBeenCalledTimes(1);
+  });
+
+  it("con rete e sincronizzato: DELETE come oggi, poi l'allenamento esce dal telefono", async () => {
+    reportNetworkSuccess();
+    const uuid = startFromTemplate(PUSH);
+    markSynced(uuid);
+    renderCancel();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Annulla allenamento" }));
+
+    expect(await screen.findByText("Pagina dei modelli")).toBeInTheDocument();
+    expect(api.deleteWorkoutChecked).toHaveBeenCalledWith(42);
+    expect(getSnapshot().active).toBeNull();
+    expect(getSnapshot().pendingDeletes).toHaveLength(0);
+  });
+
+  it("DELETE con rete caduta a metà: l'annullamento resta in attesa e l'allenamento esce comunque", async () => {
+    reportNetworkSuccess();
+    const uuid = startFromTemplate(PUSH);
+    markSynced(uuid);
+    api.deleteWorkoutChecked.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderCancel();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Annulla allenamento" }));
+
+    expect(await screen.findByText("Pagina dei modelli")).toBeInTheDocument();
+    expect(getSnapshot().active).toBeNull();
+    expect(getSnapshot().pendingDeletes).toEqual([expect.objectContaining({ id: 42, baseVersion: 1 })]);
   });
 });
