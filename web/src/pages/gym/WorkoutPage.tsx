@@ -1,14 +1,9 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import type { Exercise, WorkoutExercise } from "../../api/gym";
-import {
-  gymApi,
-  useActiveWorkout,
-  useCancelWorkout,
-  useFinishWorkout,
-  useLiveMutation,
-} from "../../api/gym";
+import type { Exercise, Workout, WorkoutExercise } from "../../api/gym";
+import { useActiveWorkout } from "../../api/gym";
+import { useServerSession } from "../../api/serverSession";
 import OfflineIndicator from "../../components/OfflineIndicator";
 import type { Action } from "../../components/gym/ActionMenu";
 import ExerciseDetailSheet from "../../components/gym/ExerciseDetailSheet";
@@ -16,24 +11,19 @@ import ExercisePicker from "../../components/gym/ExercisePicker";
 import RestPicker from "../../components/gym/RestPicker";
 import RestTimerBar from "../../components/gym/RestTimerBar";
 import WorkoutExerciseCard from "../../components/gym/WorkoutExerciseCard";
-import {
-  elapsedLabel,
-  linkWithNext,
-  liveErrorMessage,
-  moveItem,
-  unlinkFromGroup,
-} from "../../lib/gym";
+import { elapsedLabel, linkWithNext, moveItem, unlinkFromGroup } from "../../lib/gym";
 import { LiveErrorContext } from "../../lib/liveErrors";
+import { keyOf } from "../../lib/liveSession";
 import { installAudioResume, unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
 import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
 
-type PickerState = { mode: "add" } | { mode: "replace"; itemId: number } | null;
+type PickerState = { mode: "add" } | { mode: "replace"; itemKey: string } | null;
 
 /** The live session (Strong's workout sheet): full screen, no tab bar.
- * Every edit is saved at once through `useLiveMutation`; failures show up
- * as a toast via `LiveErrorContext`. */
+ * Every edit is saved at once through the session (`useServerSession` on the web);
+ * failures show up as a toast via `LiveErrorContext`. */
 function WorkoutPage() {
   const [toast, setToast] = useState<string | null>(null);
 
@@ -71,27 +61,11 @@ function NoWorkout({ message }: { message: string }) {
 }
 
 function WorkoutSession() {
-  const navigate = useNavigate();
-  const report = useContext(LiveErrorContext);
   const active = useActiveWorkout();
   const { data: workout, isLoading, isError } = active;
   // Dopo un giro online i dati vivi restano: l'hook dà true solo se non c'è nessun allenamento.
   const unavailable = useOfflineUnavailable(active);
-  const now = useNow(1000);
-  const viewportTop = useVisualViewportTop();
   useEffect(() => installAudioResume(), []);
-  const rename = useLiveMutation(gymApi.renameWorkout);
-  const addExercise = useLiveMutation(gymApi.addExercise);
-  const patchExercise = useLiveMutation(gymApi.patchExercise);
-  const removeExercise = useLiveMutation(gymApi.removeExercise);
-  const setLayout = useLiveMutation(gymApi.setLayout);
-  const rest = useLiveMutation(gymApi.rest);
-  const finish = useFinishWorkout();
-  const cancel = useCancelWorkout();
-  const [picker, setPicker] = useState<PickerState>(null);
-  const [restFor, setRestFor] = useState<number | null>(null);
-  const [manualRest, setManualRest] = useState(false);
-  const [detailId, setDetailId] = useState<number | null>(null);
 
   // Nell'IPA offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
   if (unavailable) return <NoWorkout message="Allenamento non disponibile offline" />;
@@ -101,29 +75,39 @@ function WorkoutSession() {
   }
   if (!workout) return <NoWorkout message="Nessun allenamento in corso." />;
 
-  const workoutId = workout.id;
+  return <LiveWorkout workout={workout} />;
+}
+
+/** Il corpo della sessione: gli hook della sessione vanno chiamati con un allenamento già caricato. */
+function LiveWorkout({ workout }: { workout: Workout }) {
+  const navigate = useNavigate();
+  const report = useContext(LiveErrorContext);
+  const session = useServerSession(workout);
+  const now = useNow(1000);
+  const viewportTop = useVisualViewportTop();
+  const [picker, setPicker] = useState<PickerState>(null);
+  const [restFor, setRestFor] = useState<string | null>(null);
+  const [manualRest, setManualRest] = useState(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
+
   const items = workout.exercises;
   const groups = items.map((item) => item.superset_group);
 
   function layout(order: WorkoutExercise[], nextGroups: (number | null)[]) {
-    setLayout.mutate({
-      workoutId,
-      items: order.map((item, n) => ({ id: item.id, superset_group: nextGroups[n] })),
-    });
+    session.setLayout(order.map((item, n) => ({ exerciseUuid: keyOf(item), superset_group: nextGroups[n] })));
   }
 
   function actionsFor(item: WorkoutExercise, index: number): Action[] {
+    const itemKey = keyOf(item);
     const actions: Action[] = [
-      { label: "Sostituisci esercizio", onSelect: () => setPicker({ mode: "replace", itemId: item.id }) },
-      { label: "Riposo", onSelect: () => setRestFor(item.id) },
+      { label: "Sostituisci esercizio", onSelect: () => setPicker({ mode: "replace", itemKey }) },
+      { label: "Riposo", onSelect: () => setRestFor(itemKey) },
       {
         label: item.note ? "Modifica nota" : "Aggiungi nota",
         onSelect: () => {
           const note = window.prompt("Nota", item.note ?? "");
           if (note !== null) {
-            patchExercise.mutate({
-              workoutId, id: item.id, note: note.trim().slice(0, 500) || null,
-            });
+            session.setNote(itemKey, note.trim().slice(0, 500) || null);
           }
         },
       },
@@ -149,7 +133,7 @@ function WorkoutSession() {
       destructive: true,
       onSelect: () => {
         if (window.confirm(`Rimuovere ${item.exercise.name} dall'allenamento?`)) {
-          removeExercise.mutate({ workoutId, id: item.id });
+          session.removeExercise(itemKey);
         }
       },
     });
@@ -158,9 +142,9 @@ function WorkoutSession() {
 
   function pickExercises(list: Exercise[]) {
     if (picker?.mode === "replace") {
-      patchExercise.mutate({ workoutId, id: picker.itemId, exercise_id: list[0].id });
+      session.replaceExercise(picker.itemKey, list[0]);
     } else {
-      for (const exercise of list) addExercise.mutate({ workoutId, exerciseId: exercise.id });
+      session.addExercises(list);
     }
     setPicker(null);
   }
@@ -174,24 +158,21 @@ function WorkoutSession() {
       return;
     }
     if (pending > 0 && !window.confirm(`Ci sono ${pending} serie non completate. Verranno scartate.`)) return;
-    finish.mutate(
-      { workoutId, discardIncomplete: pending > 0 },
-      {
-        onSuccess: (finished) => navigate(`/gym/history/${finished.id}?summary=1`, { replace: true }),
-        onError: (error) => report(liveErrorMessage(error)),
-      },
-    );
+    session.finish(pending > 0, {
+      onSuccess: (finished) => navigate(`/gym/history/${finished.id}?summary=1`, { replace: true }),
+      onError: report,
+    });
   }
 
   function handleCancel() {
     if (!window.confirm("Annullare l'allenamento? Le serie registrate verranno eliminate.")) return;
-    cancel.mutate(workoutId, {
+    session.cancel({
       onSuccess: () => navigate("/gym", { replace: true }),
-      onError: (error) => report(liveErrorMessage(error)),
+      onError: report,
     });
   }
 
-  const restItem = items.find((item) => item.id === restFor);
+  const restItem = items.find((item) => keyOf(item) === restFor);
 
   return (
     <div className="min-h-screen bg-app pb-[calc(2rem+var(--safe-bottom))]" onPointerDown={unlockAudio}>
@@ -216,14 +197,15 @@ function WorkoutSession() {
             </span>
             <OfflineIndicator className="relative inline-flex shrink-0" />
           </span>
-          <button type="button" className="btn-primary px-5" onClick={handleFinish} disabled={finish.isPending}>
+          <button type="button" className="btn-primary px-5" onClick={handleFinish} disabled={session.isFinishing}>
             Termina
           </button>
         </div>
         <RestTimerBar
-          workout={workout}
-          onAdjust={(delta) => rest.mutate({ workoutId, action: { delta_s: delta } })}
-          onSkip={() => rest.mutate({ workoutId, action: { skip: true } })}
+          workout={session.workout}
+          offsetMs={session.clockOffsetMs}
+          onAdjust={(delta) => session.restDelta(delta)}
+          onSkip={() => session.restSkip()}
         />
       </header>
 
@@ -235,26 +217,26 @@ function WorkoutSession() {
           maxLength={100}
           onBlur={(event) => {
             const name = event.target.value.trim();
-            if (name && name !== workout.name) rename.mutate({ workoutId, name });
+            if (name && name !== workout.name) session.rename(name);
           }}
           className="w-full bg-transparent text-2xl font-bold text-slate-900 focus:outline-none"
         />
 
         {items.map((item, index) => (
           <WorkoutExerciseCard
-            key={item.id}
-            workoutId={workoutId}
+            key={keyOf(item)}
+            session={session}
             item={item}
             actions={actionsFor(item, index)}
             onShowExercise={() => setDetailId(item.exercise.id)}
-            onPickRest={() => setRestFor(item.id)}
+            onPickRest={() => setRestFor(keyOf(item))}
           />
         ))}
 
         <button type="button" className="btn-secondary w-full text-sky-600" onClick={() => setPicker({ mode: "add" })}>
           + Aggiungi esercizio
         </button>
-        <button type="button" className="btn-ghost w-full text-red-600" onClick={handleCancel} disabled={cancel.isPending}>
+        <button type="button" className="btn-ghost w-full text-red-600" onClick={handleCancel} disabled={session.isCancelling}>
           Annulla allenamento
         </button>
       </div>
@@ -272,7 +254,7 @@ function WorkoutSession() {
           value={restItem.rest_seconds}
           onClose={() => setRestFor(null)}
           onChange={(seconds) => {
-            patchExercise.mutate({ workoutId, id: restItem.id, rest_seconds: seconds });
+            session.setRest(keyOf(restItem), seconds);
             setRestFor(null);
           }}
         />
@@ -283,7 +265,7 @@ function WorkoutSession() {
           value={90}
           onClose={() => setManualRest(false)}
           onChange={(seconds) => {
-            if (seconds > 0) rest.mutate({ workoutId, action: { start_s: seconds } });
+            if (seconds > 0) session.restStart(seconds);
             setManualRest(false);
           }}
         />

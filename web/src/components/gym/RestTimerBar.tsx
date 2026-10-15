@@ -8,6 +8,8 @@ import { hapticRestEnd } from "../../native/haptics";
 
 interface RestTimerBarProps {
   workout: Workout;
+  /** Offset del telefono rispetto al server; senza, si usa `server_now` della risposta. */
+  offsetMs?: number;
   onAdjust: (deltaSeconds: number) => void;
   onSkip: () => void;
 }
@@ -17,9 +19,10 @@ const LATE_ALERT_MS = 5000;
 /** Countdown under the workout header. Keep it mounted: it renders nothing
  * when no rest runs, but still has to notice the moment a rest reaches zero
  * to beep once per `rest_ends_at` when observed within five seconds. */
-function RestTimerBar({ workout, onAdjust, onSkip }: RestTimerBarProps) {
+function RestTimerBar({ workout, offsetMs, onAdjust, onSkip }: RestTimerBarProps) {
   const now = useNow(250);
-  const offset = useMemo(() => clockOffsetMs(workout.server_now, Date.now()), [workout.server_now]);
+  const serverOffset = useMemo(() => clockOffsetMs(workout.server_now, Date.now()), [workout.server_now]);
+  const offset = offsetMs ?? serverOffset;
   const remaining = remainingSeconds(workout.rest_ends_at, offset, now);
   const seenRunning = useRef<string | null>(null);
   const fired = useRef<string | null>(null);
