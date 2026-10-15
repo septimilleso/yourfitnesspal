@@ -1,10 +1,12 @@
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useActiveWorkout, useCancelWorkout, useFinishWorkout, useLiveMutation } from "../../api/gym";
-import { reportNetworkFailure, reportNetworkSuccess, resetConnectivityForTests } from "../../native/connectivity";
-import { retryingQuery } from "../../test/offlineQuery";
+import { createQueryClient } from "../../lib/queryClient";
+import { reportNetworkFailure, resetConnectivityForTests } from "../../native/connectivity";
+import { getSnapshot, removeEntry, startEmptyWorkout } from "../../native/gymStore";
 import WorkoutPage from "./WorkoutPage";
 
 const platform = vi.hoisted(() => ({ native: true }));
@@ -55,31 +57,54 @@ describe("WorkoutPage offline", () => {
     resetConnectivityForTests();
   });
 
-  it("says the live workout is unavailable offline on the native platform", () => {
-    reportNetworkFailure();
-    renderPage();
+  // Nell'IPA la pagina legge lo stato locale: il messaggio "non disponibile" non esiste più lì (C17–C21).
+  describe("nell'IPA", () => {
+    let queryClient: QueryClient;
 
-    expect(screen.getByText("Allenamento non disponibile offline")).toBeInTheDocument();
-    expect(screen.queryByText("Nessun allenamento in corso.")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Vai ai modelli" })).toHaveAttribute("href", "/gym");
-  });
+    beforeEach(() => {
+      // Prima del render: lo stato dei casi precedenti esce dallo store senza componenti montati.
+      const active = getSnapshot().active;
+      if (active !== null) removeEntry(active.workout.uuid);
+      queryClient = createQueryClient(true);
+      queryClient.mount();
+    });
 
-  it("keeps the unavailable message while the query retries offline", () => {
-    reportNetworkFailure();
-    vi.mocked(useActiveWorkout).mockReturnValue(retryingQuery() as unknown as ReturnType<typeof useActiveWorkout>);
-    renderPage();
+    afterEach(() => {
+      queryClient.unmount();
+      queryClient.clear();
+    });
 
-    expect(screen.getByText("Allenamento non disponibile offline")).toBeInTheDocument();
-    expect(screen.queryByText("Caricamento...")).not.toBeInTheDocument();
-  });
+    function renderNativePage() {
+      return render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/gym/workout"]}>
+            <Routes>
+              <Route path="/gym/workout" element={<WorkoutPage />} />
+              <Route path="/gym" element={<div>start page</div>} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    }
 
-  it("shows the loading message while the query retries with the network back", () => {
-    reportNetworkSuccess();
-    vi.mocked(useActiveWorkout).mockReturnValue(retryingQuery() as unknown as ReturnType<typeof useActiveWorkout>);
-    renderPage();
+    it("shows the empty state offline, without the unavailable message", () => {
+      reportNetworkFailure();
+      renderNativePage();
 
-    expect(screen.getByText("Caricamento...")).toBeInTheDocument();
-    expect(screen.queryByText("Allenamento non disponibile offline")).not.toBeInTheDocument();
+      expect(screen.getByText("Nessun allenamento in corso.")).toBeInTheDocument();
+      expect(screen.queryByText("Allenamento non disponibile offline")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Vai ai modelli" })).toHaveAttribute("href", "/gym");
+    });
+
+    it("shows the local workout offline, without waiting for the server", () => {
+      startEmptyWorkout();
+      reportNetworkFailure();
+      renderNativePage();
+
+      expect(screen.getByRole("textbox", { name: "Nome allenamento" })).toBeInTheDocument();
+      expect(screen.queryByText("Allenamento non disponibile offline")).not.toBeInTheDocument();
+      expect(screen.queryByText("Caricamento...")).not.toBeInTheDocument();
+    });
   });
 
   it("keeps the usual message on the web platform", () => {

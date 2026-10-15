@@ -2,7 +2,6 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Exercise, Workout, WorkoutExercise } from "../../api/gym";
-import { useActiveWorkout } from "../../api/gym";
 import { useServerSession } from "../../api/serverSession";
 import OfflineIndicator from "../../components/OfflineIndicator";
 import type { Action } from "../../components/gym/ActionMenu";
@@ -13,17 +12,19 @@ import RestTimerBar from "../../components/gym/RestTimerBar";
 import WorkoutExerciseCard from "../../components/gym/WorkoutExerciseCard";
 import { elapsedLabel, linkWithNext, moveItem, unlinkFromGroup } from "../../lib/gym";
 import { LiveErrorContext } from "../../lib/liveErrors";
-import { keyOf } from "../../lib/liveSession";
+import { keyOf, type LiveSession } from "../../lib/liveSession";
 import { installAudioResume, unlockAudio } from "../../lib/restTimer";
 import { useNow } from "../../lib/useNow";
 import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 import { useVisualViewportTop } from "../../lib/useVisualViewportTop";
+import { useActiveSession, useLocalSession } from "../../native/localSession";
+import { isNative } from "../../native/platform";
 
 type PickerState = { mode: "add" } | { mode: "replace"; itemKey: string } | null;
 
 /** The live session (Strong's workout sheet): full screen, no tab bar.
- * Every edit is saved at once through the session (`useServerSession` on the web);
- * failures show up as a toast via `LiveErrorContext`. */
+ * Every edit goes through the session: `useServerSession` on the web, `useLocalSession`
+ * in the app (local state, no request). Failures show up as a toast via `LiveErrorContext`. */
 function WorkoutPage() {
   const [toast, setToast] = useState<string | null>(null);
 
@@ -61,13 +62,14 @@ function NoWorkout({ message }: { message: string }) {
 }
 
 function WorkoutSession() {
-  const active = useActiveWorkout();
+  const active = useActiveSession();
   const { data: workout, isLoading, isError } = active;
   // Dopo un giro online i dati vivi restano: l'hook dà true solo se non c'è nessun allenamento.
+  // Nell'IPA lo stato è locale e non va mai in pausa, quindi il messaggio compare solo nel browser.
   const unavailable = useOfflineUnavailable(active);
   useEffect(() => installAudioResume(), []);
 
-  // Nell'IPA offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
+  // Nel browser offline la sessione non è in cache: la query è in pausa, non "nessun allenamento".
   if (unavailable) return <NoWorkout message="Allenamento non disponibile offline" />;
   if (isLoading) return <p className="py-16 text-center text-sm text-slate-500">Caricamento...</p>;
   if (isError) {
@@ -75,14 +77,26 @@ function WorkoutSession() {
   }
   if (!workout) return <NoWorkout message="Nessun allenamento in corso." />;
 
-  return <LiveWorkout workout={workout} />;
+  return isNative() ? <LocalWorkout /> : <ServerWorkout workout={workout} />;
 }
 
-/** Il corpo della sessione: gli hook della sessione vanno chiamati con un allenamento già caricato. */
-function LiveWorkout({ workout }: { workout: Workout }) {
+/** Sessione del web: ogni operazione è una chiamata al server, con gli id ricavati dall'uuid. */
+function ServerWorkout({ workout }: { workout: Workout }) {
+  return <LiveWorkout session={useServerSession(workout)} />;
+}
+
+/** Sessione dell'IPA: ogni operazione è un'azione sullo stato locale. */
+function LocalWorkout() {
+  const session = useLocalSession();
+  if (!session) return <NoWorkout message="Nessun allenamento in corso." />;
+  return <LiveWorkout session={session} />;
+}
+
+/** Il corpo della sessione, uguale nei due casi: legge tutto da `session.workout`. */
+function LiveWorkout({ session }: { session: LiveSession }) {
   const navigate = useNavigate();
   const report = useContext(LiveErrorContext);
-  const session = useServerSession(workout);
+  const workout = session.workout;
   const now = useNow(1000);
   const viewportTop = useVisualViewportTop();
   const [picker, setPicker] = useState<PickerState>(null);
@@ -202,7 +216,7 @@ function LiveWorkout({ workout }: { workout: Workout }) {
           </button>
         </div>
         <RestTimerBar
-          workout={session.workout}
+          workout={workout}
           offsetMs={session.clockOffsetMs}
           onAdjust={(delta) => session.restDelta(delta)}
           onSkip={() => session.restSkip()}

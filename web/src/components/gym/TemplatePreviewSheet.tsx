@@ -1,4 +1,4 @@
-import { useTemplate } from "../../api/gym";
+import { type Template, useTemplate } from "../../api/gym";
 import { useOfflineUnavailable } from "../../lib/useOfflineUnavailable";
 import OfflineUnavailable from "../OfflineUnavailable";
 import Sheet from "./Sheet";
@@ -6,7 +6,8 @@ import Sheet from "./Sheet";
 interface TemplatePreviewSheetProps {
   templateId: number;
   starting: boolean;
-  onStart: (templateId: number) => void;
+  /** Riceve il modello caricato: l'avvio nell'IPA ne copia esercizi e serie senza altre richieste. */
+  onStart: (template: Template) => void;
   onEdit: (templateId: number) => void;
   onClose: () => void;
 }
@@ -29,7 +30,9 @@ function TemplatePreviewSheet({ templateId, starting, onStart, onEdit, onClose }
           type="button"
           className="btn-primary w-full"
           disabled={starting || !data}
-          onClick={() => onStart(templateId)}
+          onClick={() => {
+            if (data) onStart(data);
+          }}
         >
           Inizia allenamento
         </button>
