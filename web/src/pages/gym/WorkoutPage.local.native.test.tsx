@@ -1,7 +1,8 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -24,6 +25,7 @@ import {
   startEmptyWorkout,
   startWorkoutFromTemplate,
 } from "../../native/gymStore";
+import { useLocalSession } from "../../native/localSession";
 import { clearToken, setToken } from "../../native/session";
 import GymStartPage from "./GymStartPage";
 import LocalWorkoutDetailPage from "./LocalWorkoutDetailPage";
@@ -414,6 +416,38 @@ describe("Termina nell'IPA", () => {
 
     resolveSync("timeout");
     expect(await screen.findByText("Potrai aggiornare il modello dopo la sincronizzazione")).toBeInTheDocument();
+  });
+
+  it("se onSuccess lancia, la fase di Termina finisce lo stesso e Termina torna disponibile", async () => {
+    sync.syncNow.mockResolvedValue("timeout");
+    const uuid = startFromTemplate(PUSH);
+    const setUuid = getSnapshot().active?.workout.exercises[0].sets[0].uuid ?? "";
+    expect(dispatch(uuid, { type: "completeSet", setUuid, values: { weight_kg: 80, reps: 8, duration_s: null } }).ok).toBe(true);
+    // Il rifiuto di onSuccess resta non gestito: il test controlla solo lo stato di fase, non il rifiuto.
+    const unhandled = process.listeners("unhandledRejection");
+    process.removeAllListeners("unhandledRejection");
+    process.on("unhandledRejection", () => undefined);
+    try {
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+      const { result } = renderHook(() => useLocalSession(), { wrapper });
+      act(() => {
+        result.current?.finish(true, {
+          onError: vi.fn(),
+          onSuccess: () => {
+            throw new Error("navigazione fallita");
+          },
+        });
+      });
+      expect(result.current?.isFinishing).toBe(true);
+      // Senza allenamento né fase di Termina l'hook restituisce null: conta solo che la fase non resti aperta.
+      await waitFor(() => expect(result.current?.isFinishing ?? false).toBe(false));
+      expect(sync.syncNow).toHaveBeenCalledWith(uuid, 5000);
+    } finally {
+      process.removeAllListeners("unhandledRejection");
+      for (const listener of unhandled) process.on("unhandledRejection", listener);
+    }
   });
 });
 

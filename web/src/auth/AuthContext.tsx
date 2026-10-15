@@ -69,6 +69,8 @@ export function useLogout() {
       }
       // Il token va rimosso prima del file: una scrittura in mezzo non deve ricreare il file con la sessione vecchia.
       await clearToken().catch(() => undefined);
+      // Una rilettura del file tra la prima cancellazione e il token rimosso non deve riportare l'allenamento in memoria.
+      await clearGymStore();
       await clearPersistedQueryCache().catch(() => undefined);
     } else {
       await logout();

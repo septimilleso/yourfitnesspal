@@ -8,7 +8,14 @@ import { type Me, getMe, logout } from "../api/auth";
 import { ApiError, NetworkError, client } from "../api/client";
 import type { Exercise, Template, WorkoutPutBody } from "../api/gym";
 import { resetConnectivityForTests } from "../native/connectivity";
-import { clearGymStore, dispatch, getSnapshot, setClockOffset, startWorkoutFromTemplate } from "../native/gymStore";
+import {
+  clearGymStore,
+  dispatch,
+  getSnapshot,
+  loadGymStore,
+  setClockOffset,
+  startWorkoutFromTemplate,
+} from "../native/gymStore";
 import { startGymSync } from "../native/gymSync";
 import { clearToken, getToken, setToken } from "../native/session";
 import { useLogout, useMe } from "./AuthContext";
@@ -249,6 +256,30 @@ describe("logout nell'IPA con allenamenti non sincronizzati (R21, C34)", () => {
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(logoutMock).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledWith("/login", { replace: true });
+  });
+
+  it("un ritorno in primo piano tra le due cancellazioni non riporta l'allenamento in memoria (C34)", async () => {
+    const started = startWorkoutFromTemplate(TEMPLATE);
+    expect(started.ok).toBe(true);
+    const saved = JSON.stringify(getSnapshot());
+    // Durante l'uscita l'app torna in primo piano e rilegge il file, che esiste ancora.
+    logoutMock.mockImplementationOnce(async () => {
+      filesystem.readFile.mockResolvedValue({ data: saved });
+      await loadGymStore();
+    });
+    const { logout: runLogout, navigate } = renderLogout();
+
+    await act(async () => {
+      await runLogout();
+    });
+
+    expect(logoutMock).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith("/login", { replace: true });
+    expect(getSnapshot()).toMatchObject({ active: null, finished: [] });
+
+    await newSession();
+    await mountMe(7);
+    expect(getSnapshot()).toMatchObject({ active: null, finished: [] });
   });
 });
 

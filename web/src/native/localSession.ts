@@ -244,12 +244,14 @@ export function useLocalSession(): LiveSession | null {
         return;
       }
       setFinishingEntry(getSnapshot().finished.find((item) => item.workout.uuid === uuid) ?? null);
-      void syncNow(uuid, SYNC_WAIT_MS).then((outcome) => {
-        // Il riepilogo va al server solo se il sync è riuscito in tempo (R19); altrimenti resta quello locale.
-        const id = outcome === "synced" ? confirmedServerId(uuid) : null;
-        callbacks.onSuccess({ id, uuid });
-        setFinishingEntry(null);
-      });
+      void syncNow(uuid, SYNC_WAIT_MS)
+        .then((outcome) => {
+          // Il riepilogo va al server solo se il sync è riuscito in tempo (R19); altrimenti resta quello locale.
+          const id = outcome === "synced" ? confirmedServerId(uuid) : null;
+          callbacks.onSuccess({ id, uuid });
+        })
+        // Anche se onSuccess lancia, Termina deve tornare disponibile.
+        .finally(() => setFinishingEntry(null));
     },
     // Annullamento (R20): con rete e già sincronizzato, DELETE come oggi e poi rimozione locale. In tutti gli altri
     // casi, e se il DELETE non riesce, si passa da `cancelLocal`: l'annullamento resta in attesa e il sync lo invia al

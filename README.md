@@ -399,7 +399,8 @@ To update, install the new IPA the same way. Things to know about a free account
   is queued as well; if the server copy changed in the meantime, it goes to the same dialog instead
   of being deleted.
 - **Data kept on the phone.** Unsynced workouts are removed only when you confirm logout (the dialog
-  says how many will be lost) or when the app is uninstalled. An expired session keeps them.
+  says how many will be lost), or when a different user logs in, or when the app is uninstalled. An
+  expired session keeps them.
 
 ### Local builds and CI
 

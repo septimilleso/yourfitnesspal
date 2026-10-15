@@ -410,6 +410,17 @@ Stati: `[ ]` da fare · `[~]` in corso · `[x]` fatto · `[!]` bloccato
   6. Aggiornamento dell'IPA via SideStore con un allenamento non sincronizzato: dopo l'aggiornamento l'allenamento c'è ancora (`Directory.Library` preservata). Se non c'è, registrarlo come rischio aperto.
 - Verifica: ogni punto annotato nel Registro di esecuzione come superato o con il difetto riscontrato.
 
+### [x] T34. Correzioni dalla review 1: logout, Termina, README
+
+- Copre: C34, C32, C39 (MINOR della review 1)
+- Rischio: basso
+- File: `web/src/auth/AuthContext.tsx` (modifica), `web/src/auth/AuthContext.gymLocal.native.test.tsx` (modifica), `web/src/native/localSession.ts` (modifica), il test esistente della sessione locale (modifica), `README.md` (modifica)
+- Passi:
+  1. Logout nativo: chiamare `clearGymStore()` anche dopo `clearToken()` (la prima chiamata resta). Test: dopo il logout, con un ritorno in primo piano simulato tra le due chiamate, lo store finale è vuoto e un login successivo non eredita l'allenamento.
+  2. `localSession.ts:247-252`: `.finally(() => setFinishingEntry(null))` sul `syncNow(...).then(...)`. Test: se `onSuccess` lancia, `finishingEntry` torna null.
+  3. README, sezione "Data kept on the phone": aggiungere "or when a different user logs in".
+- Verifica: `cd web && npx vitest run src/auth src/native src/pages/gym` verde; `grep -n "different user" README.md` trova la riga.
+
 ## Registro di esecuzione
 T1 — DONE — review: 2 round (MAJOR incremento version in SQL, risolto). Test DB e C11 (downgrade/upgrade + uuid distinti) DA ESEGUIRE SUL REMOTO. avviso nuovo: dipendenze API installate nel Python globale, starlette 0.38.6 in conflitto con streamlit 1.58.0.
 T2 — DONE — review: saltata. 45 test verdi in locale. Nota per T10: la conversione degli input (tracking, tuple/frozenset) e in test_gym_parity.py e va ripetuta lato Vitest.
@@ -479,3 +490,5 @@ Review 1 — APPROVED (0 BLOCKER, 0 MAJOR, 9 MINOR). Piano lasciato `approvato`:
   - `README.md` ("Data kept on the phone") — [MINOR] Dice che i non sincronizzati si perdono solo con logout confermato o disinstallazione, ma il login di un utente diverso (R21) li cancella senza invio. Aggiungere "or when a different user logs in".
   - avviso nuovo: `AuthContext.gymLocal.native.test.tsx`, `WorkoutPage.local.native.test.tsx` (C21), `LocalWorkoutDetailPage.test.tsx` (C31) — [MINOR] warning React "not wrapped in act(...)" (TestComponent, NativeOfflineIndicator). Avvolgere in `act`/`waitFor` o mockare l'indicatore.
 - Rischi aperti: (1) semantica del `rename` atomico di Capacitor su iPhone (T33); (2) rieseguire sul remoto `test_snapshot_route_is_declared_before_the_workout_id_route`; (3) PUT con risposta persa dopo scrittura server + nuova modifica prima del ritento → 409 e dialogo (previsto da R4); (4) suite DB completa e backfill su righe reali dopo il deploy.
+
+T34 — DONE — haiku/high. Chiusi dalla review 1: MINOR logout (clearGymStore anche dopo clearToken), Termina `.finally`, README cambio utente. Verifica orchestratore: vitest src/auth src/native src/pages/gym 43 file, 457 test verdi; tsc OK. Restano MINOR della review 1 come follow-up (navigazione dopo Termina a componente smontato, fileExists/wipe di gymStore, confirmedIds, invalidazioni 'copia del server', warning act).
