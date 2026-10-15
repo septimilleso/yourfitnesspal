@@ -2,7 +2,7 @@
 
 - Data: 2026-10-05
 - Tipo: feature
-- Stato: completata
+- Stato: completato
 - Brainstorm: saltato
 
 ## Obiettivo

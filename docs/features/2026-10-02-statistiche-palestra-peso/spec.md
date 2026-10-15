@@ -2,7 +2,7 @@
 
 - Data: 2026-10-02
 - Tipo: feature
-- Stato: completata
+- Stato: completato
 - Brainstorm: [brainstorm.md](brainstorm.md)
 
 ## Obiettivo

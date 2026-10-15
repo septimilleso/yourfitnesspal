@@ -1,7 +1,7 @@
 # Piano: Campanella a fine riposo
 
 - Data: 2026-09-30
-- Stato: completata
+- Stato: completato
 - Spec: [spec.md](spec.md)
 - Tipo: feature
 - Branch: feature/campanella-fine-riposo
